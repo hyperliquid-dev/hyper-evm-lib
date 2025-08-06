@@ -5,6 +5,12 @@ import {Vm} from "forge-std/Vm.sol";
 
 Vm constant vm = Vm(address(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D));
 
+/**
+ * @title PrecompileSimulator
+ * @dev A library used to etch precompiles into their addresses, for usage in foundry scripts and fork tests
+ * Note: When using this library for scripts, call `forge script` with the `--skip-simulation` flag to avoid reverting during simulation
+ * @notice modified from: https://github.com/sprites0/hyperevm-project-template/blob/main/src/MoreRealisticL1Precompiles.sol
+ */
 library PrecompileSimulator {
 
     uint256 constant NUM_PRECOMPILES = 17;
