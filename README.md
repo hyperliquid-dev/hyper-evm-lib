@@ -49,9 +49,9 @@ PrecompileLib includes additional functions to query data using EVM token addres
 
 Precompiles like `spotBalance`, `spotPx` and more, all require either a token index (for `spotBalance`) or a spot market index (for `spotPx`) as an input parameter.
 
-Natively, there is no way to derive the token index given a token's contract address, requiring it to be stored manually, or passed in as a parameter whenever needed.
+Natively, there is no way to derive the token index given a token's contract address, requiring projects to store it manually, or pass it in as a parameter whenever needed.
 
-TokenRegistry is a deployed contract providing a mapping from EVM contract addresses to their HyperCore token indices, populated trustlessly using precompile lookups for each index.
+TokenRegistry solves this by providing a deployed-onchain mapping from EVM contract addresses to their HyperCore token indices, populated trustlessly using precompile lookups for each index.
 
 ---
 
