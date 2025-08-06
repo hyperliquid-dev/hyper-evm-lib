@@ -37,7 +37,7 @@ This library securely abstracts away the low-level mechanics of Hyperliquid's EV
 Includes functions to call `CoreWriter` actions, and also has helpers to:
 
 * Bridge tokens to/from Core
-* Convert token amount representation between EVM and Core decimals
+* Convert spot token amount representation between EVM and Core (wei) decimals
 
 ### PrecompileLib
 
