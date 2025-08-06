@@ -66,7 +66,7 @@ See the [examples](./src/examples/) directory for examples of how the libraries 
 * `bridgeToEvm()` for non-HYPE tokens requires the contract to hold HYPE on HyperCore for gas; otherwise, the `spotSend` will fail.
 * Watch for truncation in `convertEvmToCoreAmount()`
 * Ensure that contracts are deployed with complete functionality to prevent stuck assets in Core
-  * For example, implementing `bridgeToCore` but not `bridgeToEvm` can lead to stuck funds
+  * For example, implementing `bridgeToCore` but not `bridgeToEvm` can lead to stuck, unretrievable assets on HyperCore
 * Note that precompiles return data from the start of the block, so CoreWriter actions will not be reflected in precompile data until next call
 
 ---
