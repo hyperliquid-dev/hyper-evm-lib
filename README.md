@@ -64,17 +64,22 @@ See the [examples](./src/examples/) directory for examples of how the libraries 
 ## Security Considerations
 
 * `bridgeToEvm()` for non-HYPE tokens requires the contract to hold HYPE on HyperCore for gas; otherwise, the `spotSend` will fail.
-* Watch for truncation in `convertEvmToCoreAmount()`
+* Be aware of potential precision loss in `convertEvmToCoreAmount()` when the EVM token decimals exceed Core decimals, due to integer division during downscaling.
 * Ensure that contracts are deployed with complete functionality to prevent stuck assets in Core
   * For example, implementing `bridgeToCore` but not `bridgeToEvm` can lead to stuck, unretrievable assets on HyperCore
-* Note that precompiles return data from the start of the block, so CoreWriter actions will not be reflected in precompile data until next call
+* Note that precompiles return data from the start of the block, so CoreWriter actions will not be reflected in precompile data until next call.
 
 ---
 
 ## Contributing
-This library is still under active development. We welcome contributions!
+This library is developed and maintained by the team at [Obsidian Audits](https://github.com/ObsidianAudits):
 
-Found a bug? [Open an issue](https://github.com/hyperliquid-dev/evm-lib/issues).
+- [0xjuaan](https://github.com/0xjuaan)
+- [0xspearmint](https://github.com/0xspearmint)
+
+For support, bug reports, or integration questions, open an [issue](https://github.com/hyperliquid-dev/evm-lib/issues) or reach out on [TG](https://t.me/juan_sec)
+
+This library is still under active development. We welcome contributions!
 
 Want to improve or extend functionality? Feel free to create a PR.
 
