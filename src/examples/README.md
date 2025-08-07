@@ -14,10 +14,10 @@ The library provides two ways to bridge tokens:
 The address version uses the [TokenRegistry](https://github.com/hyperliquid-dev/evm-lib/blob/main/src/registry/TokenRegistry.sol) to resolve the token ID, making it more convenient for developers who work with EVM token contracts.
 
 ### Decimal Conversions
-Tokens have different decimal places depending on where they're used:
+Tokens are represented using differing amounts of precision depending on where they're used:
 - **EVM**
 - **Spot** 
-- **Perp**
+- **Perps**
 
 The library provides conversion functions to handle these differences.
 
