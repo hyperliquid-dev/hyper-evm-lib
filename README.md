@@ -1,5 +1,7 @@
 # `evm-lib`
 
+### **The all-in-one library to seamlessly build secure smart contracts on HyperEVM.**
+
 ---
 
 ## Table of Contents
