@@ -4,21 +4,6 @@
 
 ---
 
-## Table of Contents
-
-- [`evm-lib`](#evm-lib)
-  - [Table of Contents](#table-of-contents)
-  - [What is evm-lib?](#what-is-evm-lib)
-  - [Key Components](#key-components)
-    - [CoreWriterLib](#corewriterlib)
-    - [PrecompileLib](#precompilelib)
-    - [TokenRegistry](#tokenregistry)
-  - [Usage Examples](#usage-examples)
-  - [Security Considerations](#security-considerations)
-  - [Contributing](#contributing)
-
----
-
 ## What is evm-lib?
 
 `evm-lib` is a developer library making it easy to build on HyperEVM. It provides a unified interface for:
