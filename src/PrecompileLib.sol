@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {ITokenRegistry} from "./interfaces/ITokenRegistry.sol";
 import {HLConstants} from "./common/HLConstants.sol";
-import {console} from "forge-std/console.sol";
+
 /**
  * @title PrecompileLib v1.0
  * @author Obsidian (https://x.com/ObsidianAudits)
