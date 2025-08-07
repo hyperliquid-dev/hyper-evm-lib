@@ -2,11 +2,7 @@
 
 ### **The all-in-one library to seamlessly build secure smart contracts on HyperEVM.**
 
----
-
-## What is evm-lib?
-
-`evm-lib` is a developer library making it easy to build on HyperEVM. It provides a unified interface for:
+This library makes it easy to build on HyperEVM. It provides a unified interface for:
 
 * Bridging assets between HyperEVM and Core, abstracting away the complexity of decimal conversions
 * Performing all `CoreWriter` actions
