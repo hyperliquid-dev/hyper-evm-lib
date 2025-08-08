@@ -7,7 +7,7 @@ This library makes it easy to build on HyperEVM. It provides a unified interface
 * Bridging assets between HyperEVM and Core, abstracting away the complexity of decimal conversions
 * Performing all `CoreWriter` actions
 * Accessing data from native precompiles without needing a token index
-* Obtaining token indexes, and spot market indexes based on their linked evm contract address
+* Retrieving token indexes, and spot market indexes based on their linked evm contract address
 
 This library securely abstracts away the low-level mechanics of Hyperliquid's EVM ↔ Core interactions so you can focus on building your protocol's core business logic.
 
