@@ -21,6 +21,6 @@ Tokens are represented using differing amounts of precision depending on where t
 The library provides conversion functions to handle these differences.
 
 ### TokenRegistry Usage
-The [TokenRegistry](https://github.com/hyperliquid-dev/hyper-evm-lib/blob/main/src/registry/TokenRegistry.sol) eliminates the need to manually track token IDs by providing an on-chain mapping from EVM contract addresses to HyperCore token indices. This is populated trustlessly using the precompiles
+The [TokenRegistry](https://github.com/hyperliquid-dev/hyper-evm-lib/blob/main/src/registry/TokenRegistry.sol) eliminates the need to manually track token IDs by providing an onchain mapping from EVM contract addresses to HyperCore token indices. This is populated trustlessly using the precompiles
 
 ---
