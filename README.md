@@ -38,6 +38,18 @@ TokenRegistry solves this by providing a deployed-onchain mapping from EVM contr
 
 ---
 
+## Installation
+
+Install with **Foundry**:
+
+```sh
+$ forge install hyperliquid-dev/evm-lib
+```
+
+Add `@evm-lib/=lib/evm-lib/` to `remappings.txt`
+
+---
+
 ## Usage Examples
 
 See the [examples](./src/examples/) directory for examples of how the libraries can be used in practice.
