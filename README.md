@@ -44,10 +44,8 @@ Install with **Foundry**:
 
 ```sh
 forge install hyperliquid-dev/hyper-evm-lib
+echo "@hyper-evm-lib=lib/hyper-evm-lib" >> remappings.txt
 ```
-
-Add `@hyper-evm-lib/=lib/hyper-evm-lib/` to `remappings.txt`
-
 ---
 
 ## Usage Examples
