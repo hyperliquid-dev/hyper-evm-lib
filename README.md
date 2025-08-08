@@ -43,10 +43,10 @@ TokenRegistry solves this by providing a deployed-onchain mapping from EVM contr
 Install with **Foundry**:
 
 ```sh
-$ forge install hyperliquid-dev/evm-lib
+$ forge install hyperliquid-dev/hyper-evm-lib
 ```
 
-Add `@evm-lib/=lib/evm-lib/` to `remappings.txt`
+Add `@hyper-evm-lib/=lib/hyper-evm-lib/` to `remappings.txt`
 
 ---
 
@@ -72,7 +72,7 @@ This library is developed and maintained by the team at [Obsidian Audits](https:
 - [0xjuaan](https://github.com/0xjuaan)
 - [0xspearmint](https://github.com/0xspearmint)
 
-For support, bug reports, or integration questions, open an [issue](https://github.com/hyperliquid-dev/evm-lib/issues) or reach out on [TG](https://t.me/juan_sec)
+For support, bug reports, or integration questions, open an [issue](https://github.com/hyperliquid-dev/hyper-evm-lib/issues) or reach out on [TG](https://t.me/juan_sec)
 
 This library is still under active development. We welcome contributions!
 
