@@ -72,7 +72,7 @@ This library is developed and maintained by the team at [Obsidian Audits](https:
 
 For support, bug reports, or integration questions, open an [issue](https://github.com/hyperliquid-dev/hyper-evm-lib/issues) or reach out on [TG](https://t.me/juan_sec)
 
-This library is still under active development. We welcome contributions!
+The library is under active development, and contributions are welcome.
 
 Want to improve or extend functionality? Feel free to create a PR.
 
