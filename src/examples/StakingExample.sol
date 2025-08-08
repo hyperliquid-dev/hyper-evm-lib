@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {CoreWriterLib, HLConstants, HLConversions} from "../CoreWriterLib.sol";
+import {CoreWriterLib, HLConstants, HLConversions} from "@hyper-evm-lib/src/CoreWriterLib.sol";
 
 /**
  * @title StakingExample

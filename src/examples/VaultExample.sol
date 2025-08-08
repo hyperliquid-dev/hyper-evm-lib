@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {CoreWriterLib, HLConversions} from "../CoreWriterLib.sol";
-import {PrecompileLib} from "../PrecompileLib.sol";
+import {CoreWriterLib, HLConversions} from "@hyper-evm-lib/src/CoreWriterLib.sol";
+import {PrecompileLib} from "@hyper-evm-lib/src/PrecompileLib.sol";
 
 /**
  * @title VaultExample
