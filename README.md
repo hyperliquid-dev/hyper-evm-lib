@@ -1,10 +1,10 @@
-# `hyper-evm-lib`
+# hyper-evm-lib
 ![License](https://img.shields.io/github/license/hyperliquid-dev/hyper-evm-lib)
 ![Solidity](https://img.shields.io/badge/solidity-%3E%3D0.8.0-blue)
 
 <img width="900" height="450" alt="Untitled design (2)" src="https://github.com/user-attachments/assets/6c74dc59-baff-4f6a-9dab-3b92d0cfa133" />
 
-### The all-in-one library to seamlessly build smart contracts on HyperEVM.
+## The all-in-one library to seamlessly build smart contracts on HyperEVM.
 
 This library makes it easy to build on HyperEVM. It provides a unified interface for:
 
