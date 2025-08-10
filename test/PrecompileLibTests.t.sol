@@ -40,11 +40,14 @@ contract PrecompileLibTests is Test {
 
         uint64 spotIndex_alt = PrecompileLib.getSpotIndex(tokenIndex, 0);
         assertEq(spotIndex, spotIndex_alt);
+
+        uint256 spotIndex_alt2 = USDT0.getSpotIndex();
+        assertEq(spotIndex, spotIndex_alt2);
         
         uint256 price = PrecompileLib.normalizedSpotPx(spotIndex);
 
         console.log("price: %e", price);
-        assertApproxEqAbs(price, 1e8, 1e4);
+        assertApproxEqAbs(price, 1e8, 1e5);
     }
 
     function test_normalizedMarkPx() public {

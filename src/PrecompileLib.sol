@@ -15,7 +15,8 @@ library PrecompileLib {
     ITokenRegistry constant REGISTRY = ITokenRegistry(0x0b51d1A9098cf8a72C325003F44C194D41d7A85B);
 
     /*//////////////////////////////////////////////////////////////
-                        Custom Utility Functions
+                  Custom Utility Functions 
+        (Overloads accepting token address instead of index)
     //////////////////////////////////////////////////////////////*/
 
     /**
@@ -65,8 +66,17 @@ library PrecompileLib {
     }
 
     /**
+     * @notice Gets the spot market index for the token/USDC pair for a token using its address.
+     * @dev Overload of getSpotIndex(uint64 tokenIndex)
+     */
+    function getSpotIndex(address tokenAddress) internal view returns (uint64) {
+        uint64 tokenIndex = getTokenIndex(tokenAddress);
+        return getSpotIndex(tokenIndex);
+    }
+
+    /**
      * @notice Gets the spot market index for a token.
-     * @dev If only one spot, returns it. Otherwise, finds the spot market with USDC as the quote token.
+     * @dev If only one spot market exists, returns it. Otherwise, finds the spot market with USDC as the quote token.
      */
     function getSpotIndex(uint64 tokenIndex) internal view returns (uint64) {
         uint64[] memory spots = tokenInfo(tokenIndex).spots;
