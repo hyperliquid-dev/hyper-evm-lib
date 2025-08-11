@@ -8,7 +8,7 @@ Natively, there is no way to derive the token index given a token's contract add
 TokenRegistry solves this by providing a deployed-onchain mapping from EVM contract addresses to their HyperCore token indices, populated trustlessly using precompile lookups for each index.
 
 ## Usage
-The `PrecompileLib` uses the `TokenRegistry`, and can be used instead of directly interacting with the `TokenRegistry` contract. 
+The `PrecompileLib` exposes a [function](https://github.com/hyperliquid-dev/hyper-evm-lib/blob/b347756c392934712af9c27b92028a00b93cb68c/src/PrecompileLib.sol#L61-L66) to read from the `TokenRegistry`, and can be used instead of directly interacting with the `TokenRegistry` contract. 
 
 For reference, the `TokenRegistry` is deployed on mainnet at [0x0b51d1a9098cf8a72c325003f44c194d41d7a85b](https://hyperevmscan.io/address/0x0b51d1a9098cf8a72c325003f44c194d41d7a85b)
 
