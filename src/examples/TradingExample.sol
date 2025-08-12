@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {CoreWriterLib, HLConstants} from "@hyper-evm-lib/src/CoreWriterLib.sol";
+import {CoreWriterLib, HLConstants, HLConversions} from "@hyper-evm-lib/src/CoreWriterLib.sol";
 
 /**
  * @title TradingExample
@@ -54,11 +54,12 @@ contract TradingExample {
 
     /**
      * @notice Transfers USDC between spot and perp trading accounts
-     * @param coreAmount Amount to transfer //TODO: if core amount is passed in, we have to convert to perp amount first
+     * @param coreAmount Amount to transfer 
      * @param toPerp If true, transfers from spot to perp; if false, transfers from perp to spot
      */
     function transferUsdcBetweenSpotAndPerp(uint64 coreAmount, bool toPerp) external {
-        CoreWriterLib.transferUsdClass(coreAmount, toPerp);
+        uint64 usdcPerpAmount = HLConversions.convertUSDC_CoreToPerp(coreAmount);
+        CoreWriterLib.transferUsdClass(usdcPerpAmount, toPerp);
     }
 
     /**
