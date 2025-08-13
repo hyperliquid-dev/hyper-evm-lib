@@ -13,7 +13,7 @@ import {ICoreWriter} from "./interfaces/ICoreWriter.sol";
 /**
  * @title CoreWriterLib v1.0
  * @author Obsidian (https://x.com/ObsidianAudits)
- * @notice A library for interacting with Hyperliquid's CoreWriter
+ * @notice A library for interacting with HyperEVM's CoreWriter
  *
  * @dev Additional functionality for:
  * - Bridging assets between EVM and HyperCore
