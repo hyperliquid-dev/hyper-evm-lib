@@ -119,10 +119,14 @@ library CoreWriterLib {
                               Trading
     //////////////////////////////////////////////////////////////*/
 
+    function toMilliseconds(uint64 timestamp) internal pure returns (uint64) {
+        return timestamp * 1000;
+    }
+
     function _canWithdrawFromVault(address vault) internal view returns (bool, uint64) {
         PrecompileLib.UserVaultEquity memory vaultEquity = PrecompileLib.userVaultEquity(address(this), vault);
 
-        return (block.timestamp > vaultEquity.lockedUntilTimestamp, vaultEquity.lockedUntilTimestamp);
+        return (toMilliseconds(block.timestamp) > toMilliseconds(vaultEquity.lockedUntilTimestamp), vaultEquity.lockedUntilTimestamp);
     }
 
     function vaultTransfer(address vault, bool isDeposit, uint64 usdAmount) internal {
