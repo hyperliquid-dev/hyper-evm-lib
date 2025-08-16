@@ -42,11 +42,8 @@ library CoreWriterLib {
 
     function bridgeToCore(uint64 token, uint256 evmAmount) internal {
         // Check if amount would be 0 after conversion to prevent token loss
-        if (!isHype(token)) {
-            uint64 coreAmount = HLConversions.convertEvmToCoreAmount(token, evmAmount);
-            if (coreAmount == 0) revert CoreWriterLib__EvmAmountTooSmall(evmAmount);
-        }
-
+        uint64 coreAmount = HLConversions.convertEvmToCoreAmount(token, evmAmount);
+        if (coreAmount == 0) revert CoreWriterLib__EvmAmountTooSmall(evmAmount);
         address systemAddress = getSystemAddress(token);
         if (isHype(token)) {
             (bool success,) = systemAddress.call{value: evmAmount}("");
