@@ -41,6 +41,9 @@ library CoreWriterLib {
     }
 
     function bridgeToCore(uint64 token, uint256 evmAmount) internal {
+        // Check if amount would be 0 after conversion to prevent token loss
+        uint64 coreAmount = HLConversions.convertEvmToCoreAmount(token, evmAmount);
+        if (coreAmount == 0) revert CoreWriterLib__EvmAmountTooSmall(evmAmount);
         address systemAddress = getSystemAddress(token);
         if (isHype(token)) {
             (bool success,) = systemAddress.call{value: evmAmount}("");
@@ -126,7 +129,7 @@ library CoreWriterLib {
     function _canWithdrawFromVault(address vault) internal view returns (bool, uint64) {
         PrecompileLib.UserVaultEquity memory vaultEquity = PrecompileLib.userVaultEquity(address(this), vault);
 
-        return (toMilliseconds(block.timestamp) > toMilliseconds(vaultEquity.lockedUntilTimestamp), vaultEquity.lockedUntilTimestamp);
+        return (toMilliseconds(uint64(block.timestamp)) > toMilliseconds(vaultEquity.lockedUntilTimestamp), vaultEquity.lockedUntilTimestamp);
     }
 
     function vaultTransfer(address vault, bool isDeposit, uint64 usdAmount) internal {
