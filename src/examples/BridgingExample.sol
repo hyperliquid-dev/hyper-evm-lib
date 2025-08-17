@@ -86,6 +86,18 @@ contract BridgingExample {
     }
 
 
+    function bridgeToCoreAndSendHype(uint256 evmAmount, address recipient) external payable {
+        // Bridge tokens to core
+        CoreWriterLib.bridgeToCore(HLConstants.hypeTokenIndex(), evmAmount);
+
+        // Convert EVM amount to core amount
+        uint64 coreAmount = HLConversions.convertEvmToCoreAmount(HLConstants.hypeTokenIndex(), evmAmount);
+
+        // Send tokens to recipient on core
+        CoreWriterLib.spotSend(recipient, HLConstants.hypeTokenIndex(), coreAmount);
+    }
+
+
     /*//////////////////////////////////////////////////////////////
                         Utility Functions
     //////////////////////////////////////////////////////////////*/
