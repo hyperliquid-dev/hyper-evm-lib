@@ -13,16 +13,15 @@ import {PrecompileLib} from "src/PrecompileLib.sol";
 import {HLConstants} from "src/CoreWriterLib.sol";
 import { console } from "forge-std/console.sol";
 
-import {Vm} from "forge-std/Vm.sol";
 import {RealL1Read} from "../utils/RealL1Read.sol";
+import {StdCheats, Vm} from "forge-std/StdCheats.sol";
 
 uint64 constant KNOWN_TOKEN_USDC = 0;
 uint64 constant KNOWN_TOKEN_HYPE = 150;
-Vm constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
 
 
 /// Modified from https://github.com/ambitlabsxyz/hypercore
-contract HyperCoreState {
+contract HyperCoreState is StdCheats {
   using Address for address payable;
   using SafeCast for uint256;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -33,13 +32,16 @@ contract HyperCoreState {
 
   mapping(uint64 token => PrecompileLib.TokenInfo) private _tokens;
 
+  Vm private constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
+
   struct WithdrawRequest {
     address account;
     uint64 amount;
     uint32 lockedUntilTimestamp;
   }
 
-  struct Account {
+  struct AccountData {
     bool created;
     uint64 perp;
     mapping(uint64 => uint64) spot;
@@ -48,9 +50,10 @@ contract HyperCoreState {
     mapping(address validator => PrecompileLib.Delegation) delegations;
   }
 
-  mapping(address account => Account) private _accounts;
+  mapping(address account => AccountData) private _accounts;
   mapping(address account => bool initialized) private _initializedAccounts;
-  mapping(address account => mapping(uint64 token => bool initialized)) private _initializedBalances;
+  mapping(address account => mapping(uint64 token => bool initialized)) private _initializedSpotBalance;
+  mapping(address account => mapping(address vault => bool initialized)) private _initializedVaults;
 
   mapping(address vault => uint64) private _vaultEquity;
 
@@ -58,19 +61,29 @@ contract HyperCoreState {
 
   EnumerableSet.AddressSet private _validators;
 
-  constructor() {
-    registerTokenInfo(KNOWN_TOKEN_HYPE);
-  }
-
-
   /////////////////////////
   /// STATE INITIALIZERS///
   /////////////////////////
 
-  modifier isInitializedWithToken(address _account, uint64 token) {
-    if (!_initializedBalances[_account][token]) {
+  modifier initAccountWithToken(address _account, uint64 token) {
+    if (!_initializedSpotBalance[_account][token]) {
       registerTokenInfo(token);
       _initializeAccountWithToken(_account, token);
+    }
+    _;
+  }
+
+  modifier initAccountWithVault(address _account, address _vault) {
+    if (!_initializedVaults[_account][_vault]) {
+      _initializeAccount(_account);
+      _initializeAccountWithVault(_account, _vault);
+    }
+    _;
+  }
+
+  modifier initAccount(address _account) {
+    if (!_initializedAccounts[_account]) {
+      _initializeAccount(_account);
     }
     _;
   }
@@ -78,16 +91,19 @@ contract HyperCoreState {
   function _initializeAccountWithToken(address _account, uint64 token) internal {
     _initializeAccount(_account);
 
-    if (_initializedBalances[_account][token]) {
+    if (_accounts[_account].created == false) {
       return;
     }
 
-    _initializedBalances[_account][token] = true;
+    _initializedSpotBalance[_account][token] = true;
     _accounts[_account].spot[token] = RealL1Read.spotBalance(_account, token).total;
-    console.log("initialized balance", _accounts[_account].spot[token]);
   }
 
-  // TODO: make another one called _initializeAccountWithVault
+  function _initializeAccountWithVault(address _account, address _vault) internal {
+    _initializedVaults[_account][_vault] = true;
+    _accounts[_account].vaultEquity[_vault] = RealL1Read.userVaultEquity(_account, _vault);
+  }
+
   // TODO: make another one called initialize with perp
 
   function _initializeAccount(address _account) internal {
@@ -97,7 +113,7 @@ contract HyperCoreState {
       return;
     }
 
-    Account storage account = _accounts[_account];
+    AccountData storage account = _accounts[_account];
 
     // check if the acc is created on Core
     RealL1Read.CoreUserExists memory coreUserExists = RealL1Read.coreUserExists(_account);
@@ -106,9 +122,21 @@ contract HyperCoreState {
     }
     account.created = true;
 
-    // TODO: initialize staking stuff by enumerating delegations[]
-    // TODO: intialize the withdrawable balance (same as account.perp)
-    // TODO: init account.staking
+
+    // setting perp balance
+    account.perp = RealL1Read.withdrawable(_account).withdrawable;
+    
+
+    // setting staking balance
+    PrecompileLib.DelegatorSummary memory summary = RealL1Read.delegatorSummary(_account);
+    account.staking = summary.undelegated;
+    // TODO: need to track the pending withdrawals, and have a way to credit them later
+
+    // set delegations
+    PrecompileLib.Delegation[] memory delegations = RealL1Read.delegations(_account);
+    for (uint256 i = 0; i < delegations.length; i++) {
+      account.delegations[delegations[i].validator] = delegations[i];
+    }
   }
 
   receive() external payable {}
@@ -122,7 +150,6 @@ contract HyperCoreState {
 
   function registerTokenInfo(uint64 index) public {
 
-    
     // if the token is already registered, return early
     if (bytes(_tokens[index].name).length > 0) {
       return;
@@ -144,7 +171,9 @@ contract HyperCoreState {
   function forceAccountCreation(address account) public {
     _accounts[account].created = true;
   }
-  function coreUserExists(address account) public view returns (bool) {
+
+  // TODO: maybe have a flag that indicates to just always return true
+  function coreUserExists(address account) public initAccount(account) returns (bool) {
     return _accounts[account].created;
   }
 
@@ -209,13 +238,13 @@ contract HyperCoreState {
     uint64 token,
     address from,
     uint256 value
-  ) public payable whenAccountCreated(from) {
+  ) public payable whenAccountCreated(from) initAccountWithToken(from, token) {
     _accounts[from].spot[token] += toWei(value, _tokens[token].evmExtraWeiDecimals);
   }
 
   //TODO: currently if accountCreated==false, then it wont increment balance. but then even once its activated, the funds are lost. instead- the funds should be simply hidden and unusable until the account is created.
   //@i have a new mapping for waiting balances, which is set to the real balance once the account is created
-  function executeNativeTransfer(address, address from, uint256 value) public payable whenAccountCreated(from) isInitializedWithToken(from, KNOWN_TOKEN_HYPE) {
+  function executeNativeTransfer(address, address from, uint256 value) public payable whenAccountCreated(from) initAccountWithToken(from, KNOWN_TOKEN_HYPE) {
     _accounts[from].spot[KNOWN_TOKEN_HYPE] += (value / 1e10).toUint64();
   }
 
@@ -259,7 +288,7 @@ contract HyperCoreState {
   function executeSpotSend(
     address sender,
     SpotSendAction memory action
-  ) private whenAccountCreated(sender) isInitializedWithToken(sender, action.token) isInitializedWithToken(action.destination, action.token) {
+  ) private whenAccountCreated(sender) initAccountWithToken(sender, action.token) initAccountWithToken(action.destination, action.token) {
     if (action._wei > _accounts[sender].spot[action.token]) {
       return;
     }
@@ -273,14 +302,19 @@ contract HyperCoreState {
     if (action.destination == systemAddress) {
 
       if (action.token == KNOWN_TOKEN_HYPE) {
+        uint256 amount = action._wei * 1e10;
+        deal(systemAddress, systemAddress.balance + amount);
         vm.prank(systemAddress);
-        payable(sender).sendValue(action._wei * 1e10);
+        payable(sender).sendValue(amount);
         return;
       }
 
       // TODO: this requires HYPE balance to pay some gas for the transfer
+      address evmContract = _tokens[action.token].evmContract;
+      uint256 amount = fromWei(action._wei, _tokens[action.token].evmExtraWeiDecimals);
+      deal(evmContract, systemAddress, IERC20(evmContract).balanceOf(systemAddress) + amount);
       vm.prank(systemAddress);
-      IERC20(_tokens[action.token].evmContract).transfer(action.destination, fromWei(action._wei, _tokens[action.token].evmExtraWeiDecimals));
+      IERC20(evmContract).transfer(action.destination, amount);
       return;
     }
 
@@ -389,12 +423,13 @@ contract HyperCoreState {
     return _tokens[token];
   }
 
-  function readSpotBalance(address account, uint64 token) public isInitializedWithToken(account, token) returns (PrecompileLib.SpotBalance memory) {
+  function readSpotBalance(address account, uint64 token) public initAccountWithToken(account, token) returns (PrecompileLib.SpotBalance memory) {
     //require(tokenExists(token));
     return PrecompileLib.SpotBalance({ total: _accounts[account].spot[token], entryNtl: 0, hold: 0 });
   }
-
-  function readWithdrawable(address account) public view returns (PrecompileLib.Withdrawable memory) {
+  
+  // Even if the HyperCore account is not created, the precompile returns 0 (it does not revert)
+  function readWithdrawable(address account) public initAccount(account) returns (PrecompileLib.Withdrawable memory) {
     return PrecompileLib.Withdrawable({ withdrawable: _accounts[account].perp });
   }
 

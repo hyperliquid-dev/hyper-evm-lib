@@ -68,14 +68,8 @@ contract PrecompileSim {
       return abi.encode(_hyperCore.coreUserExists(user));
     }
 
+    return _makeRpcCall(address(this), data);
 
-    else {
-      bytes memory response = _makeRpcCall(address(this), data);
-      assembly {
-            return(add(response, 32), mload(response))
-        }
-
-    }
   }
   function _makeRpcCall(address target, bytes memory params) internal returns (bytes memory) {
         // Construct the JSON-RPC payload

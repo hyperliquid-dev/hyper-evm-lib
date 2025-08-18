@@ -150,6 +150,33 @@ contract CoreSimulatorTest is Test {
 
         
     }
+
+    function test_readDelegations() public {
+        address kinetiq = 0x68e7E72938db36a5CBbCa7b52c71DBBaaDfB8264;
+        PrecompileLib.Delegation[] memory delegations = RealL1Read.delegations(address(0x393D0B87Ed38fc779FD9611144aE649BA6082109));
+        console.log("delegations", delegations.length);
+
+        uint256 totalDelegated = 0;
+
+        for (uint i = 0; i < delegations.length; i++) {
+            console.log("delegation validator:", delegations[i].validator);
+            console.log("delegation amount:", delegations[i].amount);
+            console.log("locked until:", delegations[i].lockedUntilTimestamp);
+            totalDelegated += delegations[i].amount;
+        }
+
+        console.log("totalDelegated", totalDelegated);
+    }
+
+    function test_readDelegatorSummary() public {
+        address kinetiq = 0x68e7E72938db36a5CBbCa7b52c71DBBaaDfB8264;
+        PrecompileLib.DelegatorSummary memory summary = RealL1Read.delegatorSummary(address(0x393D0B87Ed38fc779FD9611144aE649BA6082109));
+        console.log("summary.delegated", summary.delegated);
+        console.log("summary.undelegated", summary.undelegated);
+        console.log("summary.totalPendingWithdrawal", summary.totalPendingWithdrawal);
+        console.log("summary.nPendingWithdrawals", summary.nPendingWithdrawals);
+    }
+
 }
 
 // TODO:

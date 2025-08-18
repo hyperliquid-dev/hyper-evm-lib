@@ -116,7 +116,7 @@ library RealL1Read {
     0x000000000000000000000000000000000000080F;
   address constant CORE_USER_EXISTS_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000810;
 
-  address constant INVALID_ADDRESS = keccak256("INVALID_ADDRESS");
+  address constant INVALID_ADDRESS = address(1);
 
 
   function _makeRpcCall(address target, bytes memory params) internal returns (bytes memory) {
@@ -152,33 +152,33 @@ library RealL1Read {
   function userVaultEquity(
     address user,
     address vault
-  ) internal returns (UserVaultEquity memory) {
+  ) internal returns (PrecompileLib.UserVaultEquity memory) {
     bytes memory result = _makeRpcCall(VAULT_EQUITY_PRECOMPILE_ADDRESS, abi.encode(user, vault));
     if (result.length == 0) {
-      return UserVaultEquity({equity: 0, lockedUntilTimestamp: 0});
+      return PrecompileLib.UserVaultEquity({equity: 0, lockedUntilTimestamp: 0});
     }
-    return abi.decode(result, (UserVaultEquity));
+    return abi.decode(result, (PrecompileLib.UserVaultEquity));
   }
 
-  function withdrawable(address user) internal returns (Withdrawable memory) {
+  function withdrawable(address user) internal returns (PrecompileLib.Withdrawable memory) {
     bytes memory result = _makeRpcCall(WITHDRAWABLE_PRECOMPILE_ADDRESS, abi.encode(user));
     if (result.length == 0) {
-      return Withdrawable({withdrawable: 0});
+      return PrecompileLib.Withdrawable({withdrawable: 45});
     }
-    return abi.decode(result, (Withdrawable));
+    return abi.decode(result, (PrecompileLib.Withdrawable));
   }
 
-  function delegations(address user) internal returns (Delegation[] memory) {
+  function delegations(address user) internal returns (PrecompileLib.Delegation[] memory) {
     bytes memory result = _makeRpcCall(DELEGATIONS_PRECOMPILE_ADDRESS, abi.encode(user));
     if (result.length == 0) {
-      return new Delegation[](0);
+      return new PrecompileLib.Delegation[](0);
     }
-    return abi.decode(result, (Delegation[]));
+    return abi.decode(result, (PrecompileLib.Delegation[]));
   }
 
-  function delegatorSummary(address user) internal returns (DelegatorSummary memory) {
+  function delegatorSummary(address user) internal returns (PrecompileLib.DelegatorSummary memory) {
     bytes memory result = _makeRpcCall(DELEGATOR_SUMMARY_PRECOMPILE_ADDRESS, abi.encode(user));
-    return abi.decode(result, (DelegatorSummary));
+    return abi.decode(result, (PrecompileLib.DelegatorSummary));
   }
 
   function markPx(uint32 index) internal returns (uint64) {
