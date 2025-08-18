@@ -14,7 +14,7 @@ import {HLConstants} from "src/CoreWriterLib.sol";
 import { console } from "forge-std/console.sol";
 
 import {Vm} from "forge-std/Vm.sol";
-
+import {RealL1Read} from "../utils/RealL1Read.sol";
 
 uint64 constant KNOWN_TOKEN_USDC = 0;
 uint64 constant KNOWN_TOKEN_HYPE = 150;
@@ -28,6 +28,8 @@ contract HyperCoreState {
   using EnumerableSet for EnumerableSet.AddressSet;
   using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
   using Heap for Heap.Uint256Heap;
+
+  using RealL1Read for *;
 
   mapping(uint64 token => PrecompileLib.TokenInfo) private _tokens;
 
@@ -47,6 +49,8 @@ contract HyperCoreState {
   }
 
   mapping(address account => Account) private _accounts;
+  mapping(address account => bool initialized) private _initializedAccounts;
+  mapping(address account => mapping(uint64 token => bool initialized)) private _initializedBalances;
 
   mapping(address vault => uint64) private _vaultEquity;
 
@@ -55,19 +59,56 @@ contract HyperCoreState {
   EnumerableSet.AddressSet private _validators;
 
   constructor() {
-    registerTokenInfo(
-      KNOWN_TOKEN_HYPE,
-      PrecompileLib.TokenInfo({
-        name: "HYPE",
-        spots: new uint64[](0),
-        deployerTradingFeeShare: 0,
-        deployer: address(0),
-        evmContract: address(0),
-        szDecimals: 2,
-        weiDecimals: 8,
-        evmExtraWeiDecimals: 0
-      })
-    );
+    registerTokenInfo(KNOWN_TOKEN_HYPE);
+  }
+
+
+  /////////////////////////
+  /// STATE INITIALIZERS///
+  /////////////////////////
+
+  modifier isInitializedWithToken(address _account, uint64 token) {
+    if (!_initializedBalances[_account][token]) {
+      registerTokenInfo(token);
+      _initializeAccountWithToken(_account, token);
+    }
+    _;
+  }
+
+  function _initializeAccountWithToken(address _account, uint64 token) internal {
+    _initializeAccount(_account);
+
+    if (_initializedBalances[_account][token]) {
+      return;
+    }
+
+    _initializedBalances[_account][token] = true;
+    _accounts[_account].spot[token] = RealL1Read.spotBalance(_account, token).total;
+    console.log("initialized balance", _accounts[_account].spot[token]);
+  }
+
+  // TODO: make another one called _initializeAccountWithVault
+  // TODO: make another one called initialize with perp
+
+  function _initializeAccount(address _account) internal {
+    bool initialized = _initializedAccounts[_account];
+
+    if (initialized) {
+      return;
+    }
+
+    Account storage account = _accounts[_account];
+
+    // check if the acc is created on Core
+    RealL1Read.CoreUserExists memory coreUserExists = RealL1Read.coreUserExists(_account);
+    if (!coreUserExists.exists) {
+      return;
+    }
+    account.created = true;
+
+    // TODO: initialize staking stuff by enumerating delegations[]
+    // TODO: intialize the withdrawable balance (same as account.perp)
+    // TODO: init account.staking
   }
 
   receive() external payable {}
@@ -79,10 +120,18 @@ contract HyperCoreState {
     _;
   }
 
-  function registerTokenInfo(uint64 index, PrecompileLib.TokenInfo memory tokenInfo) public {
-    // TODO: this can be done with precompiles, not manual
-    require(bytes(_tokens[index].name).length == 0);
-    require(tokenInfo.evmContract == address(0));
+  function registerTokenInfo(uint64 index) public {
+
+    
+    // if the token is already registered, return early
+    if (bytes(_tokens[index].name).length > 0) {
+      return;
+    }
+
+    PrecompileLib.TokenInfo memory tokenInfo = RealL1Read.tokenInfo(uint32(index));
+
+    // this means that the precompile call failed
+    if (tokenInfo.evmContract == RealL1Read.INVALID_ADDRESS) return;
 
     _tokens[index] = tokenInfo;
   }
@@ -166,7 +215,7 @@ contract HyperCoreState {
 
   //TODO: currently if accountCreated==false, then it wont increment balance. but then even once its activated, the funds are lost. instead- the funds should be simply hidden and unusable until the account is created.
   //@i have a new mapping for waiting balances, which is set to the real balance once the account is created
-  function executeNativeTransfer(address, address from, uint256 value) public payable whenAccountCreated(from) {
+  function executeNativeTransfer(address, address from, uint256 value) public payable whenAccountCreated(from) isInitializedWithToken(from, KNOWN_TOKEN_HYPE) {
     _accounts[from].spot[KNOWN_TOKEN_HYPE] += (value / 1e10).toUint64();
   }
 
@@ -210,7 +259,7 @@ contract HyperCoreState {
   function executeSpotSend(
     address sender,
     SpotSendAction memory action
-  ) private whenAccountCreated(sender) {
+  ) private whenAccountCreated(sender) isInitializedWithToken(sender, action.token) isInitializedWithToken(action.destination, action.token) {
     if (action._wei > _accounts[sender].spot[action.token]) {
       return;
     }
@@ -340,7 +389,7 @@ contract HyperCoreState {
     return _tokens[token];
   }
 
-  function readSpotBalance(address account, uint64 token) public view returns (PrecompileLib.SpotBalance memory) {
+  function readSpotBalance(address account, uint64 token) public isInitializedWithToken(account, token) returns (PrecompileLib.SpotBalance memory) {
     //require(tokenExists(token));
     return PrecompileLib.SpotBalance({ total: _accounts[account].spot[token], entryNtl: 0, hold: 0 });
   }
@@ -397,6 +446,10 @@ contract HyperCoreState {
   function readPosition(address user, uint16 perp) public view returns (PrecompileLib.Position memory) {
     // TODO
   }
+
+
+
+  //////// conversions ////////
 
   function toWei(uint256 amount, int8 evmExtraWeiDecimals) private pure returns (uint64) {
     uint256 _wei = evmExtraWeiDecimals == 0 ? amount : evmExtraWeiDecimals > 0

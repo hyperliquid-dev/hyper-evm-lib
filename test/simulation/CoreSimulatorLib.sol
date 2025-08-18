@@ -51,6 +51,8 @@ library CoreSimulatorLib {
         // Start recording logs for token transfer tracking
         vm.recordLogs();
 
+        vm.allowCheatcodes(address(hyperCore));
+
         vm.resumeGasMetering();
 
         return hyperCore;

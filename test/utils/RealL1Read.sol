@@ -2,8 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {Vm} from "forge-std/Vm.sol";
+import {PrecompileLib} from "../../src/PrecompileLib.sol";
 
-contract L1Read {
+library RealL1Read {
   struct Position {
     int64 szi;
     uint64 entryNtl;
@@ -115,6 +116,8 @@ contract L1Read {
     0x000000000000000000000000000000000000080F;
   address constant CORE_USER_EXISTS_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000810;
 
+  address constant INVALID_ADDRESS = keccak256("INVALID_ADDRESS");
+
 
   function _makeRpcCall(address target, bytes memory params) internal returns (bytes memory) {
         // Construct the JSON-RPC payload
@@ -122,83 +125,106 @@ contract L1Read {
             string.concat('[{"to":"', vm.toString(target), '","data":"', vm.toString(params), '"},"latest"]');
 
         // Make the RPC call
-        return vm.rpc("eth_call", jsonPayload);
+        try vm.rpc("eth_call", jsonPayload) returns (bytes memory data) {
+            return data;
+        } catch {
+            return "";
+        }
     }
 
-  function position(address user, uint16 perp) external returns (Position memory) {
+  function position(address user, uint16 perp) internal returns (Position memory) {
     bytes memory result = _makeRpcCall(POSITION_PRECOMPILE_ADDRESS, abi.encode(user, perp));
+
+    if (result.length == 0) {
+      return Position({szi: 0, entryNtl: 0, isolatedRawUsd: 0, leverage: 0, isIsolated: false});
+    }
     return abi.decode(result, (Position));
   }
 
-  function spotBalance(address user, uint64 token) external returns (SpotBalance memory) {
+  function spotBalance(address user, uint64 token) internal returns (SpotBalance memory) {
     bytes memory result = _makeRpcCall(SPOT_BALANCE_PRECOMPILE_ADDRESS, abi.encode(user, token));
+    if (result.length == 0) {
+      return SpotBalance({total: 0, hold: 0, entryNtl: 0});
+    }
     return abi.decode(result, (SpotBalance));
   }
 
   function userVaultEquity(
     address user,
     address vault
-  ) external returns (UserVaultEquity memory) {
+  ) internal returns (UserVaultEquity memory) {
     bytes memory result = _makeRpcCall(VAULT_EQUITY_PRECOMPILE_ADDRESS, abi.encode(user, vault));
+    if (result.length == 0) {
+      return UserVaultEquity({equity: 0, lockedUntilTimestamp: 0});
+    }
     return abi.decode(result, (UserVaultEquity));
   }
 
-  function withdrawable(address user) external returns (Withdrawable memory) {
+  function withdrawable(address user) internal returns (Withdrawable memory) {
     bytes memory result = _makeRpcCall(WITHDRAWABLE_PRECOMPILE_ADDRESS, abi.encode(user));
+    if (result.length == 0) {
+      return Withdrawable({withdrawable: 0});
+    }
     return abi.decode(result, (Withdrawable));
   }
 
-  function delegations(address user) external returns (Delegation[] memory) {
+  function delegations(address user) internal returns (Delegation[] memory) {
     bytes memory result = _makeRpcCall(DELEGATIONS_PRECOMPILE_ADDRESS, abi.encode(user));
+    if (result.length == 0) {
+      return new Delegation[](0);
+    }
     return abi.decode(result, (Delegation[]));
   }
 
-  function delegatorSummary(address user) external returns (DelegatorSummary memory) {
+  function delegatorSummary(address user) internal returns (DelegatorSummary memory) {
     bytes memory result = _makeRpcCall(DELEGATOR_SUMMARY_PRECOMPILE_ADDRESS, abi.encode(user));
     return abi.decode(result, (DelegatorSummary));
   }
 
-  function markPx(uint32 index) external returns (uint64) {
+  function markPx(uint32 index) internal returns (uint64) {
     bytes memory result = _makeRpcCall(MARK_PX_PRECOMPILE_ADDRESS, abi.encode(index));
     return abi.decode(result, (uint64));
   }
 
-  function oraclePx(uint32 index) external returns (uint64) {
+  function oraclePx(uint32 index) internal returns (uint64) {
     bytes memory result = _makeRpcCall(ORACLE_PX_PRECOMPILE_ADDRESS, abi.encode(index));
     return abi.decode(result, (uint64));
   }
 
-  function spotPx(uint32 index) external returns (uint64) {
+  function spotPx(uint32 index) internal returns (uint64) {
     bytes memory result = _makeRpcCall(SPOT_PX_PRECOMPILE_ADDRESS, abi.encode(index));
     return abi.decode(result, (uint64));
   }
 
-  function l1BlockNumber() external returns (uint64) {
+  function l1BlockNumber() internal returns (uint64) {
     bytes memory result = _makeRpcCall(L1_BLOCK_NUMBER_PRECOMPILE_ADDRESS, abi.encode());
     return abi.decode(result, (uint64));
   }
 
-  function perpAssetInfo(uint32 perp) external returns (PerpAssetInfo memory) {
+  function perpAssetInfo(uint32 perp) internal returns (PerpAssetInfo memory) {
     bytes memory result = _makeRpcCall(PERP_ASSET_INFO_PRECOMPILE_ADDRESS, abi.encode(perp));
     return abi.decode(result, (PerpAssetInfo));
   }
 
-  function spotInfo(uint32 spot) external returns (SpotInfo memory) {
+  function spotInfo(uint32 spot) internal returns (SpotInfo memory) {
     bytes memory result = _makeRpcCall(SPOT_INFO_PRECOMPILE_ADDRESS, abi.encode(spot));
     return abi.decode(result, (SpotInfo));
   }
 
-  function tokenInfo(uint32 token) external returns (TokenInfo memory) {
+  function tokenInfo(uint32 token) internal returns (PrecompileLib.TokenInfo memory) {
     bytes memory result = _makeRpcCall(TOKEN_INFO_PRECOMPILE_ADDRESS, abi.encode(token));
-    return abi.decode(result, (TokenInfo));
+    if (result.length == 0) {
+      return PrecompileLib.TokenInfo({name: "", spots: new uint64[](0), deployerTradingFeeShare: 0, deployer: INVALID_ADDRESS, evmContract: INVALID_ADDRESS, szDecimals: 0, weiDecimals: 0, evmExtraWeiDecimals: 0});
+    }
+    return abi.decode(result, (PrecompileLib.TokenInfo));
   }
 
-  function tokenSupply(uint32 token) external returns (TokenSupply memory) {
+  function tokenSupply(uint32 token) internal returns (TokenSupply memory) {
     bytes memory result = _makeRpcCall(TOKEN_SUPPLY_PRECOMPILE_ADDRESS, abi.encode(token));
     return abi.decode(result, (TokenSupply));
   }
 
-  function bbo(uint32 asset) external returns (Bbo memory) {
+  function bbo(uint32 asset) internal returns (Bbo memory) {
     bytes memory result = _makeRpcCall(BBO_PRECOMPILE_ADDRESS, abi.encode(asset));
     return abi.decode(result, (Bbo));
   }
@@ -206,12 +232,12 @@ contract L1Read {
   function accountMarginSummary(
     uint32 perp_dex_index,
     address user
-  ) external returns (AccountMarginSummary memory) {
+  ) internal returns (AccountMarginSummary memory) {
     bytes memory result = _makeRpcCall(ACCOUNT_MARGIN_SUMMARY_PRECOMPILE_ADDRESS, abi.encode(perp_dex_index, user));
     return abi.decode(result, (AccountMarginSummary));
   }
 
-  function coreUserExists(address user) external returns (CoreUserExists memory) {
+  function coreUserExists(address user) internal returns (CoreUserExists memory) {
     bytes memory result = _makeRpcCall(CORE_USER_EXISTS_PRECOMPILE_ADDRESS, abi.encode(user));
     return abi.decode(result, (CoreUserExists));
   }

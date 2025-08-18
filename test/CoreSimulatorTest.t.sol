@@ -3,16 +3,19 @@ pragma solidity ^0.8.0;
 
 import {Test, console} from "forge-std/Test.sol";
 import {PrecompileLib} from "../src/PrecompileLib.sol";
+import {HLConversions} from "../src/common/HLConversions.sol";
 import {HLConstants} from "../src/common/HLConstants.sol";
 import {BridgingExample} from "../src/examples/BridgingExample.sol";
 import {HyperCoreState} from "./simulation/HyperCoreState.sol";
 import {L1Read} from "./utils/L1Read.sol";
 
 import {CoreSimulatorLib} from "./simulation/CoreSimulatorLib.sol";
+import {RealL1Read} from "./utils/RealL1Read.sol";
 
 contract CoreSimulatorTest is Test {
 
     using PrecompileLib for address;
+    using HLConversions for uint256;
 
     address public constant USDT0 = 0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb;
     address public constant uBTC  = 0x9FDBdA0A5e284c32744D2f17Ee5c74B284993463;
@@ -84,6 +87,52 @@ contract CoreSimulatorTest is Test {
 
     }
 
+    function test_listDeployers() public {
+
+        PrecompileLib.TokenInfo memory data = RealL1Read.tokenInfo(uint32(350));
+        console.log("deployer", data.deployer);
+        console.log("name", data.name);
+        console.log("szDecimals", data.szDecimals);
+        console.log("weiDecimals", data.weiDecimals);
+        console.log("evmExtraWeiDecimals", data.evmExtraWeiDecimals);
+        console.log("evmContract", data.evmContract);
+        console.log("deployerTradingFeeShare", data.deployerTradingFeeShare);
+    }
+
+    // This checks that existing spot balances are accounted for in tests
+    function test_bridgeToCoreAndSendToExistingUser() public {
+
+        address recipient = 0x68e7E72938db36a5CBbCa7b52c71DBBaaDfB8264;
+
+        deal(address(user), 10000e18);
+
+        uint256 amountToSend = 1e18;
+
+        vm.startPrank(user);
+        bridgingExample.bridgeToCoreAndSendHype{value: amountToSend}(amountToSend, address(recipient));
+
+
+        (uint64 total,uint64 hold,uint64 entryNtl) = abi.decode(abi.encode(hyperCore.readSpotBalance(address(recipient), 150)), (uint64, uint64, uint64));
+        console.log("total", total);
+        console.log("hold", hold);
+        console.log("entryNtl", entryNtl);
+
+        (uint64 realTotal, uint64 realHold, uint64 realEntryNtl) = abi.decode(abi.encode(l1Read.spotBalance(address(recipient), 150)), (uint64, uint64, uint64));
+        console.log("realTotal", realTotal);
+        console.log("realHold", realHold);
+        console.log("realEntryNtl", realEntryNtl);
+        assertEq(total, realTotal);
+
+        CoreSimulatorLib.nextBlock();
+
+        (uint64 newTotal,uint64 newHold,uint64 newEntryNtl) = abi.decode(abi.encode(hyperCore.readSpotBalance(address(recipient), 150)), (uint64, uint64, uint64));
+        console.log("total", newTotal);
+        console.log("hold", newHold);
+        console.log("entryNtl", newEntryNtl);
+        assertEq(newTotal, realTotal + HLConversions.convertEvmToCoreAmount(150, amountToSend));
+    }
+
+
     function test_bridgeEthToCore() public {
         deal(address(uETH), address(bridgingExample), 1e18);
 
@@ -105,6 +154,6 @@ contract CoreSimulatorTest is Test {
 
 // TODO:
 // - have initial data stored in Core (ntl for spotBalance, etc (can be done by querying the respective precompiles for initial balance/price if its the first time retrieving that data))
-// - make it so that every time we access a user's spot/perp balance, we update the ntl using the current info 
+// - make it so that every time we read or update a user's spot/perp balance, we update the ntl using the current info 
 // - experiment with archive node and calling precompiles from older, specific block.number (instead of latest by default)
 // - enable trading spot/perps

@@ -9,7 +9,7 @@ library HLConversions {
     error HLConversions__InvalidToken(uint64 token);
 
     /** 
-     * @dev Converts an EVM amount to a Core amount, handling both positive and negative extra decimals
+     * @dev Converts an EVM amount to a Core (wei) amount, handling both positive and negative extra decimals
      * Note: If evmExtraWeiDecimals > 0, and evmAmount < 10**evmExtraWeiDecimals, the result will be 0
     */
     function convertEvmToCoreAmount(uint64 token, uint256 evmAmount) internal view returns (uint64) {
