@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {HyperCoreState} from "./HyperCoreState.sol";
 
 import {Vm} from "forge-std/Vm.sol";
+import {console} from "forge-std/console.sol";
 
 /// @dev this contract is deployed for each different precompile address such that the fallback can be executed for each
 contract PrecompileSim {
@@ -68,7 +69,7 @@ contract PrecompileSim {
 
         if (address(this) == MARK_PX_PRECOMPILE_ADDRESS) {
             uint32 perp = abi.decode(data, (uint32));
-            return abi.encode(_hyperCore.markPx(perp));
+            return abi.encode(_hyperCore.readMarkPx(perp));
         }
 
         return _makeRpcCall(address(this), data);

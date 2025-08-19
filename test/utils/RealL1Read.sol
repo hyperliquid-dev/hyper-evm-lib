@@ -5,6 +5,7 @@ import {Vm} from "forge-std/Vm.sol";
 import {PrecompileLib} from "../../src/PrecompileLib.sol";
 import {console} from "forge-std/console.sol";
 
+// Makes RPC calls to get real precompile data (independent of the test environment)
 library RealL1Read {
     struct Position {
         int64 szi;
@@ -122,7 +123,6 @@ library RealL1Read {
         string memory jsonPayload =
             string.concat('[{"to":"', vm.toString(target), '","data":"', vm.toString(params), '"},"latest"]');
         string memory blockNumberHex = string.concat("0x", toHexString(block.number));
-        console.log("blockNumberHex", blockNumberHex);
 
         //jsonPayload = string.concat('[{"to":"', vm.toString(target), '","data":"', vm.toString(params), '"},"', blockNumberHex, '"]');
 
@@ -169,12 +169,12 @@ library RealL1Read {
         return abi.decode(result, (PrecompileLib.Position));
     }
 
-    function spotBalance(address user, uint64 token) internal returns (SpotBalance memory) {
+    function spotBalance(address user, uint64 token) internal returns (PrecompileLib.SpotBalance memory) {
         bytes memory result = _makeRpcCall(SPOT_BALANCE_PRECOMPILE_ADDRESS, abi.encode(user, token));
         if (result.length == 0) {
-            return SpotBalance({total: 0, hold: 0, entryNtl: 0});
+            return PrecompileLib.SpotBalance({total: 0, hold: 0, entryNtl: 0});
         }
-        return abi.decode(result, (SpotBalance));
+        return abi.decode(result, (PrecompileLib.SpotBalance));
     }
 
     function userVaultEquity(address user, address vault) internal returns (PrecompileLib.UserVaultEquity memory) {

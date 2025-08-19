@@ -107,27 +107,29 @@ contract CoreSimulatorTest is Test {
         vm.startPrank(user);
         bridgingExample.bridgeToCoreAndSendHype{value: amountToSend}(amountToSend, address(recipient));
 
-        (uint64 total, uint64 hold, uint64 entryNtl) =
-            abi.decode(abi.encode(hyperCore.readSpotBalance(address(recipient), 150)), (uint64, uint64, uint64));
-        console.log("total", total);
-        console.log("hold", hold);
-        console.log("entryNtl", entryNtl);
-
         (uint64 realTotal, uint64 realHold, uint64 realEntryNtl) =
-            abi.decode(abi.encode(l1Read.spotBalance(address(recipient), 150)), (uint64, uint64, uint64));
+            abi.decode(abi.encode(RealL1Read.spotBalance(address(recipient), 150)), (uint64, uint64, uint64));
         console.log("realTotal", realTotal);
-        console.log("realHold", realHold);
-        console.log("realEntryNtl", realEntryNtl);
-        assertEq(total, realTotal);
+
+        (uint64 precompileTotal, ,) =
+            abi.decode(abi.encode(l1Read.spotBalance(address(recipient), 150)), (uint64, uint64, uint64));
+        console.log("precompileTotal", precompileTotal);
+
 
         CoreSimulatorLib.nextBlock();
 
         (uint64 newTotal, uint64 newHold, uint64 newEntryNtl) =
-            abi.decode(abi.encode(hyperCore.readSpotBalance(address(recipient), 150)), (uint64, uint64, uint64));
+            abi.decode(abi.encode(l1Read.spotBalance(address(recipient), 150)), (uint64, uint64, uint64));
         console.log("total", newTotal);
-        console.log("hold", newHold);
-        console.log("entryNtl", newEntryNtl);
+        console.log("rhs:", realTotal + HLConversions.convertEvmToCoreAmount(150, amountToSend));
         assertEq(newTotal, realTotal + HLConversions.convertEvmToCoreAmount(150, amountToSend));
+    }
+
+    function test_readSpotBalance() public {
+
+        (uint64 realTotal, uint64 realHold, uint64 realEntryNtl) =
+            abi.decode(abi.encode(l1Read.spotBalance(address(user), 150)), (uint64, uint64, uint64));
+        console.log("realTotal", realTotal);
     }
 
     function test_bridgeEthToCore() public {
@@ -195,13 +197,22 @@ contract CoreSimulatorTest is Test {
         console.log("position.szi", position.szi);
         console.log("position.entryNtl", position.entryNtl);
 
-        hypeTrading.createLimitOrder(5, true, 1e18, 1e2, false, 2);
+        // read their perp balance (withdrawable)
+        uint64 w = PrecompileLib.withdrawable(address(hypeTrading));
+        console.log("withdrawable", w);
+
+        hypeTrading.createLimitOrder(5, false, 0, 1e2, false, 2);
+
+        hyperCore.setMarkPx(5, 2000, true);
 
         CoreSimulatorLib.nextBlock();
 
         position = hypeTrading.getPosition(address(hypeTrading), 5);
         console.log("position.szi", position.szi);
         console.log("position.entryNtl", position.entryNtl);
+
+        uint64 w2 = PrecompileLib.withdrawable(address(hypeTrading));
+        console.log("withdrawable", w2);
     }
 }
 

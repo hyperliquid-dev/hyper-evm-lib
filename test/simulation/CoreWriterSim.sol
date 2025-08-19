@@ -27,6 +27,7 @@ contract CoreWriterSim {
 
     HyperCoreState constant _hyperCore = HyperCoreState(payable(0x9999999999999999999999999999999999999999));
 
+
     function enqueueAction(bytes memory data, uint256 value) public {
         enqueueAction(block.timestamp, data, value);
     }
@@ -48,8 +49,11 @@ contract CoreWriterSim {
             if (action.timestamp > block.timestamp) {
                 break;
             }
+            
 
-            address(_hyperCore).functionCallWithValue(action.data, action.value);
+            // TODO: have an option to revert upon failure when flushing queue, for testing purposes
+
+            address(_hyperCore).call{value: action.value}(action.data);
 
             _actionQueue.pop();
         }

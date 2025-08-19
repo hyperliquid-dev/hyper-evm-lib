@@ -55,7 +55,8 @@ contract HyperCoreState is StdCheats {
     mapping(address account => bool initialized) private _initializedAccounts;
     mapping(address account => mapping(uint64 token => bool initialized)) private _initializedSpotBalance;
     mapping(address account => mapping(address vault => bool initialized)) private _initializedVaults;
-    mapping(address account => mapping(uint16 perpIndex => bool initialized)) private _initializedPerp;
+
+    mapping(address account => mapping(uint32 perpIndex => uint64 markPrice)) private _perpMarkPrice;
 
     mapping(address vault => uint64) private _vaultEquity;
 
@@ -68,7 +69,9 @@ contract HyperCoreState is StdCheats {
     /////////////////////////
 
     modifier initAccountWithToken(address _account, uint64 token) {
+
       if (!_initializedSpotBalance[_account][token]) {
+
         registerTokenInfo(token);
         _initializeAccountWithToken(_account, token);
       }
@@ -84,7 +87,7 @@ contract HyperCoreState is StdCheats {
     }
 
     modifier initAccountWithPerp(address _account, uint16 perp) {
-      if (!_initializedPerp[_account][perp]) {
+      if (_perpMarkPrice[_account][perp] == 0) {
         _initializeAccount(_account);
         _initializeAccountWithPerp(_account, perp);
       }
@@ -100,6 +103,7 @@ contract HyperCoreState is StdCheats {
 
     function _initializeAccountWithToken(address _account, uint64 token) internal {
       _initializeAccount(_account);
+      console.log("initializing account with token %e", token);
 
       if (_accounts[_account].created == false) {
         return;
@@ -115,7 +119,7 @@ contract HyperCoreState is StdCheats {
     }
 
     function _initializeAccountWithPerp(address _account, uint16 perp) internal {
-      _initializedPerp[_account][perp] = true;
+      _perpMarkPrice[_account][perp] = RealL1Read.markPx(perp);
       _accounts[_account].positions[perp] = RealL1Read.position(_account, perp);
     }
 
@@ -174,7 +178,6 @@ contract HyperCoreState is StdCheats {
 
       // this means that the precompile call failed
       if (tokenInfo.evmContract == RealL1Read.INVALID_ADDRESS) return;
-
       _tokens[index] = tokenInfo;
     }
 
@@ -302,7 +305,13 @@ contract HyperCoreState is StdCheats {
         return;
       }
     }
+    
 
+    // TODO:
+    // - split into helper functions
+    // - handle the other fields of the position
+    // - handle isolated margin positions
+    // - handle the case where the account is not created
     function executeLimitOrder(address sender, LimitOrderAction memory action) public initAccountWithPerp(sender, uint16(action.asset)) {
       uint16 perpIndex = uint16(action.asset);
       uint256 markPx = PrecompileLib.markPx(perpIndex);
@@ -540,12 +549,40 @@ contract HyperCoreState is StdCheats {
       return _tokens[token];
     }
 
-    function readSpotBalance(address account, uint64 token) public initAccountWithToken(account, token) returns (PrecompileLib.SpotBalance memory) {
-      //require(tokenExists(token));
+    function setMarkPx(uint32 perp, uint64 priceDiffBps, bool isIncrease) public {
+      uint64 basePrice = readMarkPx(perp);
+      if (isIncrease) {
+        _perpMarkPrice[msg.sender][perp] = basePrice * (10000 + priceDiffBps) / 10000;
+      }
+      else {
+        _perpMarkPrice[msg.sender][perp] = basePrice * (10000 - priceDiffBps) / 10000;
+      }
+    }
+
+    function setMarkPx(uint32 perp, uint64 markPx) public {
+      _perpMarkPrice[msg.sender][perp] = markPx;
+    }
+
+    function readMarkPx(uint32 perp) public returns (uint64) {
+
+      if (_perpMarkPrice[msg.sender][perp] == 0) {
+        return RealL1Read.markPx(perp);
+      }
+
+      return _perpMarkPrice[msg.sender][perp];
+    }
+    
+    function readSpotBalance(address account, uint64 token) public returns (PrecompileLib.SpotBalance memory) {
+      
+      if (_initializedSpotBalance[account][token] == false) {
+        return RealL1Read.spotBalance(account, token);
+      }
+
       return PrecompileLib.SpotBalance({ total: _accounts[account].spot[token], entryNtl: 0, hold: 0 });
     }
 
     // Even if the HyperCore account is not created, the precompile returns 0 (it does not revert)
+    //TODO: remove the modifier and instead use RealL1Read if the account is not initialized. (ensures that the function can be a view function, callable via L1Read)
     function readWithdrawable(address account) public initAccount(account) returns (PrecompileLib.Withdrawable memory) {
       return PrecompileLib.Withdrawable({ withdrawable: _accounts[account].perp });
     }
