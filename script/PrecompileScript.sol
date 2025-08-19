@@ -9,18 +9,20 @@ import {PrecompileSimulator} from "../test/utils/PrecompileSimulator.sol";
 
 // In order for the script to work, run `forge script` with the `--skip-simulation` flag
 contract PrecompileScript is Script {
-
     function run() public {
-
-        vm.startBroadcast(vm.envUint("PRIV"));
+        vm.startBroadcast();
         PrecompileSimulator.init(); // script works because of this
 
-        TokenRegistry registry = TokenRegistry(0x0b51d1A9098cf8a72C325003F44C194D41d7A85B);
-        registry.setTokenInfo(1);
+        Tester tester = new Tester();
+        tester.logValues();
 
         vm.stopBroadcast();
-
     }
-
 }
 
+contract Tester {
+    function logValues() public {
+        console.log("msg.sender", msg.sender);
+        console.log("tx.origin", tx.origin);
+    }
+}

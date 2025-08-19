@@ -8,19 +8,18 @@ import {HLConstants} from "../src/common/HLConstants.sol";
 import {BridgingExample} from "../src/examples/BridgingExample.sol";
 import {HyperCoreState} from "./simulation/HyperCoreState.sol";
 import {L1Read} from "./utils/L1Read.sol";
-
+import {HypeTradingContract} from "./utils/HypeTradingContract.sol";
 import {CoreSimulatorLib} from "./simulation/CoreSimulatorLib.sol";
 import {RealL1Read} from "./utils/RealL1Read.sol";
 
 contract CoreSimulatorTest is Test {
-
     using PrecompileLib for address;
     using HLConversions for uint256;
 
     address public constant USDT0 = 0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb;
-    address public constant uBTC  = 0x9FDBdA0A5e284c32744D2f17Ee5c74B284993463;
-    address public constant uETH  = 0xBe6727B535545C67d5cAa73dEa54865B92CF7907;
-    address public constant uSOL  = 0x068f321Fa8Fb9f0D135f290Ef6a3e2813e1c8A29;
+    address public constant uBTC = 0x9FDBdA0A5e284c32744D2f17Ee5c74B284993463;
+    address public constant uETH = 0xBe6727B535545C67d5cAa73dEa54865B92CF7907;
+    address public constant uSOL = 0x068f321Fa8Fb9f0D135f290Ef6a3e2813e1c8A29;
 
     HyperCoreState public hyperCore;
     address public user = makeAddr("user");
@@ -30,6 +29,7 @@ contract CoreSimulatorTest is Test {
     L1Read l1Read;
 
     function setUp() public {
+        // hyperliquid RPC:
         vm.createSelectFork("https://rpc.hyperliquid.xyz/evm");
 
         // set up the HyperCore simulation
@@ -44,51 +44,48 @@ contract CoreSimulatorTest is Test {
     }
 
     function test_bridgeHypeToCore() public {
-
         deal(address(user), 10000e18);
 
         vm.startPrank(user);
         bridgingExample.bridgeToCoreById{value: 1e18}(150, 1e18);
 
-        
-
-        (uint64 total,uint64 hold,uint64 entryNtl) = abi.decode(abi.encode(hyperCore.readSpotBalance(address(bridgingExample), 150)), (uint64, uint64, uint64));
+        (uint64 total, uint64 hold, uint64 entryNtl) =
+            abi.decode(abi.encode(hyperCore.readSpotBalance(address(bridgingExample), 150)), (uint64, uint64, uint64));
         console.log("total", total);
         console.log("hold", hold);
         console.log("entryNtl", entryNtl);
 
         CoreSimulatorLib.nextBlock();
 
-        (total, hold, entryNtl) = abi.decode(abi.encode(hyperCore.readSpotBalance(address(bridgingExample), 150)), (uint64, uint64, uint64));
+        (total, hold, entryNtl) =
+            abi.decode(abi.encode(hyperCore.readSpotBalance(address(bridgingExample), 150)), (uint64, uint64, uint64));
         console.log("total", total);
         console.log("hold", hold);
         console.log("entryNtl", entryNtl);
-        
     }
-    function test_bridgeToCoreAndSend() public {
 
+    function test_bridgeToCoreAndSend() public {
         deal(address(user), 10000e18);
 
         vm.startPrank(user);
         bridgingExample.bridgeToCoreAndSendHype{value: 1e18}(1e18, address(user));
 
-
-        (uint64 total,uint64 hold,uint64 entryNtl) = abi.decode(abi.encode(hyperCore.readSpotBalance(address(user), 150)), (uint64, uint64, uint64));
+        (uint64 total, uint64 hold, uint64 entryNtl) =
+            abi.decode(abi.encode(hyperCore.readSpotBalance(address(user), 150)), (uint64, uint64, uint64));
         console.log("total", total);
         console.log("hold", hold);
         console.log("entryNtl", entryNtl);
 
         CoreSimulatorLib.nextBlock();
 
-        (total, hold, entryNtl) = abi.decode(abi.encode(hyperCore.readSpotBalance(address(user), 150)), (uint64, uint64, uint64));
+        (total, hold, entryNtl) =
+            abi.decode(abi.encode(hyperCore.readSpotBalance(address(user), 150)), (uint64, uint64, uint64));
         console.log("total", total);
         console.log("hold", hold);
         console.log("entryNtl", entryNtl);
-
     }
 
     function test_listDeployers() public {
-
         PrecompileLib.TokenInfo memory data = RealL1Read.tokenInfo(uint32(350));
         console.log("deployer", data.deployer);
         console.log("name", data.name);
@@ -101,7 +98,6 @@ contract CoreSimulatorTest is Test {
 
     // This checks that existing spot balances are accounted for in tests
     function test_bridgeToCoreAndSendToExistingUser() public {
-
         address recipient = 0x68e7E72938db36a5CBbCa7b52c71DBBaaDfB8264;
 
         deal(address(user), 10000e18);
@@ -111,13 +107,14 @@ contract CoreSimulatorTest is Test {
         vm.startPrank(user);
         bridgingExample.bridgeToCoreAndSendHype{value: amountToSend}(amountToSend, address(recipient));
 
-
-        (uint64 total,uint64 hold,uint64 entryNtl) = abi.decode(abi.encode(hyperCore.readSpotBalance(address(recipient), 150)), (uint64, uint64, uint64));
+        (uint64 total, uint64 hold, uint64 entryNtl) =
+            abi.decode(abi.encode(hyperCore.readSpotBalance(address(recipient), 150)), (uint64, uint64, uint64));
         console.log("total", total);
         console.log("hold", hold);
         console.log("entryNtl", entryNtl);
 
-        (uint64 realTotal, uint64 realHold, uint64 realEntryNtl) = abi.decode(abi.encode(l1Read.spotBalance(address(recipient), 150)), (uint64, uint64, uint64));
+        (uint64 realTotal, uint64 realHold, uint64 realEntryNtl) =
+            abi.decode(abi.encode(l1Read.spotBalance(address(recipient), 150)), (uint64, uint64, uint64));
         console.log("realTotal", realTotal);
         console.log("realHold", realHold);
         console.log("realEntryNtl", realEntryNtl);
@@ -125,40 +122,41 @@ contract CoreSimulatorTest is Test {
 
         CoreSimulatorLib.nextBlock();
 
-        (uint64 newTotal,uint64 newHold,uint64 newEntryNtl) = abi.decode(abi.encode(hyperCore.readSpotBalance(address(recipient), 150)), (uint64, uint64, uint64));
+        (uint64 newTotal, uint64 newHold, uint64 newEntryNtl) =
+            abi.decode(abi.encode(hyperCore.readSpotBalance(address(recipient), 150)), (uint64, uint64, uint64));
         console.log("total", newTotal);
         console.log("hold", newHold);
         console.log("entryNtl", newEntryNtl);
         assertEq(newTotal, realTotal + HLConversions.convertEvmToCoreAmount(150, amountToSend));
     }
 
-
     function test_bridgeEthToCore() public {
         deal(address(uETH), address(bridgingExample), 1e18);
 
         bridgingExample.bridgeToCoreById(221, 1e18);
 
-        (uint64 total,uint64 hold,uint64 entryNtl) = abi.decode(abi.encode(hyperCore.readSpotBalance(address(bridgingExample), 221)), (uint64, uint64, uint64));
+        (uint64 total, uint64 hold, uint64 entryNtl) =
+            abi.decode(abi.encode(hyperCore.readSpotBalance(address(bridgingExample), 221)), (uint64, uint64, uint64));
         console.log("total", total);
 
         CoreSimulatorLib.nextBlock();
 
-        (total, hold, entryNtl) = abi.decode(abi.encode(hyperCore.readSpotBalance(address(bridgingExample), 221)), (uint64, uint64, uint64));
+        (total, hold, entryNtl) =
+            abi.decode(abi.encode(hyperCore.readSpotBalance(address(bridgingExample), 221)), (uint64, uint64, uint64));
         console.log("total", total);
         console.log("hold", hold);
         console.log("entryNtl", entryNtl);
-
-        
     }
 
     function test_readDelegations() public {
         address kinetiq = 0x68e7E72938db36a5CBbCa7b52c71DBBaaDfB8264;
-        PrecompileLib.Delegation[] memory delegations = RealL1Read.delegations(address(0x393D0B87Ed38fc779FD9611144aE649BA6082109));
+        PrecompileLib.Delegation[] memory delegations =
+            RealL1Read.delegations(address(0x393D0B87Ed38fc779FD9611144aE649BA6082109));
         console.log("delegations", delegations.length);
 
         uint256 totalDelegated = 0;
 
-        for (uint i = 0; i < delegations.length; i++) {
+        for (uint256 i = 0; i < delegations.length; i++) {
             console.log("delegation validator:", delegations[i].validator);
             console.log("delegation amount:", delegations[i].amount);
             console.log("locked until:", delegations[i].lockedUntilTimestamp);
@@ -170,17 +168,45 @@ contract CoreSimulatorTest is Test {
 
     function test_readDelegatorSummary() public {
         address kinetiq = 0x68e7E72938db36a5CBbCa7b52c71DBBaaDfB8264;
-        PrecompileLib.DelegatorSummary memory summary = RealL1Read.delegatorSummary(address(0x393D0B87Ed38fc779FD9611144aE649BA6082109));
+        PrecompileLib.DelegatorSummary memory summary =
+            RealL1Read.delegatorSummary(address(0x393D0B87Ed38fc779FD9611144aE649BA6082109));
         console.log("summary.delegated", summary.delegated);
         console.log("summary.undelegated", summary.undelegated);
         console.log("summary.totalPendingWithdrawal", summary.totalPendingWithdrawal);
         console.log("summary.nPendingWithdrawals", summary.nPendingWithdrawals);
     }
 
+    function test_spotPrice() public {
+        uint64 px = RealL1Read.spotPx(uint32(123));
+        console.log("px", px);
+    }
+
+    function test_trading() public {
+        vm.startPrank(user);
+        HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
+        hyperCore.forceAccountCreation(address(hypeTrading));
+        hyperCore.forcePerp(address(hypeTrading), 1e18);
+
+        hypeTrading.createLimitOrder(5, true, 1e18, 1e2, false, 1);
+
+        CoreSimulatorLib.nextBlock();
+
+        PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), 5);
+        console.log("position.szi", position.szi);
+        console.log("position.entryNtl", position.entryNtl);
+
+        hypeTrading.createLimitOrder(5, true, 1e18, 1e2, false, 2);
+
+        CoreSimulatorLib.nextBlock();
+
+        position = hypeTrading.getPosition(address(hypeTrading), 5);
+        console.log("position.szi", position.szi);
+        console.log("position.entryNtl", position.entryNtl);
+    }
 }
 
 // TODO:
 // - have initial data stored in Core (ntl for spotBalance, etc (can be done by querying the respective precompiles for initial balance/price if its the first time retrieving that data))
-// - make it so that every time we read or update a user's spot/perp balance, we update the ntl using the current info 
+// - make it so that every time we read or update a user's spot/perp balance, we update the ntl using the current info
 // - experiment with archive node and calling precompiles from older, specific block.number (instead of latest by default)
 // - enable trading spot/perps

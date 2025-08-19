@@ -54,7 +54,7 @@ contract TradingExample {
 
     /**
      * @notice Transfers USDC between spot and perp trading accounts
-     * @param coreAmount Amount to transfer 
+     * @param coreAmount Amount to transfer
      * @param toPerp If true, transfers from spot to perp; if false, transfers from perp to spot
      */
     function transferUsdcBetweenSpotAndPerp(uint64 coreAmount, bool toPerp) external {
@@ -72,4 +72,4 @@ contract TradingExample {
     }
 
     receive() external payable {}
-} 
+}

@@ -16,7 +16,7 @@ contract StakingExample {
     function bridgeHypeAndStake(uint256 evmAmount, address validator) external payable {
         // Transfer HYPE tokens to core
         uint64 hypeTokenIndex = HLConstants.hypeTokenIndex();
-        hypeTokenIndex.bridgeToCore(evmAmount); 
+        hypeTokenIndex.bridgeToCore(evmAmount);
 
         // Using data from the `TokenInfo` precompile, convert EVM amount to core decimals for staking operations
         uint64 coreAmount = HLConversions.convertEvmToCoreAmount(hypeTokenIndex, evmAmount);
@@ -57,4 +57,4 @@ contract StakingExample {
     }
 
     receive() external payable {}
-} 
+}

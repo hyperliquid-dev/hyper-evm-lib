@@ -14,9 +14,9 @@ Vm constant vm = Vm(address(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D));
 CoreWriterSim constant coreWriter = CoreWriterSim(0x3333333333333333333333333333333333333333);
 
 contract HypeSystemContract {
-  receive() external payable {
-    coreWriter.nativeTransferCallback{ value: msg.value }(msg.sender, msg.sender, msg.value);
-  }
+    receive() external payable {
+        coreWriter.nativeTransferCallback{value: msg.value}(msg.sender, msg.sender, msg.value);
+    }
 }
 
 /**
@@ -25,7 +25,7 @@ contract HypeSystemContract {
  */
 library CoreSimulatorLib {
     uint256 constant NUM_PRECOMPILES = 17;
-    
+
     HyperCoreState constant hyperCore = HyperCoreState(payable(0x9999999999999999999999999999999999999999));
 
     // ERC20 Transfer event signature
@@ -63,9 +63,9 @@ library CoreSimulatorLib {
         Vm.Log[] memory entries = vm.getRecordedLogs();
 
         // Process any ERC20 transfers to system addresses (EVM->Core transfers are processed before CoreWriter actions)
-        for (uint i = 0; i < entries.length; i++) {
+        for (uint256 i = 0; i < entries.length; i++) {
             Vm.Log memory entry = entries[i];
-            
+
             // Check if it's a Transfer event
             if (entry.topics[0] == TRANSFER_EVENT_SIG) {
                 address from = address(uint160(uint256(entry.topics[1])));
@@ -77,14 +77,9 @@ library CoreSimulatorLib {
                     uint64 tokenIndex = getTokenIndexFromSystemAddress(to);
                     address token = address(entry.emitter);
                     console.log("token", token);
-                    
+
                     // Call tokenTransferCallback on HyperCoreWrite
-                    hyperCore.executeTokenTransfer(
-                        address(0),
-                        tokenIndex,
-                        from,
-                        amount
-                    );
+                    hyperCore.executeTokenTransfer(address(0), tokenIndex, from, amount);
                 }
             }
         }
@@ -115,7 +110,7 @@ library CoreSimulatorLib {
 
             return tokenExists(tokenIndex);
         }
-        
+
         return false;
     }
 
@@ -127,14 +122,15 @@ library CoreSimulatorLib {
     }
 
     function getSystemAddress(uint64 index) internal pure returns (address) {
-        if (index == 150) { // HYPE token
+        if (index == 150) {
+            // HYPE token
             return address(0x2222222222222222222222222222222222222222);
         }
         return address(uint160(0x2000000000000000000000000000000000000000) + index);
     }
 
     function tokenExists(uint64 token) internal view returns (bool) {
-        (bool success, ) = HLConstants.TOKEN_INFO_PRECOMPILE_ADDRESS.staticcall(abi.encode(token));
+        (bool success,) = HLConstants.TOKEN_INFO_PRECOMPILE_ADDRESS.staticcall(abi.encode(token));
         return success;
     }
 }

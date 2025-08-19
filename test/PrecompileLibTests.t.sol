@@ -7,13 +7,12 @@ import {HLConstants} from "../src/common/HLConstants.sol";
 import {PrecompileSimulator} from "./utils/PrecompileSimulator.sol";
 
 contract PrecompileLibTests is Test {
-
     using PrecompileLib for address;
 
     address public constant USDT0 = 0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb;
-    address public constant uBTC  = 0x9FDBdA0A5e284c32744D2f17Ee5c74B284993463;
-    address public constant uETH  = 0xBe6727B535545C67d5cAa73dEa54865B92CF7907;
-    address public constant uSOL  = 0x068f321Fa8Fb9f0D135f290Ef6a3e2813e1c8A29;
+    address public constant uBTC = 0x9FDBdA0A5e284c32744D2f17Ee5c74B284993463;
+    address public constant uETH = 0xBe6727B535545C67d5cAa73dEa54865B92CF7907;
+    address public constant uSOL = 0x068f321Fa8Fb9f0D135f290Ef6a3e2813e1c8A29;
 
     function setUp() public {
         vm.createSelectFork("https://rpc.hyperliquid.xyz/evm");
@@ -33,8 +32,8 @@ contract PrecompileLibTests is Test {
         uint64 px = USDT0.spotPx();
         console.log("px: %e", px);
     }
-    function test_normalizedSpotPrice() public {
 
+    function test_normalizedSpotPrice() public {
         uint64 tokenIndex = USDT0.getTokenIndex();
         uint64 spotIndex = PrecompileLib.getSpotIndex(tokenIndex);
 
@@ -43,7 +42,7 @@ contract PrecompileLibTests is Test {
 
         uint256 spotIndex_alt2 = USDT0.getSpotIndex();
         assertEq(spotIndex, spotIndex_alt2);
-        
+
         uint256 price = PrecompileLib.normalizedSpotPx(spotIndex);
 
         console.log("price: %e", price);
@@ -71,12 +70,12 @@ contract PrecompileLibTests is Test {
     }
 
     function test_spotBalance() public {
-        PrecompileLib.SpotBalance memory balance = PrecompileLib.spotBalance(0xF036a5261406a394bd63Eb4dF49C464634a66155, 150);
+        PrecompileLib.SpotBalance memory balance =
+            PrecompileLib.spotBalance(0xF036a5261406a394bd63Eb4dF49C464634a66155, 150);
         console.log("balance: %e", balance.total);
     }
 
     function test_bbo() public {
-
         uint64 tokenIndex = uBTC.getTokenIndex();
         uint64 spotIndex = PrecompileLib.getSpotIndex(tokenIndex);
         uint64 asset = spotIndex + 10000;
@@ -86,7 +85,6 @@ contract PrecompileLibTests is Test {
     }
 
     function test_accountMarginSummary() public {
-
         address whale = 0x2Ba553d9F990a3B66b03b2dC0D030dfC1c061036;
         PrecompileLib.AccountMarginSummary memory summary = PrecompileLib.accountMarginSummary(0, whale);
 
@@ -118,7 +116,4 @@ contract PrecompileLibTests is Test {
 
         assertGt(blockNumber, block.number);
     }
-
-
-
 }
