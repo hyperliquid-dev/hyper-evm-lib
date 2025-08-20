@@ -11,6 +11,7 @@ import {L1Read} from "./utils/L1Read.sol";
 import {HypeTradingContract} from "./utils/HypeTradingContract.sol";
 import {CoreSimulatorLib} from "./simulation/CoreSimulatorLib.sol";
 import {RealL1Read} from "./utils/RealL1Read.sol";
+import {CoreWriterLib} from "../src/CoreWriterLib.sol";
 
 contract CoreSimulatorTest is Test {
     using PrecompileLib for address;
@@ -183,7 +184,7 @@ contract CoreSimulatorTest is Test {
         console.log("px", px);
     }
 
-    function test_trading() public {
+    function test_perpTrading() public {
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
         hyperCore.forceAccountCreation(address(hypeTrading));
@@ -213,6 +214,38 @@ contract CoreSimulatorTest is Test {
 
         uint64 w2 = PrecompileLib.withdrawable(address(hypeTrading));
         console.log("withdrawable", w2);
+    }
+
+    function test_spotTrading() public {
+        vm.startPrank(user);
+        SpotTrader spotTrader = new SpotTrader();
+        hyperCore.forceAccountCreation(address(spotTrader));
+        hyperCore.forceAccountCreation(address(user));
+        hyperCore.forceSpot(address(spotTrader), 0, 1e18);
+        hyperCore.forceSpot(address(spotTrader), 254, 1e18);
+
+
+        spotTrader.placeLimitOrder(10000 + 156, true, 1e18, 1e2, false, 1);
+
+        // log spot balance of spotTrader
+        console.log("spotTrader.spotBalance(254)", PrecompileLib.spotBalance(address(spotTrader), 254).total);
+        console.log("spotTrader.spotBalance(0)", PrecompileLib.spotBalance(address(spotTrader), 0).total);
+
+        CoreSimulatorLib.nextBlock();
+
+        console.log("spotTrader.spotBalance(254)", PrecompileLib.spotBalance(address(spotTrader), 254).total);
+        console.log("spotTrader.spotBalance(0)", PrecompileLib.spotBalance(address(spotTrader), 0).total);
+    }
+}
+
+
+contract SpotTrader {
+    function placeLimitOrder(uint32 asset, bool isBuy, uint64 limitPx, uint64 sz, bool reduceOnly, uint128 cloid) public {
+        CoreWriterLib.placeLimitOrder(asset, isBuy, limitPx, sz, reduceOnly, HLConstants.LIMIT_ORDER_TIF_IOC, cloid);
+    }
+
+    function bridgeToCore(address asset, uint64 amount) public {
+        CoreWriterLib.bridgeToCore(asset, amount);
     }
 }
 

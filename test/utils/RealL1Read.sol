@@ -231,9 +231,9 @@ library RealL1Read {
         return abi.decode(result, (PerpAssetInfo));
     }
 
-    function spotInfo(uint32 spot) internal returns (SpotInfo memory) {
+    function spotInfo(uint32 spot) internal returns (PrecompileLib.SpotInfo memory) {
         bytes memory result = _makeRpcCall(SPOT_INFO_PRECOMPILE_ADDRESS, abi.encode(spot));
-        return abi.decode(result, (SpotInfo));
+        return abi.decode(result, (PrecompileLib.SpotInfo));
     }
 
     function tokenInfo(uint32 token) internal returns (PrecompileLib.TokenInfo memory) {

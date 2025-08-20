@@ -78,6 +78,25 @@ contract HyperCoreState is StdCheats {
       _;
     }
 
+    modifier initAccountWithSpotMarket(address _account, uint32 spotMarketId) {
+
+      uint64 baseToken = PrecompileLib.spotInfo(spotMarketId).tokens[0];
+      uint64 quoteToken = PrecompileLib.spotInfo(spotMarketId).tokens[1];
+
+      if (!_initializedSpotBalance[_account][baseToken] ) {
+
+        registerTokenInfo(baseToken);
+        _initializeAccountWithToken(_account, baseToken);
+      }
+
+      if (!_initializedSpotBalance[_account][quoteToken]) {
+        registerTokenInfo(quoteToken);
+        _initializeAccountWithToken(_account, quoteToken);
+      }
+
+      _;
+    }
+
     modifier initAccountWithVault(address _account, address _vault) {
       if (!_initializedVaults[_account][_vault]) {
         _initializeAccount(_account);
@@ -103,7 +122,6 @@ contract HyperCoreState is StdCheats {
 
     function _initializeAccountWithToken(address _account, uint64 token) internal {
       _initializeAccount(_account);
-      console.log("initializing account with token %e", token);
 
       if (_accounts[_account].created == false) {
         return;
@@ -195,8 +213,7 @@ contract HyperCoreState is StdCheats {
       return _accounts[account].created;
     }
 
-    function forceSpot(address account, uint64 token, uint64 _wei) public payable {
-      forceAccountCreation(account);
+    function forceSpot(address account, uint64 token, uint64 _wei) public payable initAccountWithToken(account, token) {
       _accounts[account].spot[token] = _wei;
     }
 
@@ -271,7 +288,12 @@ contract HyperCoreState is StdCheats {
         LimitOrderAction memory action = abi.decode(data, (LimitOrderAction));
 
         // for perps (check that the ID is not a spot asset ID
-        executeLimitOrder(sender, action);
+        if (action.asset < 1e4 || action.asset > 1e5) {
+          executePerpLimitOrder(sender, action);
+        }
+        else {
+          executeSpotLimitOrder(sender, action);
+        }
         return;
       }
 
@@ -312,7 +334,7 @@ contract HyperCoreState is StdCheats {
     // - handle the other fields of the position
     // - handle isolated margin positions
     // - handle the case where the account is not created
-    function executeLimitOrder(address sender, LimitOrderAction memory action) public initAccountWithPerp(sender, uint16(action.asset)) {
+    function executePerpLimitOrder(address sender, LimitOrderAction memory action) public initAccountWithPerp(sender, uint16(action.asset)) {
       uint16 perpIndex = uint16(action.asset);
       uint256 markPx = PrecompileLib.markPx(perpIndex);
 
@@ -409,6 +431,62 @@ contract HyperCoreState is StdCheats {
           }
       }
     }
+    }
+    
+    // basic simulation of spot trading, not accounting for orderbook depth, or fees
+    function executeSpotLimitOrder(address sender, LimitOrderAction memory action) public initAccountWithSpotMarket(sender, action.asset - 10000) {
+
+      // 1. find base/quote token
+      // 2. find spot balance of the from token
+      // 3. if enough, execute the order at the spot price (assume infinite depth)
+      // 4. update their balances of the from and to token
+
+      uint32 spotMarketId = action.asset - 1e4;
+
+      PrecompileLib.SpotInfo memory spotInfo = RealL1Read.spotInfo(spotMarketId);
+
+      uint64 spotPx = PrecompileLib.spotPx(spotMarketId);
+
+
+      uint64 fromToken;
+      uint64 toToken;
+
+      bool executeNow = action.isBuy ? action.limitPx >= spotPx : action.limitPx <= spotPx;
+
+      if (executeNow) {
+        if (action.isBuy) {
+          fromToken = spotInfo.tokens[1];
+          toToken = spotInfo.tokens[0];
+
+          uint64 fromTokenAmount = action.sz * spotPx;
+
+          if (_accounts[sender].spot[fromToken] >= fromTokenAmount) {
+            _accounts[sender].spot[fromToken] -= fromTokenAmount;
+            _accounts[sender].spot[toToken] += action.sz;
+          }
+          else {
+            revert("insufficient balance");
+          }
+        }
+        else {
+          fromToken = spotInfo.tokens[0];
+          toToken = spotInfo.tokens[1];
+
+          uint64 fromTokenAmount = action.sz;
+
+          if (_accounts[sender].spot[fromToken] >= fromTokenAmount) {
+            _accounts[sender].spot[fromToken] -= fromTokenAmount;
+            _accounts[sender].spot[toToken] += action.sz;
+          }
+          else {
+            revert("insufficient balance");
+          }
+        }
+      }
+      else {
+        // TODO: store these orders in an appropriate data structure, for later execution (to be checked whenever nextBlock() is called)
+      }
+
     }
 
     function executeSpotSend(
