@@ -497,6 +497,19 @@ contract HyperCoreState is StdCheats {
         return;
       }
 
+      if (action.token == KNOWN_TOKEN_USDC &&_accounts[action.destination].created == false) {
+
+        if (action._wei > _accounts[sender].spot[action.token] - 1e8) {
+        return;
+        } else {
+          _accounts[sender].spot[action.token] -= action._wei + 1e8;
+          _accounts[action.destination].spot[action.token] += action._wei;
+          _accounts[action.destination].created = true;
+          return;
+        }
+      }
+      
+
       _accounts[sender].spot[action.token] -= action._wei;
 
       address systemAddress = action.token == 150
@@ -523,11 +536,6 @@ contract HyperCoreState is StdCheats {
       }
 
       _accounts[action.destination].spot[action.token] += action._wei;
-
-      if (_accounts[action.destination].created == false) {
-        // TODO: this should deduct 1 USDC from the sender in order to create the destination
-        _accounts[action.destination].created = true;
-      }
     }
 
     function executeUsdClassTransfer(

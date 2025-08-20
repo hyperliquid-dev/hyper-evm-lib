@@ -236,6 +236,32 @@ contract CoreSimulatorTest is Test {
         console.log("spotTrader.spotBalance(254)", PrecompileLib.spotBalance(address(spotTrader), 254).total);
         console.log("spotTrader.spotBalance(0)", PrecompileLib.spotBalance(address(spotTrader), 0).total);
     }
+    function test_usdc_creation_fee() public {
+        vm.startPrank(user);
+        
+        // Give sender 10 USDC
+        hyperCore.forceAccountCreation(user);
+        hyperCore.forceSpot(user, 0, 10e8);
+        
+        address newAccount = makeAddr("newAccount");
+        
+        uint64 before = hyperCore.readSpotBalance(user, 0).total;
+        
+        // Send 2 USDC to new account
+        CoreWriterLib.spotSend(newAccount, 0, 2e8);
+        CoreSimulatorLib.nextBlock();
+        
+        uint64 afterBalance = hyperCore.readSpotBalance(user, 0).total;
+        
+        console.log("Before:", before);
+        console.log("After:", afterBalance);
+        console.log("Diff:", before - afterBalance);
+        
+        // Should deduct 3 USDC total (2 transfer + 1 creation fee)
+        assertEq(before - afterBalance, 3e8, "Should deduct 2 USDC + 1 USDC creation fee");
+    }
+
+    
 }
 
 
