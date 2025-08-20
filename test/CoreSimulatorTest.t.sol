@@ -250,7 +250,6 @@ contract SpotTrader {
 }
 
 // TODO:
-// - have initial data stored in Core (ntl for spotBalance, etc (can be done by querying the respective precompiles for initial balance/price if its the first time retrieving that data))
-// - make it so that every time we read or update a user's spot/perp balance, we update the ntl using the current info
+// - make it so that every time we read or update a user's spot/perp balance, we provide the up-to-date ntl using the current price info
 // - experiment with archive node and calling precompiles from older, specific block.number (instead of latest by default)
-// - enable trading spot/perps
+// - clean up the contract, potentially using libs or abstract contracts to separate logic
