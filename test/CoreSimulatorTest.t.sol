@@ -251,7 +251,7 @@ contract CoreSimulatorTest is Test {
         console.log("Current spot price for market 156:", currentSpotPx);
 
         // Place a buy order with limit price below current spot price (won't execute immediately)
-        uint64 limitPx = currentSpotPx - 100; // Set limit price below current price
+        uint64 limitPx = currentSpotPx / 2; // Set limit price below current price
         console.log("Placing buy order with limit price:", limitPx);
         console.log("Expected executeNow for buy order:", limitPx >= currentSpotPx ? "true" : "false");
         
@@ -277,6 +277,47 @@ contract CoreSimulatorTest is Test {
         console.log("After price update - spotTrader.spotBalance(254):", PrecompileLib.spotBalance(address(spotTrader), 254).total);
         console.log("After price update - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total);
     }
+    
+    function test_LimitOrderSell() public {
+        vm.startPrank(user);
+        SpotTrader spotTrader = new SpotTrader();
+        hyperCore.forceAccountCreation(address(spotTrader));
+        hyperCore.forceAccountCreation(address(user));
+        hyperCore.forceSpot(address(spotTrader), 0, 1e18);
+        hyperCore.forceSpot(address(spotTrader), 254, 1e18);
+
+        // Log the current spot price before placing order
+        uint32 spotMarketId = 156;
+        uint64 currentSpotPx = PrecompileLib.spotPx(spotMarketId);
+        console.log("Current spot price for market 156:", currentSpotPx);
+
+        // Place a sell order with limit price above current spot price (won't execute immediately)
+        uint64 limitPx = currentSpotPx * 2; // Set limit price above current price
+        console.log("Placing sell order with limit price:", limitPx);
+        
+        spotTrader.placeLimitOrderGTC(10000 + spotMarketId, false, limitPx, 1e2, false, 1);
+
+        // log spot balance of spotTrader before any execution
+        console.log("Before execution - spotTrader.spotBalance(254):", PrecompileLib.spotBalance(address(spotTrader), 254).total);
+        console.log("Before execution - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total);
+
+        CoreSimulatorLib.nextBlock();
+
+        // Check balances after first block - order should still be pending
+        console.log("After first block - spotTrader.spotBalance(254):", PrecompileLib.spotBalance(address(spotTrader), 254).total);
+        console.log("After first block - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total);
+
+        // Now update the price to match the order's limit price
+        console.log("Updating spot price to:", limitPx);
+        hyperCore.setSpotPx(spotMarketId, limitPx);
+        
+        CoreSimulatorLib.nextBlock();
+
+        // Check balances after price change - order should now execute
+        console.log("After price update - spotTrader.spotBalance(254):", PrecompileLib.spotBalance(address(spotTrader), 254).total);
+        console.log("After price update - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total);
+    }
+
     function test_usdc_creation_fee() public {
         vm.startPrank(user);
         
