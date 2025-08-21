@@ -93,6 +93,9 @@ library CoreSimulatorLib {
 
         // Process any pending actions
         coreWriter.flushActionQueue();
+        
+        // Process pending orders
+        hyperCore.processPendingOrders();
     }
 
     function isSystemAddress(address addr) internal view returns (bool) {

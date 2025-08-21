@@ -57,10 +57,18 @@ contract HyperCoreState is StdCheats {
     mapping(address account => mapping(address vault => bool initialized)) private _initializedVaults;
 
     mapping(address account => mapping(uint32 perpIndex => uint64 markPrice)) private _perpMarkPrice;
+    mapping(address account => mapping(uint32 spotMarketId => uint64 spotPrice)) private _spotPrice;
 
     mapping(address vault => uint64) private _vaultEquity;
 
     DoubleEndedQueue.Bytes32Deque private _withdrawQueue;
+    
+    struct PendingOrder {
+        address sender;
+        LimitOrderAction action;
+    }
+    
+    PendingOrder[] private _pendingOrders;
 
     EnumerableSet.AddressSet private _validators;
 
@@ -445,15 +453,16 @@ contract HyperCoreState is StdCheats {
 
       PrecompileLib.SpotInfo memory spotInfo = RealL1Read.spotInfo(spotMarketId);
 
-      uint64 spotPx = PrecompileLib.spotPx(spotMarketId);
+      uint64 spotPx = readSpotPx(spotMarketId);
 
 
       uint64 fromToken;
       uint64 toToken;
 
-      bool executeNow = action.isBuy ? action.limitPx >= spotPx : action.limitPx <= spotPx;
+      bool executeNow = isActionExecutable(action, spotPx);
 
       if (executeNow) {
+        console.log("EXECUTING ORDER!");
         if (action.isBuy) {
           fromToken = spotInfo.tokens[1];
           toToken = spotInfo.tokens[0];
@@ -484,7 +493,11 @@ contract HyperCoreState is StdCheats {
         }
       }
       else {
-        // TODO: store these orders in an appropriate data structure, for later execution (to be checked whenever nextBlock() is called)
+        console.log("ORDER GOING TO PENDING!");
+        _pendingOrders.push(PendingOrder({
+          sender: sender,
+          action: action
+        }));
       }
 
     }
@@ -648,6 +661,10 @@ contract HyperCoreState is StdCheats {
     function setMarkPx(uint32 perp, uint64 markPx) public {
       _perpMarkPrice[msg.sender][perp] = markPx;
     }
+    
+    function setSpotPx(uint32 spotMarketId, uint64 spotPx) public {
+      _spotPrice[msg.sender][spotMarketId] = spotPx;
+    }
 
     function readMarkPx(uint32 perp) public returns (uint64) {
 
@@ -656,6 +673,14 @@ contract HyperCoreState is StdCheats {
       }
 
       return _perpMarkPrice[msg.sender][perp];
+    }
+    
+    function readSpotPx(uint32 spotMarketId) public returns (uint64) {
+      if (_spotPrice[msg.sender][spotMarketId] == 0) {
+        return PrecompileLib.spotPx(spotMarketId);
+      }
+      
+      return _spotPrice[msg.sender][spotMarketId];
     }
     
     function readSpotBalance(address account, uint64 token) public returns (PrecompileLib.SpotBalance memory) {
@@ -723,6 +748,26 @@ contract HyperCoreState is StdCheats {
     }
 
 
+    function isActionExecutable(LimitOrderAction memory action, uint64 px) private pure returns (bool) {
+      bool executable = action.isBuy ? action.limitPx >= px : action.limitPx <= px;
+      return executable;
+    }
+    
+    function processPendingOrders() public {
+      for (uint256 i = _pendingOrders.length; i > 0; i--) {
+        PendingOrder memory order = _pendingOrders[i - 1];
+        uint32 spotMarketId = order.action.asset - 1e4;
+        uint64 spotPx = readSpotPx(spotMarketId);
+        
+        if (isActionExecutable(order.action, spotPx)) {
+          executeSpotLimitOrder(order.sender, order.action);
+          
+          // Remove executed order by swapping with last and popping
+          _pendingOrders[i - 1] = _pendingOrders[_pendingOrders.length - 1];
+          _pendingOrders.pop();
+        }
+      }
+    }
 
     //////// conversions ////////
 
