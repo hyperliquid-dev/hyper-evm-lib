@@ -44,7 +44,7 @@ contract HyperCoreState is StdCheats {
     struct AccountData {
       bool created;
       uint64 perp;
-      mapping(uint64 => uint64) spot;
+      mapping(uint64 token => uint64 balance) spot;
       mapping(address vault => PrecompileLib.UserVaultEquity) vaultEquity;
       uint64 staking;
       mapping(address validator => PrecompileLib.Delegation) delegations;
@@ -53,7 +53,11 @@ contract HyperCoreState is StdCheats {
 
     mapping(address account => AccountData) private _accounts;
     mapping(address account => bool initialized) private _initializedAccounts;
+    
     mapping(address account => mapping(uint64 token => bool initialized)) private _initializedSpotBalance;
+    mapping(address account => mapping(uint64 token => uint64 latentBalance)) private _latentSpotBalance;
+
+
     mapping(address account => mapping(address vault => bool initialized)) private _initializedVaults;
 
     mapping(address account => mapping(uint32 perpIndex => uint64 markPrice)) private _perpMarkPrice;
@@ -281,14 +285,23 @@ contract HyperCoreState is StdCheats {
       uint64 token,
       address from,
       uint256 value
-    ) public payable whenAccountCreated(from) initAccountWithToken(from, token) {
-      _accounts[from].spot[token] += toWei(value, _tokens[token].evmExtraWeiDecimals);
+    ) public payable initAccountWithToken(from, token) {
+      if (_accounts[from].created) {
+        _accounts[from].spot[token] += toWei(value, _tokens[token].evmExtraWeiDecimals);
+      }
+      else {
+        _latentSpotBalance[from][token] += toWei(value, _tokens[token].evmExtraWeiDecimals);
+      }
     }
 
-    //TODO: currently if accountCreated==false, then it wont increment balance. but then even once its activated, the funds are lost. instead- the funds should be simply hidden and unusable until the account is created.
-    //@i have a new mapping for waiting balances, which is set to the real balance once the account is created
-    function executeNativeTransfer(address, address from, uint256 value) public payable whenAccountCreated(from) initAccountWithToken(from, KNOWN_TOKEN_HYPE) {
-      _accounts[from].spot[KNOWN_TOKEN_HYPE] += (value / 1e10).toUint64();
+    function executeNativeTransfer(address, address from, uint256 value) public payable initAccountWithToken(from, KNOWN_TOKEN_HYPE) {
+
+      if (_accounts[from].created) {
+        _accounts[from].spot[KNOWN_TOKEN_HYPE] += (value / 1e10).toUint64();
+      }
+      else {
+        _latentSpotBalance[from][KNOWN_TOKEN_HYPE] += (value / 1e10).toUint64();
+      }
     }
 
     function executeRawAction(address sender, uint24 kind, bytes calldata data) public payable {
@@ -502,6 +515,13 @@ contract HyperCoreState is StdCheats {
 
     }
 
+    function _initializeSpotBalance(address account, uint64 token) private {
+      if (_initializedSpotBalance[account][token] == false) {
+        _accounts[account].spot[token] = _latentSpotBalance[account][token];
+        _initializedSpotBalance[account][token] = true;
+      }
+    }
+
     function executeSpotSend(
       address sender,
       SpotSendAction memory action
@@ -509,25 +529,35 @@ contract HyperCoreState is StdCheats {
       if (action._wei > _accounts[sender].spot[action.token]) {
         return;
       }
-
-      if (action.token == KNOWN_TOKEN_USDC &&_accounts[action.destination].created == false) {
-
-        if (action._wei > _accounts[sender].spot[action.token] - 1e8) {
-        return;
-        } else {
-          _accounts[sender].spot[action.token] -= action._wei + 1e8;
-          _accounts[action.destination].spot[action.token] += action._wei;
-          _accounts[action.destination].created = true;
-          return;
-        }
-      }
       
+      // handle account activation case
+      if (_accounts[action.destination].created == false) {
 
-      _accounts[sender].spot[action.token] -= action._wei;
+        _chargeUSDCFee(sender);
+
+        _accounts[action.destination].created = true;
+  
+        _accounts[sender].spot[action.token] -= action._wei;
+        _accounts[action.destination].spot[action.token] += _latentSpotBalance[sender][action.token] + action._wei;
+
+        // this will no longer be needed
+        _latentSpotBalance[sender][action.token] = 0;
+
+        // officially init the destination account
+        _initializedAccounts[action.destination] = true;
+        _initializedSpotBalance[action.destination][action.token] = true;
+        return;
+        
+      }
 
       address systemAddress = action.token == 150
         ? 0x2222222222222222222222222222222222222222
         : address(uint160(address(0x2000000000000000000000000000000000000000)) + action.token);
+
+
+      _accounts[sender].spot[action.token] -= action._wei;
+
+      
 
       if (action.destination == systemAddress) {
 
@@ -549,6 +579,18 @@ contract HyperCoreState is StdCheats {
       }
 
       _accounts[action.destination].spot[action.token] += action._wei;
+    }
+
+    function _chargeUSDCFee(address sender) private {
+      if (_accounts[sender].spot[KNOWN_TOKEN_USDC] >= 1e8) {
+        _accounts[sender].spot[KNOWN_TOKEN_USDC] -= 1e8;
+      }
+      else if (_accounts[sender].perp >= 1e8) {
+        _accounts[sender].perp -= 1e8;
+      }
+      else {
+        revert("insufficient USDC balance for fee");
+      }
     }
 
     function executeUsdClassTransfer(
