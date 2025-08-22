@@ -60,10 +60,7 @@ contract CoreWriterSim {
                 break;
             }
 
-            // TODO: have an option to revert upon failure when flushing queue, for testing purposes
-
             (bool success, ) = address(_hyperCore).call{value: action.value}(action.data);
-
 
             if (revertOnFailure && !success) {
                 revert("CoreWriter action failed: Reverting due to custom test functionality");
