@@ -56,8 +56,9 @@ contract CoreExecution is CoreView {
     }
 
 
+
+
     // TODO:
-    // - split into helper functions
     // - handle the other fields of the position
     // - handle isolated margin positions
     function executePerpLimitOrder(address sender, LimitOrderAction memory action) public initAccountWithPerp(sender, uint16(action.asset)) {
@@ -66,97 +67,108 @@ contract CoreExecution is CoreView {
 
       if (action.isBuy) {
         if (markPx <= action.limitPx) {
-          // Check if there's an existing short position
-          int64 szi = _accounts[sender].positions[perpIndex].szi;
-          uint32 leverage = _accounts[sender].positions[perpIndex].leverage;
-
-          if (szi < 0) {
-
-            int64 newSzi = szi + int64(action.sz);
-
-            if (newSzi <= 0) {
-              // this means were reducing the short
-              _accounts[sender].positions[perpIndex].szi += int64(action.sz);
-              _accounts[sender].positions[perpIndex].entryNtl *= uint64(-newSzi) / uint64(-szi);
-              _accounts[sender].perp += action.sz * uint64(markPx) / leverage;
-            }
-            else {
-              // this means were closing the short and opening a long
-
-              uint64 oldMargin = _accounts[sender].positions[perpIndex].entryNtl / leverage;
-
-              uint64 newMargin = uint64(newSzi) * uint64(markPx) / leverage;
-              int64 marginDelta = int64(newMargin) - int64(oldMargin);
-              
-
-              _accounts[sender].positions[perpIndex].szi += int64(action.sz);
-              _accounts[sender].positions[perpIndex].entryNtl = uint64(newSzi) * uint64(markPx);
-
-              if (marginDelta > 0) {
-                // we need more margin
-                _accounts[sender].perp -= uint64(marginDelta);
-              }
-              else {
-                _accounts[sender].perp += uint64(-marginDelta);
-              }
-            }
-          } 
-          else {
-            console.log("increasing long position, @px=%e", markPx);
-            // this means were just increasing the long position
-            _accounts[sender].positions[perpIndex].szi += int64(action.sz);
-            _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
-
-            _accounts[sender].perp -= uint64(action.sz) * uint64(markPx) / leverage;
-          }
+          _executePerpLong(sender, action, markPx);
         }
       } 
       else {
         if (markPx >= action.limitPx) {
-          // check for an existing long position
-          int64 szi = _accounts[sender].positions[perpIndex].szi;
-          uint32 leverage = _accounts[sender].positions[perpIndex].leverage;
-
-          if (szi <= 0) {
-            // we are just increasing the short
-
-            _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
-            _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
-            _accounts[sender].perp -= uint64(action.sz) * uint64(markPx) / leverage;
-            
-          }
-          else {
-            
-            int64 newSzi = szi - int64(action.sz);
-
-            if (newSzi >= 0) {
-              // we are reducing a long
-              _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
-              _accounts[sender].positions[perpIndex].entryNtl *= uint64(newSzi) / uint64(szi);
-              _accounts[sender].perp += action.sz * uint64(markPx) / leverage;
-
-            }
-            else {
-              // we are closing the long and opening a short
-
-              uint64 oldMargin = _accounts[sender].positions[perpIndex].entryNtl / leverage;
-
-              uint64 newMargin = uint64(-newSzi) * uint64(markPx) / leverage;
-              int64 marginDelta = int64(newMargin) - int64(oldMargin);
-
-              if (marginDelta > 0) {
-                _accounts[sender].perp -= uint64(marginDelta);
-              }
-              else {
-                _accounts[sender].perp += uint64(-marginDelta);
-              }
-
-              _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
-              _accounts[sender].positions[perpIndex].entryNtl = uint64(-newSzi) * uint64(markPx);
-            }
-          }
+          _executePerpShort(sender, action, markPx);
+        }
       }
     }
+
+
+        function _executePerpLong(address sender, LimitOrderAction memory action, uint256 markPx) internal {
+      uint16 perpIndex = uint16(action.asset);
+
+      // Check if there's an existing short position
+      int64 szi = _accounts[sender].positions[perpIndex].szi;
+      uint32 leverage = _accounts[sender].positions[perpIndex].leverage;
+
+      if (szi < 0) {
+
+        int64 newSzi = szi + int64(action.sz);
+
+        if (newSzi <= 0) {
+          // this means were reducing the short
+          _accounts[sender].positions[perpIndex].szi += int64(action.sz);
+          _accounts[sender].positions[perpIndex].entryNtl *= uint64(-newSzi) / uint64(-szi);
+          _accounts[sender].perp += action.sz * uint64(markPx) / leverage;
+        }
+        else {
+          // this means were closing the short and opening a long
+
+          uint64 oldMargin = _accounts[sender].positions[perpIndex].entryNtl / leverage;
+
+          uint64 newMargin = uint64(newSzi) * uint64(markPx) / leverage;
+          int64 marginDelta = int64(newMargin) - int64(oldMargin);
+          
+
+          _accounts[sender].positions[perpIndex].szi += int64(action.sz);
+          _accounts[sender].positions[perpIndex].entryNtl = uint64(newSzi) * uint64(markPx);
+
+          if (marginDelta > 0) {
+            // we need more margin
+            _accounts[sender].perp -= uint64(marginDelta);
+          }
+          else {
+            _accounts[sender].perp += uint64(-marginDelta);
+          }
+        }
+      } 
+      else {
+        console.log("increasing long position, @px=%e", markPx);
+        // this means were just increasing the long position
+        _accounts[sender].positions[perpIndex].szi += int64(action.sz);
+        _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
+
+        _accounts[sender].perp -= uint64(action.sz) * uint64(markPx) / leverage;
+      }
+    }
+
+    function _executePerpShort(address sender, LimitOrderAction memory action, uint256 markPx) internal {
+      uint16 perpIndex = uint16(action.asset);
+      // check for an existing long position
+      int64 szi = _accounts[sender].positions[perpIndex].szi;
+      uint32 leverage = _accounts[sender].positions[perpIndex].leverage;
+
+      if (szi <= 0) {
+        // we are just increasing the short
+
+        _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
+        _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
+        _accounts[sender].perp -= uint64(action.sz) * uint64(markPx) / leverage;
+        
+      }
+      else {
+        int64 newSzi = szi - int64(action.sz);
+
+        if (newSzi >= 0) {
+          // we are reducing a long
+          _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
+          _accounts[sender].positions[perpIndex].entryNtl *= uint64(newSzi) / uint64(szi);
+          _accounts[sender].perp += action.sz * uint64(markPx) / leverage;
+
+        }
+        else {
+          // we are closing the long and opening a short
+
+          uint64 oldMargin = _accounts[sender].positions[perpIndex].entryNtl / leverage;
+
+          uint64 newMargin = uint64(-newSzi) * uint64(markPx) / leverage;
+          int64 marginDelta = int64(newMargin) - int64(oldMargin);
+
+          if (marginDelta > 0) {
+            _accounts[sender].perp -= uint64(marginDelta);
+          }
+          else {
+            _accounts[sender].perp += uint64(-marginDelta);
+          }
+
+          _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
+          _accounts[sender].positions[perpIndex].entryNtl = uint64(-newSzi) * uint64(markPx);
+        }
+      }
     }
     
     // basic simulation of spot trading, not accounting for orderbook depth, or fees
@@ -429,4 +441,8 @@ contract CoreExecution is CoreView {
         }
       }
     }
+
+
+
+    
 }
