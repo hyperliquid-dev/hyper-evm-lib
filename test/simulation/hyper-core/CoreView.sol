@@ -17,18 +17,10 @@ contract CoreView is CoreState {
     using EnumerableSet for EnumerableSet.AddressSet;
     using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
     using SafeCast for uint256;
-    function readTokenInfo(uint32 token) public view returns (PrecompileLib.TokenInfo memory) {
-      if (tokenExists(token)) {
-        return _tokens[token];
-      }
-
-      return RealL1Read.tokenInfo(token);
-    }
 
     function tokenExists(uint32 token) public view returns (bool) {
       return bytes(_tokens[token].name).length > 0;
     }
-
     
     function readMarkPx(uint32 perp) public returns (uint64) {
 
@@ -40,6 +32,7 @@ contract CoreView is CoreState {
     }
     
     function readSpotPx(uint32 spotMarketId) public returns (uint64) {
+      
       if (_spotPrice[spotMarketId] == 0) {
         return PrecompileLib.spotPx(spotMarketId);
       }

@@ -55,26 +55,32 @@ contract CoreExecution is CoreView {
       }
     }
 
-
-
-
     // TODO:
     // - handle the other fields of the position
     // - handle isolated margin positions
     function executePerpLimitOrder(address sender, LimitOrderAction memory action) public initAccountWithPerp(sender, uint16(action.asset)) {
       uint16 perpIndex = uint16(action.asset);
+      PrecompileLib.Position memory position = _accounts[sender].positions[perpIndex];
+
+      bool isolated = position.isIsolated;
+
       uint256 markPx = PrecompileLib.markPx(perpIndex);
 
-      if (action.isBuy) {
-        if (markPx <= action.limitPx) {
-          _executePerpLong(sender, action, markPx);
-        }
-      } 
-      else {
-        if (markPx >= action.limitPx) {
-          _executePerpShort(sender, action, markPx);
+
+      if (!isolated) {
+        if (action.isBuy) {
+          if (markPx <= action.limitPx) {
+            _executePerpLong(sender, action, markPx);
+          }
+        } 
+        else {
+          if (markPx >= action.limitPx) {
+            _executePerpShort(sender, action, markPx);
+          }
         }
       }
+
+     
     }
 
 
