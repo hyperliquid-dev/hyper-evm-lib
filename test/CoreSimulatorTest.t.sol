@@ -6,7 +6,7 @@ import {PrecompileLib} from "../src/PrecompileLib.sol";
 import {HLConversions} from "../src/common/HLConversions.sol";
 import {HLConstants} from "../src/common/HLConstants.sol";
 import {BridgingExample} from "../src/examples/BridgingExample.sol";
-import {HyperCoreState} from "./simulation/HyperCoreState.sol";
+import {HyperCore} from "./simulation/HyperCore.sol";
 import {L1Read} from "./utils/L1Read.sol";
 import {HypeTradingContract} from "./utils/HypeTradingContract.sol";
 import {CoreSimulatorLib} from "./simulation/CoreSimulatorLib.sol";
@@ -22,7 +22,7 @@ contract CoreSimulatorTest is Test {
     address public constant uETH = 0xBe6727B535545C67d5cAa73dEa54865B92CF7907;
     address public constant uSOL = 0x068f321Fa8Fb9f0D135f290Ef6a3e2813e1c8A29;
 
-    HyperCoreState public hyperCore;
+    HyperCore public hyperCore;
     address public user = makeAddr("user");
 
     BridgingExample public bridgingExample;
@@ -364,4 +364,3 @@ contract SpotTrader {
 // TODO:
 // - make it so that every time we read or update a user's spot/perp balance, we provide the up-to-date ntl using the current price info
 // - experiment with archive node and calling precompiles from older, specific block.number (instead of latest by default)
-// - clean up the contract, potentially using libs or abstract contracts to separate logic

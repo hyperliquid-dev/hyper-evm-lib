@@ -5,7 +5,7 @@ import {Vm} from "forge-std/Vm.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {console} from "forge-std/console.sol";
 
-import {HyperCoreState} from "./HyperCoreState.sol";
+import {HyperCore} from "./HyperCore.sol";
 import {CoreWriterSim} from "./CoreWriterSim.sol";
 import {PrecompileSim} from "./PrecompileSim.sol";
 import {HLConstants} from "src/PrecompileLib.sol";
@@ -26,15 +26,15 @@ contract HypeSystemContract {
 library CoreSimulatorLib {
     uint256 constant NUM_PRECOMPILES = 17;
 
-    HyperCoreState constant hyperCore = HyperCoreState(payable(0x9999999999999999999999999999999999999999));
+    HyperCore constant hyperCore = HyperCore(payable(0x9999999999999999999999999999999999999999));
 
     // ERC20 Transfer event signature
     bytes32 constant TRANSFER_EVENT_SIG = keccak256("Transfer(address,address,uint256)");
 
-    function init() internal returns (HyperCoreState) {
+    function init() internal returns (HyperCore) {
         vm.pauseGasMetering();
 
-        vm.etch(address(hyperCore), type(HyperCoreState).runtimeCode);
+        vm.etch(address(hyperCore), type(HyperCore).runtimeCode);
         vm.etch(address(coreWriter), type(CoreWriterSim).runtimeCode);
 
         // Initialize precompiles
@@ -122,14 +122,6 @@ library CoreSimulatorLib {
             return 150; // HYPE token index
         }
         return uint64(uint160(systemAddr) - uint160(0x2000000000000000000000000000000000000000));
-    }
-
-    function getSystemAddress(uint64 index) internal pure returns (address) {
-        if (index == 150) {
-            // HYPE token
-            return address(0x2222222222222222222222222222222222222222);
-        }
-        return address(uint160(0x2000000000000000000000000000000000000000) + index);
     }
 
     function tokenExists(uint64 token) internal view returns (bool) {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {HyperCoreState} from "./HyperCoreState.sol";
+import {HyperCore} from "./HyperCore.sol";
 
 import {Vm} from "forge-std/Vm.sol";
 import {console} from "forge-std/console.sol";
@@ -9,7 +9,7 @@ import {console} from "forge-std/console.sol";
 /// @dev this contract is deployed for each different precompile address such that the fallback can be executed for each
 contract PrecompileSim {
     Vm internal constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
-    HyperCoreState constant _hyperCore = HyperCoreState(payable(0x9999999999999999999999999999999999999999));
+    HyperCore constant _hyperCore = HyperCore(payable(0x9999999999999999999999999999999999999999));
 
     address constant POSITION_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000800;
     address constant SPOT_BALANCE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000801;

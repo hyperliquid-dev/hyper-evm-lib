@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Heap} from "@openzeppelin/contracts/utils/structs/Heap.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {HyperCoreState} from "./HyperCoreState.sol";
+import {HyperCore, CoreExecution} from "./HyperCore.sol";
 import {console} from "forge-std/console.sol";
 import {HLConstants} from "src/CoreWriterLib.sol";
 
@@ -25,7 +25,7 @@ contract CoreWriterSim {
 
     event RawAction(address indexed user, bytes data);
 
-    HyperCoreState constant _hyperCore = HyperCoreState(payable(0x9999999999999999999999999999999999999999));
+    HyperCore constant _hyperCore = HyperCore(payable(0x9999999999999999999999999999999999999999));
 
 
     function enqueueAction(bytes memory data, uint256 value) public {
@@ -49,7 +49,6 @@ contract CoreWriterSim {
             if (action.timestamp > block.timestamp) {
                 break;
             }
-            
 
             // TODO: have an option to revert upon failure when flushing queue, for testing purposes
 
@@ -70,11 +69,11 @@ contract CoreWriterSim {
     }
 
     function tokenTransferCallback(address sender, uint64 token, address from, uint256 value) public {
-        enqueueAction(abi.encodeCall(HyperCoreState.executeTokenTransfer, (sender, token, from, value)), 0);
+        enqueueAction(abi.encodeCall(CoreExecution.executeTokenTransfer, (sender, token, from, value)), 0);
     }
 
     function nativeTransferCallback(address sender, address from, uint256 value) public payable {
-        enqueueAction(abi.encodeCall(HyperCoreState.executeNativeTransfer, (sender, from, value)), value);
+        enqueueAction(abi.encodeCall(CoreExecution.executeNativeTransfer, (sender, from, value)), value);
     }
 
     function sendRawAction(bytes calldata data) external {
@@ -83,7 +82,7 @@ contract CoreWriterSim {
 
         uint24 kind = (uint24(uint8(data[1])) << 16) | (uint24(uint8(data[2])) << 8) | (uint24(uint8(data[3])));
 
-        bytes memory call = abi.encodeCall(HyperCoreState.executeRawAction, (msg.sender, kind, data[4:]));
+        bytes memory call = abi.encodeCall(HyperCore.executeRawAction, (msg.sender, kind, data[4:]));
 
         enqueueAction(runAt(kind, data[4:]), call, 0);
 
