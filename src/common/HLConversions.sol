@@ -53,20 +53,22 @@ library HLConversions {
         PrecompileLib.TokenInfo memory info = PrecompileLib.tokenInfo(uint32(token));
         return amountWei / uint64(10 ** (info.weiDecimals - info.szDecimals));
     }
+    
 
-    function convertUSDC_CoreToPerp(uint64 coreAmount) internal view returns (uint64) {
-        return coreAmount / 10 ** 2;
+    // for USDC between spot and perp
+    function weiToPerp(uint64 amountWei) internal view returns (uint64) {
+        return amountWei / 10 ** 2;
     }
 
-    function convertUSDC_PerpToCore(uint64 perpAmount) internal view returns (uint64) {
+    function perpToWei(uint64 perpAmount) internal view returns (uint64) {
         return perpAmount * 10 ** 2;
     }
 
-    function spotIndexToAsset(uint64 spotIndex) internal view returns (uint64) {
-        return spotIndex + 10000;
+    function spotToAssetId(uint64 spot) internal view returns (uint64) {
+        return spot + 10000;
     }
 
-    function assetToSpotIndex(uint64 asset) internal view returns (uint64) {
+    function assetToSpotId(uint64 asset) internal view returns (uint64) {
         return asset - 10000;
     }
 }
