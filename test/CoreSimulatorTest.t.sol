@@ -220,29 +220,37 @@ contract CoreSimulatorTest is Test {
     }
 
     function test_perpTrading_profitCalc() public {
+
+        CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
         hyperCore.forceAccountCreation(address(hypeTrading));
+        vm.label(address(hypeTrading), "hypeTrading");
         hyperCore.forcePerpBalance(address(hypeTrading), 10_000e6);
 
+        uint64 startingPrice = 1000000;
+
         uint16 perp = 0; // btc
-        hyperCore.setMarkPx(perp, 100_000e3);
+        console.log("btc mark px is %e", PrecompileLib.markPx(perp));
+        hyperCore.setMarkPx(perp, startingPrice);
 
-        hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 10_0000, false, 1);
+        hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 100_000, false, 1);
 
-        hyperCore.setMarkPx(perp, 120_000e3);
 
 
         CoreSimulatorLib.nextBlock();
 
+        hyperCore.setMarkPx(perp, startingPrice * 12 / 10);
+        console.log("hypeTrading is ", address(hypeTrading));
+
+
         PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), perp);
-        assertEq(position.szi, 1 * 10_000);
+        assertEq(position.szi, 1 * 100_000);
 
 
         // short for same sz
-        hypeTrading.createLimitOrder(perp, false, 0, 1 * 10_0000, false, 2);
+        hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 2);
 
-        hyperCore.setMarkPx(perp, 90_000e3);
 
         CoreSimulatorLib.nextBlock();
 
@@ -251,6 +259,11 @@ contract CoreSimulatorTest is Test {
 
         uint64 w2 = PrecompileLib.withdrawable(address(hypeTrading));
         console.log("withdrawable", w2);
+
+        uint64 profit = w2 - 10_000e6;
+        console.log("profit: %e", profit);
+
+        console.log("profit percentage: %e", profit * 100 / 10_000e6);
 
 
         CoreSimulatorLib.nextBlock();
