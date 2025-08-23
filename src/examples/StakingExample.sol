@@ -19,7 +19,7 @@ contract StakingExample {
         hypeTokenIndex.bridgeToCore(evmAmount);
 
         // Using data from the `TokenInfo` precompile, convert EVM amount to core decimals for staking operations
-        uint64 coreAmount = HLConversions.convertEvmToCoreAmount(hypeTokenIndex, evmAmount);
+        uint64 coreAmount = HLConversions.evmToWei(hypeTokenIndex, evmAmount);
 
         // Transfer tokens to staking account
         CoreWriterLib.depositStake(coreAmount);

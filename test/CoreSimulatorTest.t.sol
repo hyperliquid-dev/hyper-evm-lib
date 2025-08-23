@@ -121,8 +121,8 @@ contract CoreSimulatorTest is Test {
         (uint64 newTotal, uint64 newHold, uint64 newEntryNtl) =
             abi.decode(abi.encode(l1Read.spotBalance(address(recipient), 150)), (uint64, uint64, uint64));
         console.log("total", newTotal);
-        console.log("rhs:", realTotal + HLConversions.convertEvmToCoreAmount(150, amountToSend));
-        assertEq(newTotal, realTotal + HLConversions.convertEvmToCoreAmount(150, amountToSend));
+        console.log("rhs:", realTotal + HLConversions.evmToWei(150, amountToSend));
+        assertEq(newTotal, realTotal + HLConversions.evmToWei(150, amountToSend));
     }
 
     function test_readSpotBalance() public {
@@ -387,7 +387,7 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.nextBlock();
 
         assertEq(address(user).balance, initialBalance - amountToBridge);
-        assertEq(PrecompileLib.spotBalance(address(user), token).total, HLConversions.convertEvmToCoreAmount(token, amountToBridge));
+        assertEq(PrecompileLib.spotBalance(address(user), token).total, HLConversions.evmToWei(token, amountToBridge));
 
 
         // sell to USDC

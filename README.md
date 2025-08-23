@@ -61,7 +61,7 @@ See the [examples](./src/examples/) directory for examples of how the libraries 
 ## Security Considerations
 
 * `bridgeToEvm()` for non-HYPE tokens requires the contract to hold HYPE on HyperCore for gas; otherwise, the `spotSend` will fail.
-* Be aware of potential precision loss in `convertEvmToCoreAmount()` when the EVM token decimals exceed Core decimals, due to integer division during downscaling.
+* Be aware of potential precision loss in `evmToWei()` when the EVM token decimals exceed Core decimals, due to integer division during downscaling.
 * Ensure that contracts are deployed with complete functionality to prevent stuck assets in Core
   * For example, implementing `bridgeToCore` but not `bridgeToEvm` can lead to stuck, unretrievable assets on HyperCore
 * Note that precompiles return data from the start of the block, so CoreWriter actions will not be reflected in precompile data until next call.

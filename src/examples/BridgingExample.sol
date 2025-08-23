@@ -79,7 +79,7 @@ contract BridgingExample {
         CoreWriterLib.bridgeToCore(tokenAddress, evmAmount);
 
         // Convert EVM amount to core amount
-        uint64 coreAmount = HLConversions.convertEvmToCoreAmount(tokenId, evmAmount);
+        uint64 coreAmount = HLConversions.evmToWei(tokenId, evmAmount);
 
         // Send tokens to recipient on core
         CoreWriterLib.spotSend(recipient, tokenId, coreAmount);
@@ -90,7 +90,7 @@ contract BridgingExample {
         CoreWriterLib.bridgeToCore(HLConstants.hypeTokenIndex(), evmAmount);
 
         // Convert EVM amount to core amount
-        uint64 coreAmount = HLConversions.convertEvmToCoreAmount(HLConstants.hypeTokenIndex(), evmAmount);
+        uint64 coreAmount = HLConversions.evmToWei(HLConstants.hypeTokenIndex(), evmAmount);
 
         // Send tokens to recipient on core
         CoreWriterLib.spotSend(recipient, HLConstants.hypeTokenIndex(), coreAmount);
