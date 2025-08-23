@@ -82,88 +82,120 @@ contract CoreExecution is CoreView {
 
     function _executePerpLong(address sender, LimitOrderAction memory action, uint256 markPx) internal {
         uint16 perpIndex = uint16(action.asset);
-
-        // Check if there's an existing short position
         int64 szi = _accounts[sender].positions[perpIndex].szi;
         uint32 leverage = _accounts[sender].positions[perpIndex].leverage;
+        
+        uint64 _markPx = uint64(markPx);
 
-        console.log("existing szi", szi);
+        // Add require checks for safety (e.g., leverage > 0, action.sz > 0, etc.)
+        require(leverage > 0, "Invalid leverage");
+        require(action.sz > 0, "Invalid size");
+        require(markPx > 0, "Invalid price");
 
-        if (szi < 0) {
+        if (szi >= 0) {
+            // No PnL realization for same-direction increase
+            // Update position size (more positive for long)
+            _accounts[sender].positions[perpIndex].szi += int64(action.sz);
+            
+            // Additive update to entryNtl to preserve weighted average
+            // New entryNtl = old_entryNtl + (action.sz * markPx)
+            _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
+            
+            // Deduct additional margin for the added size only
+            // To minimize integer truncation: (action.sz * markPx) / leverage
+            _accounts[sender].perpBalance -= (uint64(action.sz) * uint64(markPx)) / leverage;
+        } else {
             int64 newSzi = szi + int64(action.sz);
 
             if (newSzi <= 0) {
-                // this means were reducing the short
-                _accounts[sender].positions[perpIndex].szi += int64(action.sz);
-                _accounts[sender].positions[perpIndex].entryNtl *= uint64(-newSzi) / uint64(-szi);
-                _accounts[sender].perpBalance += action.sz * uint64(markPx) / leverage;
+                uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi);
+                int64 pnl = int64(action.sz) * (int64(avgEntryPrice) - int64(_markPx));
+                console.log("pnl", pnl);
+                _accounts[sender].perpBalance = pnl > 0 
+                    ? _accounts[sender].perpBalance + uint64(pnl)
+                    : _accounts[sender].perpBalance - uint64(-pnl);
+                uint64 closedMargin = (uint64(action.sz) * _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi)) / leverage;
+                _accounts[sender].perpBalance += closedMargin;
+                _accounts[sender].positions[perpIndex].szi = newSzi;
+                _accounts[sender].positions[perpIndex].entryNtl = uint64(-newSzi) * avgEntryPrice;
             } else {
-                // this means were closing the short and opening a long
-
+                uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi);
+                int64 pnl = int64(-szi) * (int64(avgEntryPrice) - int64(_markPx));
+                _accounts[sender].perpBalance = pnl > 0 
+                    ? _accounts[sender].perpBalance + uint64(pnl)
+                    : _accounts[sender].perpBalance - uint64(-pnl);
                 uint64 oldMargin = _accounts[sender].positions[perpIndex].entryNtl / leverage;
-
-                uint64 newMargin = uint64(newSzi) * uint64(markPx) / leverage;
-                int64 marginDelta = int64(newMargin) - int64(oldMargin);
-
-                _accounts[sender].positions[perpIndex].szi += int64(action.sz);
-                _accounts[sender].positions[perpIndex].entryNtl = uint64(newSzi) * uint64(markPx);
-
-                if (marginDelta > 0) {
-                    // we need more margin
-                    _accounts[sender].perpBalance -= uint64(marginDelta);
-                } else {
-                    _accounts[sender].perpBalance += uint64(-marginDelta);
-                }
+                _accounts[sender].perpBalance += oldMargin;
+                uint64 newLongSize = uint64(newSzi);
+                uint64 newMargin = newLongSize * uint64(_markPx) / leverage;
+                _accounts[sender].perpBalance -= newMargin;
+                _accounts[sender].positions[perpIndex].szi = newSzi;
+                _accounts[sender].positions[perpIndex].entryNtl = newLongSize * uint64(_markPx);
             }
-        } else {
-            console.log("increasing long position, @px=%e", markPx);
-            // this means were just increasing the long position
-            _accounts[sender].positions[perpIndex].szi += int64(action.sz);
-            _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
-
-            _accounts[sender].perpBalance -= uint64(action.sz) * uint64(markPx) / leverage;
         }
     }
 
+
+
+
     function _executePerpShort(address sender, LimitOrderAction memory action, uint256 markPx) internal {
         uint16 perpIndex = uint16(action.asset);
-        // check for an existing long position
         int64 szi = _accounts[sender].positions[perpIndex].szi;
         uint32 leverage = _accounts[sender].positions[perpIndex].leverage;
 
-        if (szi <= 0) {
-            // we are just increasing the short
+        uint64 _markPx = uint64(markPx);
 
-            _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
-            _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
-            _accounts[sender].perpBalance -= uint64(action.sz) * uint64(markPx) / leverage;
+        // Add require checks for safety (e.g., leverage > 0, action.sz > 0, etc.)
+        require(leverage > 0, "Invalid leverage");
+        require(action.sz > 0, "Invalid size");
+        require(markPx > 0, "Invalid price");
+
+
+        if (szi <= 0) {
+        // No PnL realization for same-direction increase
+        // Update position size (more negative for short)
+        _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
+        
+        // Additive update to entryNtl to preserve weighted average
+        // New entryNtl = old_entryNtl + (action.sz * markPx)
+        _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
+        
+        // Deduct additional margin for the added size only
+        // To minimize integer truncation: (action.sz * markPx) / leverage
+        _accounts[sender].perpBalance -= (uint64(action.sz) * uint64(markPx)) / leverage;
         } else {
             int64 newSzi = szi - int64(action.sz);
 
             if (newSzi >= 0) {
-                // we are reducing a long
-                _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
-                _accounts[sender].positions[perpIndex].entryNtl *= uint64(newSzi) / uint64(szi);
-                _accounts[sender].perpBalance += action.sz * uint64(markPx) / leverage;
+                uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(szi);
+                int64 pnl = int64(action.sz) * (int64(_markPx) - int64(avgEntryPrice));
+                console.log("pnl", pnl);
+                _accounts[sender].perpBalance = pnl > 0 
+                    ? _accounts[sender].perpBalance + uint64(pnl)
+                    : _accounts[sender].perpBalance - uint64(-pnl);
+                uint64 closedMargin = (uint64(action.sz) * _accounts[sender].positions[perpIndex].entryNtl / uint64(szi)) / leverage;
+                _accounts[sender].perpBalance += closedMargin;
+                _accounts[sender].positions[perpIndex].szi = newSzi;
+                _accounts[sender].positions[perpIndex].entryNtl = uint64(newSzi) * avgEntryPrice;
             } else {
-                // we are closing the long and opening a short
-
+                uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(szi);
+                int64 pnl = int64(szi) * (int64(_markPx) - int64(avgEntryPrice));
+                _accounts[sender].perpBalance = pnl > 0 
+                    ? _accounts[sender].perpBalance + uint64(pnl)
+                    : _accounts[sender].perpBalance - uint64(-pnl);
                 uint64 oldMargin = _accounts[sender].positions[perpIndex].entryNtl / leverage;
-
-                uint64 newMargin = uint64(-newSzi) * uint64(markPx) / leverage;
-                int64 marginDelta = int64(newMargin) - int64(oldMargin);
-
-                if (marginDelta > 0) {
-                    _accounts[sender].perpBalance -= uint64(marginDelta);
-                } else {
-                    _accounts[sender].perpBalance += uint64(-marginDelta);
-                }
-
-                _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
-                _accounts[sender].positions[perpIndex].entryNtl = uint64(-newSzi) * uint64(markPx);
+                _accounts[sender].perpBalance += oldMargin;
+                uint64 newShortSize = uint64(-newSzi);
+                uint64 newMargin = newShortSize * uint64(_markPx) / leverage;
+                _accounts[sender].perpBalance -= newMargin;
+                _accounts[sender].positions[perpIndex].szi = newSzi;
+                _accounts[sender].positions[perpIndex].entryNtl = newShortSize * uint64(_markPx);
             }
         }
-    }
+
+        // Optional: Add margin sufficiency check after updates
+        // e.g., require(_accounts[sender].perpBalance >= someMaintenanceMargin, "Insufficient margin");
+}
 
     // basic simulation of spot trading, not accounting for orderbook depth, or fees
     function executeSpotLimitOrder(address sender, LimitOrderAction memory action)
