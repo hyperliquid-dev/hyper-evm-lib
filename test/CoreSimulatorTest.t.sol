@@ -12,6 +12,7 @@ import {HypeTradingContract} from "./utils/HypeTradingContract.sol";
 import {CoreSimulatorLib} from "./simulation/CoreSimulatorLib.sol";
 import {RealL1Read} from "./utils/RealL1Read.sol";
 import {CoreWriterLib} from "../src/CoreWriterLib.sol";
+import {VaultExample} from "../src/examples/VaultExample.sol";
 
 contract CoreSimulatorTest is Test {
     using PrecompileLib for address;
@@ -467,6 +468,34 @@ contract CoreSimulatorTest is Test {
 
         uint256 vaultBalanceAfter = PrecompileLib.userVaultEquity(address(user), vault).equity;
         assertEq(vaultBalanceAfter, vaultDepositAmt);
+    }
+
+    function test_vaultMultiplier() public {
+        // Deploy VaultExample contract
+        VaultExample vaultExample = new VaultExample();
+        hyperCore.forceAccountCreation(address(vaultExample));
+        hyperCore.forcePerpBalance(address(vaultExample), 1000e6); // Give it some perp balance
+        
+        address testVault = 0x07Fd993f0fA3A185F7207ADcCD29f7A87404689D;
+        
+
+        uint64 depositAmount = 100e6;
+        vm.startPrank(address(vaultExample));
+        vaultExample.depositToVault(testVault, depositAmount);
+    
+        CoreSimulatorLib.nextBlock();
+        
+        
+        // Check initial vault equity
+        PrecompileLib.UserVaultEquity memory initialEquity = hyperCore.readUserVaultEquity(address(vaultExample), testVault);
+        console.log("Initial vault equity:", initialEquity.equity);
+
+    
+        // Test 10% profit (1.1x multiplier)
+        hyperCore.setVaultMultiplier(testVault, 1.1e18);
+        PrecompileLib.UserVaultEquity memory profitEquity = hyperCore.readUserVaultEquity(address(vaultExample), testVault);
+        console.log("Equity with 10% profit:", profitEquity.equity);
+    
     }
 }   
 
