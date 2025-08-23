@@ -15,7 +15,7 @@ import {CoreWriterLib} from "../src/CoreWriterLib.sol";
 
 contract CoreSimulatorTest is Test {
     using PrecompileLib for address;
-    using HLConversions for uint256;
+    using HLConversions for *;
 
     address public constant USDT0 = 0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb;
     address public constant uBTC = 0x9FDBdA0A5e284c32744D2f17Ee5c74B284993463;
@@ -397,7 +397,8 @@ contract CoreSimulatorTest is Test {
 
         uint256 usdcBalanceBefore = PrecompileLib.spotBalance(address(user), 0).total;
 
-        uint64 tradeSz = 10 * 100;
+        uint64 tradeSz = token.weiToSz(token.evmToWei(amountToBridge));
+        assertEq(tradeSz, 10 * 100);
 
         CoreWriterLib.placeLimitOrder(uint32(spot + 10000), false, 0, tradeSz, true, HLConstants.LIMIT_ORDER_TIF_IOC, 1);
 
