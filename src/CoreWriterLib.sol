@@ -129,7 +129,7 @@ library CoreWriterLib {
         PrecompileLib.UserVaultEquity memory vaultEquity = PrecompileLib.userVaultEquity(address(this), vault);
 
         return (
-            toMilliseconds(uint64(block.timestamp)) > toMilliseconds(vaultEquity.lockedUntilTimestamp),
+            toMilliseconds(uint64(block.timestamp)) > vaultEquity.lockedUntilTimestamp,
             vaultEquity.lockedUntilTimestamp
         );
     }

@@ -58,7 +58,10 @@ contract CoreView is CoreState {
         view
         returns (PrecompileLib.UserVaultEquity memory)
     {
-        return _accounts[user].vaultEquity[vault];
+        PrecompileLib.UserVaultEquity memory equity = _accounts[user].vaultEquity[vault];
+        uint64 multiplier = Vault_Value_Multiplier[vault];
+        if (multiplier != 0) equity.equity = uint64((uint256(equity.equity) * multiplier) / 1e18);
+        return equity;
     }
 
     function readDelegation(address user, address validator)

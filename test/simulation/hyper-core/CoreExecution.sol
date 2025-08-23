@@ -435,6 +435,10 @@ contract CoreExecution is CoreView {
         return executable;
     }
 
+    function setVaultMultiplier(address vault, uint64 multiplier) public {
+        Vault_Value_Multiplier[vault] = multiplier;
+    }
+
     function processPendingOrders() public {
         for (uint256 i = _pendingOrders.length; i > 0; i--) {
             PendingOrder memory order = _pendingOrders[i - 1];
