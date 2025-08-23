@@ -10,6 +10,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {PrecompileLib} from "src/PrecompileLib.sol";
 import {CoreWriterLib} from "src/CoreWriterLib.sol";
+import {HLConversions} from "src/common/HLConversions.sol";
 
 import {console} from "forge-std/console.sol";
 
@@ -165,28 +166,24 @@ contract CoreExecution is CoreView {
     // basic simulation of spot trading, not accounting for orderbook depth, or fees
     function executeSpotLimitOrder(address sender, LimitOrderAction memory action)
         public
-        initAccountWithSpotMarket(sender, action.asset - 10000)
+        initAccountWithSpotMarket(sender, uint32(HLConversions.assetToSpotId(action.asset)))
     {
         // 1. find base/quote token
         // 2. find spot balance of the from token
         // 3. if enough, execute the order at the spot price (assume infinite depth)
         // 4. update their balances of the from and to token
 
-        uint32 spotMarketId = action.asset - 1e4;
-
-        PrecompileLib.SpotInfo memory spotInfo = RealL1Read.spotInfo(spotMarketId);
+        PrecompileLib.SpotInfo memory spotInfo = RealL1Read.spotInfo(uint32(HLConversions.assetToSpotId(action.asset)));
 
         PrecompileLib.TokenInfo memory baseToken = _tokens[spotInfo.tokens[0]];
 
 
-        uint64 spotPx = readSpotPx(spotMarketId);
+        uint64 spotPx = readSpotPx(uint32(HLConversions.assetToSpotId(action.asset)));
 
         uint64 fromToken;
         uint64 toToken;
 
-        bool executeNow = isActionExecutable(action, spotPx);
-
-        if (executeNow) {
+        if (isActionExecutable(action, spotPx)) {
             console.log("EXECUTING ORDER!");
             if (action.isBuy) {
                 fromToken = spotInfo.tokens[1];
@@ -219,7 +216,6 @@ contract CoreExecution is CoreView {
                 }
             }
         } else {
-            console.log("order saved for later!");
             _pendingOrders.push(PendingOrder({sender: sender, action: action}));
         }
     }
