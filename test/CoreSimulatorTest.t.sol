@@ -367,6 +367,50 @@ contract CoreSimulatorTest is Test {
         // Should deduct 3 USDC total (2 transfer + 1 creation fee)
         assertEq(before - afterBalance, 3e8, "Should deduct 2 USDC + 1 USDC creation fee");
     }
+
+    function test_multiple_actions() public {
+        vm.startPrank(user);
+
+        uint256 initialBalance = 10_000e18;
+        uint256 amountToBridge = 10e18;
+        uint64 token = 150;
+        uint64 spot = PrecompileLib.getSpotIndex(150);
+        deal(address(user), initialBalance);
+
+        assertEq(address(user).balance, initialBalance);
+
+        CoreWriterLib.bridgeToCore(token, amountToBridge);
+
+        assertEq(address(user).balance, initialBalance - amountToBridge);
+        assertEq(PrecompileLib.spotBalance(address(user), token).total, 0);
+
+        CoreSimulatorLib.nextBlock();
+
+        assertEq(address(user).balance, initialBalance - amountToBridge);
+        assertEq(PrecompileLib.spotBalance(address(user), token).total, HLConversions.convertEvmToCoreAmount(token, amountToBridge));
+
+
+        // sell to USDC
+        // log the spot price
+        uint64 spotPx = PrecompileLib.spotPx(uint32(spot));
+        console.log("spotPx", spotPx);
+
+        uint256 usdcBalanceBefore = PrecompileLib.spotBalance(address(user), 0).total;
+
+        uint64 tradeSz = 10 * 100;
+
+        CoreWriterLib.placeLimitOrder(uint32(spot + 10000), false, 0, tradeSz, true, HLConstants.LIMIT_ORDER_TIF_IOC, 1);
+
+        CoreSimulatorLib.nextBlock();
+
+        uint256 usdcBalanceAfter = PrecompileLib.spotBalance(address(user), 0).total;
+        uint256 hypeBalanceAfter = PrecompileLib.spotBalance(address(user), token).total;
+
+        assertApproxEqAbs(usdcBalanceAfter - usdcBalanceBefore, tradeSz * spotPx, tradeSz * spotPx * 5 / 1000);
+        assertEq(hypeBalanceAfter, 0);
+
+
+    }
 }
 
 contract SpotTrader {

@@ -60,7 +60,7 @@ contract CoreWriterSim {
             (bool success,) = address(_hyperCore).call{value: action.value}(action.data);
 
             if (revertOnFailure && !success) {
-                revert("CoreWriter action failed: Reverting due to custom test functionality");
+                revert("CoreWriter action failed: Reverting due to revertOnFailure flag");
             }
 
             _actionQueue.pop();

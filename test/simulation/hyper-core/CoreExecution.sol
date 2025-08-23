@@ -176,6 +176,9 @@ contract CoreExecution is CoreView {
 
         PrecompileLib.SpotInfo memory spotInfo = RealL1Read.spotInfo(spotMarketId);
 
+        PrecompileLib.TokenInfo memory baseToken = _tokens[spotInfo.tokens[0]];
+
+
         uint64 spotPx = readSpotPx(spotMarketId);
 
         uint64 fromToken;
@@ -189,11 +192,14 @@ contract CoreExecution is CoreView {
                 fromToken = spotInfo.tokens[1];
                 toToken = spotInfo.tokens[0];
 
-                uint64 fromTokenAmount = action.sz * spotPx;
 
-                if (_accounts[sender].spot[fromToken] >= fromTokenAmount) {
-                    _accounts[sender].spot[fromToken] -= fromTokenAmount;
-                    _accounts[sender].spot[toToken] += action.sz;
+                uint64 amountIn = action.sz * spotPx;
+                uint64 amountOut = action.sz * uint64(10 ** (baseToken.weiDecimals - baseToken.szDecimals));
+
+
+                if (_accounts[sender].spot[fromToken] >= amountIn) {
+                    _accounts[sender].spot[fromToken] -= amountIn;
+                    _accounts[sender].spot[toToken] += amountOut;
                 } else {
                     revert("insufficient balance");
                 }
@@ -201,11 +207,13 @@ contract CoreExecution is CoreView {
                 fromToken = spotInfo.tokens[0];
                 toToken = spotInfo.tokens[1];
 
-                uint64 fromTokenAmount = action.sz;
+                uint64 amountIn = action.sz * uint64(10 ** (baseToken.weiDecimals - baseToken.szDecimals));
 
-                if (_accounts[sender].spot[fromToken] >= fromTokenAmount) {
-                    _accounts[sender].spot[fromToken] -= fromTokenAmount;
-                    _accounts[sender].spot[toToken] += action.sz;
+                uint64 amountOut = action.sz * spotPx;
+
+                if (_accounts[sender].spot[fromToken] >= amountIn) {
+                    _accounts[sender].spot[fromToken] -= amountIn;
+                    _accounts[sender].spot[toToken] += amountOut;
                 } else {
                     revert("insufficient balance");
                 }
