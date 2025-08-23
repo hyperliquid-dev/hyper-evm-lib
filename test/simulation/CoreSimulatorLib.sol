@@ -98,9 +98,15 @@ library CoreSimulatorLib {
         hyperCore.processPendingOrders();
     }
 
-    function setRevertOnFailure(bool _revertOnFailure) public {
+
+    ////// TESTING CONFIG SETTERS /////////
+
+    function setRevertOnFailure(bool _revertOnFailure) internal {
         coreWriter.setRevertOnFailure(_revertOnFailure);
     }
+
+
+    ///// VIEW AND PURE /////////
 
     function isSystemAddress(address addr) internal view returns (bool) {
         // Check if it's the HYPE system address

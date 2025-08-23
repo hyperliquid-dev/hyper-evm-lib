@@ -31,7 +31,7 @@ contract CoreView is CoreState {
       return _perpMarkPrice[perp];
     }
     
-    function readSpotPx(uint32 spotMarketId) public returns (uint64) {
+    function readSpotPx(uint32 spotMarketId) public view returns (uint64) {
       
       if (_spotPrice[spotMarketId] == 0) {
         return PrecompileLib.spotPx(spotMarketId);
@@ -55,7 +55,7 @@ contract CoreView is CoreState {
         return RealL1Read.withdrawable(account);
       }
 
-      return PrecompileLib.Withdrawable({ withdrawable: _accounts[account].perp });
+      return PrecompileLib.Withdrawable({ withdrawable: _accounts[account].perpBalance });
     }
 
     function readUserVaultEquity(address user, address vault) public view returns (PrecompileLib.UserVaultEquity memory) {
@@ -105,6 +105,15 @@ contract CoreView is CoreState {
 
     function readPosition(address user, uint16 perp) public view returns (PrecompileLib.Position memory) {
       return _accounts[user].positions[perp];
+    }
+
+    function coreUserExists(address account) public returns (bool) {
+
+      if (_accounts[account].created == false) {
+        return RealL1Read.coreUserExists(account).exists;
+      }
+
+      return _accounts[account].created;
     }
 
 

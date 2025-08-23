@@ -40,7 +40,7 @@ contract CoreState is StdCheats {
 
     struct AccountData {
       bool created;
-      uint64 perp;
+      uint64 perpBalance;
       mapping(uint64 token => uint64 balance) spot;
       mapping(address vault => PrecompileLib.UserVaultEquity) vaultEquity;
       uint64 staking;
@@ -52,14 +52,14 @@ contract CoreState is StdCheats {
     mapping(uint64 token => PrecompileLib.TokenInfo) internal _tokens;
 
     mapping(address account => AccountData) internal _accounts;
+
     mapping(address account => bool initialized) internal _initializedAccounts;
-    
     mapping(address account => mapping(uint64 token => bool initialized)) internal _initializedSpotBalance;
-    mapping(address account => mapping(uint64 token => uint64 latentBalance)) internal _latentSpotBalance;
-
-
     mapping(address account => mapping(address vault => bool initialized)) internal _initializedVaults;
     mapping(address account => mapping(uint32 perpIndex => bool initialized)) internal _initializedPerpPosition;
+
+
+    mapping(address account => mapping(uint64 token => uint64 latentBalance)) internal _latentSpotBalance;
 
     mapping(uint32 perpIndex => uint64 markPrice) internal _perpMarkPrice;
     mapping(uint32 spotMarketId => uint64 spotPrice) internal _spotPrice;
@@ -175,7 +175,7 @@ contract CoreState is StdCheats {
 
 
       // setting perp balance
-      account.perp = RealL1Read.withdrawable(_account).withdrawable;
+      account.perpBalance = RealL1Read.withdrawable(_account).withdrawable;
       
 
       // setting staking balance
@@ -218,20 +218,15 @@ contract CoreState is StdCheats {
     /// @dev account creation can be forced when there isnt a reliance on testing that workflow.
     function forceAccountCreation(address account) public {
       _accounts[account].created = true;
-    }
-
-    // TODO: maybe have a flag that indicates to just always return true
-    function coreUserExists(address account) public initAccount(account) returns (bool) {
-      return _accounts[account].created;
-    }
+    }    
 
     function forceSpot(address account, uint64 token, uint64 _wei) public payable initAccountWithToken(account, token) {
       _accounts[account].spot[token] = _wei;
     }
 
-    function forcePerp(address account, uint64 usd) public payable {
+    function forcePerpBalance(address account, uint64 usd) public payable {
       forceAccountCreation(account);
-      _accounts[account].perp = usd;
+      _accounts[account].perpBalance = usd;
     }
 
     function forceStaking(address account, uint64 _wei) public payable {

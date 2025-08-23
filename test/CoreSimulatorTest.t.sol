@@ -188,7 +188,7 @@ contract CoreSimulatorTest is Test {
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
         hyperCore.forceAccountCreation(address(hypeTrading));
-        hyperCore.forcePerp(address(hypeTrading), 1e18);
+        hyperCore.forcePerpBalance(address(hypeTrading), 1e18);
 
         hypeTrading.createLimitOrder(5, true, 1e18, 1e2, false, 1);
 

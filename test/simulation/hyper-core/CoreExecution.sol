@@ -9,12 +9,13 @@ import { Heap } from "@openzeppelin/contracts/utils/structs/Heap.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {PrecompileLib} from "src/PrecompileLib.sol";
-import {HLConstants} from "src/CoreWriterLib.sol";
+import {CoreWriterLib} from "src/CoreWriterLib.sol";
+
+
 import { console } from "forge-std/console.sol";
 
 import {RealL1Read} from "../../utils/RealL1Read.sol";
 
-import {CoreState} from "./CoreState.sol";
 import {CoreView} from "./CoreView.sol";
 
 uint64 constant KNOWN_TOKEN_USDC = 0;
@@ -99,7 +100,7 @@ contract CoreExecution is CoreView {
           // this means were reducing the short
           _accounts[sender].positions[perpIndex].szi += int64(action.sz);
           _accounts[sender].positions[perpIndex].entryNtl *= uint64(-newSzi) / uint64(-szi);
-          _accounts[sender].perp += action.sz * uint64(markPx) / leverage;
+          _accounts[sender].perpBalance += action.sz * uint64(markPx) / leverage;
         }
         else {
           // this means were closing the short and opening a long
@@ -115,10 +116,10 @@ contract CoreExecution is CoreView {
 
           if (marginDelta > 0) {
             // we need more margin
-            _accounts[sender].perp -= uint64(marginDelta);
+            _accounts[sender].perpBalance -= uint64(marginDelta);
           }
           else {
-            _accounts[sender].perp += uint64(-marginDelta);
+            _accounts[sender].perpBalance += uint64(-marginDelta);
           }
         }
       } 
@@ -128,7 +129,7 @@ contract CoreExecution is CoreView {
         _accounts[sender].positions[perpIndex].szi += int64(action.sz);
         _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
 
-        _accounts[sender].perp -= uint64(action.sz) * uint64(markPx) / leverage;
+        _accounts[sender].perpBalance -= uint64(action.sz) * uint64(markPx) / leverage;
       }
     }
 
@@ -143,7 +144,7 @@ contract CoreExecution is CoreView {
 
         _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
         _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
-        _accounts[sender].perp -= uint64(action.sz) * uint64(markPx) / leverage;
+        _accounts[sender].perpBalance -= uint64(action.sz) * uint64(markPx) / leverage;
         
       }
       else {
@@ -153,7 +154,7 @@ contract CoreExecution is CoreView {
           // we are reducing a long
           _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
           _accounts[sender].positions[perpIndex].entryNtl *= uint64(newSzi) / uint64(szi);
-          _accounts[sender].perp += action.sz * uint64(markPx) / leverage;
+          _accounts[sender].perpBalance += action.sz * uint64(markPx) / leverage;
 
         }
         else {
@@ -165,10 +166,10 @@ contract CoreExecution is CoreView {
           int64 marginDelta = int64(newMargin) - int64(oldMargin);
 
           if (marginDelta > 0) {
-            _accounts[sender].perp -= uint64(marginDelta);
+            _accounts[sender].perpBalance -= uint64(marginDelta);
           }
           else {
-            _accounts[sender].perp += uint64(-marginDelta);
+            _accounts[sender].perpBalance += uint64(-marginDelta);
           }
 
           _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
@@ -267,23 +268,21 @@ contract CoreExecution is CoreView {
         
       }
 
-      address systemAddress = action.token == 150
-        ? 0x2222222222222222222222222222222222222222
-        : address(uint160(address(0x2000000000000000000000000000000000000000)) + action.token);
+      address systemAddress = CoreWriterLib.getSystemAddress(action.token);
 
 
       _accounts[sender].spot[action.token] -= action._wei;
 
-      
 
-      if (action.destination == systemAddress) {
-
+      if (action.destination != systemAddress) {
+          _accounts[action.destination].spot[action.token] += action._wei;
+      }
+      else {
         if (action.token == KNOWN_TOKEN_HYPE) {
           uint256 amount = action._wei * 1e10;
           deal(systemAddress, systemAddress.balance + amount);
           vm.prank(systemAddress);
           address(sender).call{value: amount, gas: 30000}("");
-          return;
         }
 
         // TODO: this requires HYPE balance to pay some gas for the transfer
@@ -292,18 +291,19 @@ contract CoreExecution is CoreView {
         deal(evmContract, systemAddress, IERC20(evmContract).balanceOf(systemAddress) + amount);
         vm.prank(systemAddress);
         IERC20(evmContract).transfer(action.destination, amount);
-        return;
       }
 
-      _accounts[action.destination].spot[action.token] += action._wei;
-    }
+        
+      }
+
+    
 
     function _chargeUSDCFee(address sender) internal {
       if (_accounts[sender].spot[KNOWN_TOKEN_USDC] >= 1e8) {
         _accounts[sender].spot[KNOWN_TOKEN_USDC] -= 1e8;
       }
-      else if (_accounts[sender].perp >= 1e8) {
-        _accounts[sender].perp -= 1e8;
+      else if (_accounts[sender].perpBalance >= 1e8) {
+        _accounts[sender].perpBalance -= 1e8;
       }
       else {
         revert("insufficient USDC balance for fee");
@@ -316,12 +316,12 @@ contract CoreExecution is CoreView {
     ) internal whenAccountCreated(sender) {
       if (action.toPerp) {
         if (fromPerp(action.ntl) <= _accounts[sender].spot[KNOWN_TOKEN_USDC]) {
-          _accounts[sender].perp += action.ntl;
+          _accounts[sender].perpBalance += action.ntl;
           _accounts[sender].spot[KNOWN_TOKEN_USDC] -= fromPerp(action.ntl);
         }
       } else {
-        if (action.ntl <= _accounts[sender].perp) {
-          _accounts[sender].perp -= action.ntl;
+        if (action.ntl <= _accounts[sender].perpBalance) {
+          _accounts[sender].perpBalance -= action.ntl;
           _accounts[sender].spot[KNOWN_TOKEN_USDC] += fromPerp(action.ntl);
         }
       }
@@ -332,10 +332,10 @@ contract CoreExecution is CoreView {
       VaultTransferAction memory action
     ) internal whenAccountCreated(sender) {
       if (action.isDeposit) {
-        if (action.usd <= _accounts[sender].perp) {
+        if (action.usd <= _accounts[sender].perpBalance) {
           _accounts[sender].vaultEquity[action.vault].equity += action.usd;
           _accounts[sender].vaultEquity[action.vault].lockedUntilTimestamp = uint64((block.timestamp + 3600) * 1000);
-          _accounts[sender].perp -= action.usd;
+          _accounts[sender].perpBalance -= action.usd;
           _vaultEquity[action.vault] += action.usd;
         }
         else {
@@ -354,7 +354,7 @@ contract CoreExecution is CoreView {
 
         if (action.usd <= userVaultEquity.equity && userVaultEquity.lockedUntilTimestamp / 1000 <= block.timestamp) {
           userVaultEquity.equity -= action.usd;
-          _accounts[sender].perp += action.usd;
+          _accounts[sender].perpBalance += action.usd;
         }
         else {
           revert("equity too low, or locked");
@@ -427,7 +427,7 @@ contract CoreExecution is CoreView {
     }
 
 
-    function isActionExecutable(CoreState.LimitOrderAction memory action, uint64 px) internal pure returns (bool) {
+    function isActionExecutable(LimitOrderAction memory action, uint64 px) internal pure returns (bool) {
       bool executable = action.isBuy ? action.limitPx >= px : action.limitPx <= px;
       return executable;
     }
