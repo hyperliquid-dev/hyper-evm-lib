@@ -193,25 +193,67 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.nextBlock();
 
         PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), 5);
-        console.log("position.szi", position.szi);
-        console.log("position.entryNtl", position.entryNtl);
+        assertEq(position.szi, 1e2);
 
-        // read their perp balance (withdrawable)
-        uint64 w = PrecompileLib.withdrawable(address(hypeTrading));
-        console.log("withdrawable", w);
 
-        hypeTrading.createLimitOrder(5, false, 0, 1e2, false, 2);
+        // short for 1e3
+        hypeTrading.createLimitOrder(5, false, 0, 1e3, false, 2);
 
+
+        // increase price by 20%
         hyperCore.setMarkPx(5, 2000, true);
 
         CoreSimulatorLib.nextBlock();
 
         position = hypeTrading.getPosition(address(hypeTrading), 5);
-        console.log("position.szi", position.szi);
         console.log("position.entryNtl", position.entryNtl);
 
         uint64 w2 = PrecompileLib.withdrawable(address(hypeTrading));
         console.log("withdrawable", w2);
+
+        // long uSOL
+        hypeTrading.createLimitOrder(5, true, 1e18, 1e2, false, 3);
+        hypeTrading.createLimitOrder(5, true, 1e18, 1e5, false, 4);
+
+        CoreSimulatorLib.nextBlock();
+
+    }
+
+    function test_perpTrading_profitCalc() public {
+        vm.startPrank(user);
+        HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
+        hyperCore.forceAccountCreation(address(hypeTrading));
+        hyperCore.forcePerpBalance(address(hypeTrading), 10_000e6);
+
+        uint16 perp = 0; // btc
+        hyperCore.setMarkPx(perp, 100_000e3);
+
+        hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 10_0000, false, 1);
+
+        hyperCore.setMarkPx(perp, 120_000e3);
+
+
+        CoreSimulatorLib.nextBlock();
+
+        PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), perp);
+        assertEq(position.szi, 1 * 10_000);
+
+
+        // short for same sz
+        hypeTrading.createLimitOrder(perp, false, 0, 1 * 10_0000, false, 2);
+
+        hyperCore.setMarkPx(perp, 90_000e3);
+
+        CoreSimulatorLib.nextBlock();
+
+        position = hypeTrading.getPosition(address(hypeTrading), perp);
+        console.log("position.entryNtl", position.entryNtl);
+
+        uint64 w2 = PrecompileLib.withdrawable(address(hypeTrading));
+        console.log("withdrawable", w2);
+
+
+        CoreSimulatorLib.nextBlock();
     }
 
     function test_spotTrading() public {
@@ -368,7 +410,7 @@ contract CoreSimulatorTest is Test {
         assertEq(before - afterBalance, 3e8, "Should deduct 2 USDC + 1 USDC creation fee");
     }
 
-    function test_multiple_actions() public {
+    function test_bridgeHypeToCoreAndSell() public {
         vm.startPrank(user);
 
         uint256 initialBalance = 10_000e18;
@@ -409,10 +451,24 @@ contract CoreSimulatorTest is Test {
 
         assertApproxEqAbs(usdcBalanceAfter - usdcBalanceBefore, tradeSz * spotPx, tradeSz * spotPx * 5 / 1000);
         assertEq(hypeBalanceAfter, 0);
-
-
     }
-}
+
+    function testVaultDeposit() public {
+        test_bridgeHypeToCoreAndSell();
+
+        uint64 usdcBalance = PrecompileLib.spotBalance(address(user), 0).total;
+        uint64 vaultDepositAmt = HLConversions.weiToPerp(usdcBalance);
+        address vault = 0xaC26Cf5F3C46B5e102048c65b977d2551B72A9c7;
+
+        CoreWriterLib.transferUsdClass(vaultDepositAmt, true);
+        CoreWriterLib.vaultTransfer(vault, true, vaultDepositAmt);
+
+        CoreSimulatorLib.nextBlock();
+
+        uint256 vaultBalanceAfter = PrecompileLib.userVaultEquity(address(user), vault).equity;
+        assertEq(vaultBalanceAfter, vaultDepositAmt);
+    }
+}   
 
 contract SpotTrader {
     function placeLimitOrder(uint32 asset, bool isBuy, uint64 limitPx, uint64 sz, bool reduceOnly, uint128 cloid)

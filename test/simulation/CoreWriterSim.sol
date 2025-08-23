@@ -93,19 +93,8 @@ contract CoreWriterSim {
 
         bytes memory call = abi.encodeCall(HyperCore.executeRawAction, (msg.sender, kind, data[4:]));
 
-        enqueueAction(runAt(kind, data[4:]), call, 0);
+        enqueueAction(block.timestamp, call, 0);
 
         emit RawAction(msg.sender, data);
-    }
-
-    /// @dev some actions are delayed before they are executed so need to simulate this
-    function runAt(uint24 kind, bytes memory data) private view returns (uint256) {
-        if (kind == HLConstants.VAULT_TRANSFER_ACTION) {
-            // there is a 4 second delay for vault withdrawls
-            //CoreWriterLib.VaultTransferAction memory action = abi.decode(data, (CoreWriterLib.VaultTransferAction));
-            //return action.isDeposit ? block.timestamp : block.timestamp + 4 seconds;
-            return block.timestamp + 4 seconds;
-        }
-        return block.timestamp;
     }
 }

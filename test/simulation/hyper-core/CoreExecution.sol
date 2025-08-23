@@ -87,6 +87,8 @@ contract CoreExecution is CoreView {
         int64 szi = _accounts[sender].positions[perpIndex].szi;
         uint32 leverage = _accounts[sender].positions[perpIndex].leverage;
 
+        console.log("existing szi", szi);
+
         if (szi < 0) {
             int64 newSzi = szi + int64(action.sz);
 
