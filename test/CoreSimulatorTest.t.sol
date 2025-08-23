@@ -112,10 +112,9 @@ contract CoreSimulatorTest is Test {
             abi.decode(abi.encode(RealL1Read.spotBalance(address(recipient), 150)), (uint64, uint64, uint64));
         console.log("realTotal", realTotal);
 
-        (uint64 precompileTotal, ,) =
+        (uint64 precompileTotal,,) =
             abi.decode(abi.encode(l1Read.spotBalance(address(recipient), 150)), (uint64, uint64, uint64));
         console.log("precompileTotal", precompileTotal);
-
 
         CoreSimulatorLib.nextBlock();
 
@@ -127,7 +126,6 @@ contract CoreSimulatorTest is Test {
     }
 
     function test_readSpotBalance() public {
-
         (uint64 realTotal, uint64 realHold, uint64 realEntryNtl) =
             abi.decode(abi.encode(l1Read.spotBalance(address(user), 150)), (uint64, uint64, uint64));
         console.log("realTotal", realTotal);
@@ -224,7 +222,6 @@ contract CoreSimulatorTest is Test {
         hyperCore.forceSpot(address(spotTrader), 0, 1e18);
         hyperCore.forceSpot(address(spotTrader), 254, 1e18);
 
-
         spotTrader.placeLimitOrder(10000 + 156, true, 1e18, 1e2, false, 1);
 
         // log spot balance of spotTrader
@@ -254,30 +251,44 @@ contract CoreSimulatorTest is Test {
         uint64 limitPx = currentSpotPx / 2; // Set limit price below current price
         console.log("Placing buy order with limit price:", limitPx);
         console.log("Expected executeNow for buy order:", limitPx >= currentSpotPx ? "true" : "false");
-        
+
         spotTrader.placeLimitOrder(10000 + spotMarketId, true, limitPx, 1e2, false, 1);
 
         // log spot balance of spotTrader before any execution
-        console.log("Before execution - spotTrader.spotBalance(254):", PrecompileLib.spotBalance(address(spotTrader), 254).total);
-        console.log("Before execution - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total);
+        console.log(
+            "Before execution - spotTrader.spotBalance(254):", PrecompileLib.spotBalance(address(spotTrader), 254).total
+        );
+        console.log(
+            "Before execution - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total
+        );
 
         CoreSimulatorLib.nextBlock();
 
         // Check balances after first block - order should still be pending
-        console.log("After first block - spotTrader.spotBalance(254):", PrecompileLib.spotBalance(address(spotTrader), 254).total);
-        console.log("After first block - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total);
+        console.log(
+            "After first block - spotTrader.spotBalance(254):",
+            PrecompileLib.spotBalance(address(spotTrader), 254).total
+        );
+        console.log(
+            "After first block - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total
+        );
 
         // Now update the price to match the order's limit price
         console.log("Updating spot price to:", limitPx);
         hyperCore.setSpotPx(spotMarketId, limitPx);
-        
+
         CoreSimulatorLib.nextBlock();
 
         // Check balances after price change - order should now execute
-        console.log("After price update - spotTrader.spotBalance(254):", PrecompileLib.spotBalance(address(spotTrader), 254).total);
-        console.log("After price update - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total);
+        console.log(
+            "After price update - spotTrader.spotBalance(254):",
+            PrecompileLib.spotBalance(address(spotTrader), 254).total
+        );
+        console.log(
+            "After price update - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total
+        );
     }
-    
+
     function test_LimitOrderSell() public {
         vm.startPrank(user);
         SpotTrader spotTrader = new SpotTrader();
@@ -294,65 +305,80 @@ contract CoreSimulatorTest is Test {
         // Place a sell order with limit price above current spot price (won't execute immediately)
         uint64 limitPx = currentSpotPx * 2; // Set limit price above current price
         console.log("Placing sell order with limit price:", limitPx);
-        
+
         spotTrader.placeLimitOrderGTC(10000 + spotMarketId, false, limitPx, 1e2, false, 1);
 
         // log spot balance of spotTrader before any execution
-        console.log("Before execution - spotTrader.spotBalance(254):", PrecompileLib.spotBalance(address(spotTrader), 254).total);
-        console.log("Before execution - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total);
+        console.log(
+            "Before execution - spotTrader.spotBalance(254):", PrecompileLib.spotBalance(address(spotTrader), 254).total
+        );
+        console.log(
+            "Before execution - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total
+        );
 
         CoreSimulatorLib.nextBlock();
 
         // Check balances after first block - order should still be pending
-        console.log("After first block - spotTrader.spotBalance(254):", PrecompileLib.spotBalance(address(spotTrader), 254).total);
-        console.log("After first block - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total);
+        console.log(
+            "After first block - spotTrader.spotBalance(254):",
+            PrecompileLib.spotBalance(address(spotTrader), 254).total
+        );
+        console.log(
+            "After first block - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total
+        );
 
         // Now update the price to match the order's limit price
         console.log("Updating spot price to:", limitPx);
         hyperCore.setSpotPx(spotMarketId, limitPx);
-        
+
         CoreSimulatorLib.nextBlock();
 
         // Check balances after price change - order should now execute
-        console.log("After price update - spotTrader.spotBalance(254):", PrecompileLib.spotBalance(address(spotTrader), 254).total);
-        console.log("After price update - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total);
+        console.log(
+            "After price update - spotTrader.spotBalance(254):",
+            PrecompileLib.spotBalance(address(spotTrader), 254).total
+        );
+        console.log(
+            "After price update - spotTrader.spotBalance(0):", PrecompileLib.spotBalance(address(spotTrader), 0).total
+        );
     }
 
     function test_usdc_creation_fee() public {
         vm.startPrank(user);
-        
+
         // Give sender 10 USDC
         hyperCore.forceAccountCreation(user);
         hyperCore.forceSpot(user, 0, 10e8);
-        
+
         address newAccount = makeAddr("newAccount");
-        
+
         uint64 before = hyperCore.readSpotBalance(user, 0).total;
-        
+
         // Send 2 USDC to new account
         CoreWriterLib.spotSend(newAccount, 0, 2e8);
         CoreSimulatorLib.nextBlock();
-        
+
         uint64 afterBalance = hyperCore.readSpotBalance(user, 0).total;
-        
+
         console.log("Before:", before);
         console.log("After:", afterBalance);
         console.log("Diff:", before - afterBalance);
-        
+
         // Should deduct 3 USDC total (2 transfer + 1 creation fee)
         assertEq(before - afterBalance, 3e8, "Should deduct 2 USDC + 1 USDC creation fee");
     }
-
-    
 }
 
-
 contract SpotTrader {
-    function placeLimitOrder(uint32 asset, bool isBuy, uint64 limitPx, uint64 sz, bool reduceOnly, uint128 cloid) public {
+    function placeLimitOrder(uint32 asset, bool isBuy, uint64 limitPx, uint64 sz, bool reduceOnly, uint128 cloid)
+        public
+    {
         CoreWriterLib.placeLimitOrder(asset, isBuy, limitPx, sz, reduceOnly, HLConstants.LIMIT_ORDER_TIF_IOC, cloid);
     }
 
-    function placeLimitOrderGTC(uint32 asset, bool isBuy, uint64 limitPx, uint64 sz, bool reduceOnly, uint128 cloid) public {
+    function placeLimitOrderGTC(uint32 asset, bool isBuy, uint64 limitPx, uint64 sz, bool reduceOnly, uint128 cloid)
+        public
+    {
         CoreWriterLib.placeLimitOrder(asset, isBuy, limitPx, sz, reduceOnly, HLConstants.LIMIT_ORDER_TIF_GTC, cloid);
     }
 

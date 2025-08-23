@@ -93,18 +93,16 @@ library CoreSimulatorLib {
 
         // Process any pending actions
         coreWriter.flushActionQueue();
-        
+
         // Process pending orders
         hyperCore.processPendingOrders();
     }
-
 
     ////// TESTING CONFIG SETTERS /////////
 
     function setRevertOnFailure(bool _revertOnFailure) internal {
         coreWriter.setRevertOnFailure(_revertOnFailure);
     }
-
 
     ///// VIEW AND PURE /////////
 

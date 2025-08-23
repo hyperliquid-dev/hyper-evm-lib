@@ -26,17 +26,14 @@ contract CoreWriterSim {
     event RawAction(address indexed user, bytes data);
 
     HyperCore constant _hyperCore = HyperCore(payable(0x9999999999999999999999999999999999999999));
-    
 
     /////// testing config
     /////////////////////////
     bool revertOnFailure;
 
-
     function setRevertOnFailure(bool _revertOnFailure) public {
         revertOnFailure = _revertOnFailure;
     }
-
 
     function enqueueAction(bytes memory data, uint256 value) public {
         enqueueAction(block.timestamp, data, value);
@@ -60,7 +57,7 @@ contract CoreWriterSim {
                 break;
             }
 
-            (bool success, ) = address(_hyperCore).call{value: action.value}(action.data);
+            (bool success,) = address(_hyperCore).call{value: action.value}(action.data);
 
             if (revertOnFailure && !success) {
                 revert("CoreWriter action failed: Reverting due to custom test functionality");
