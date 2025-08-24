@@ -52,6 +52,7 @@ library CoreSimulatorLib {
         vm.recordLogs();
 
         vm.allowCheatcodes(address(hyperCore));
+        vm.allowCheatcodes(address(coreWriter));
 
         vm.resumeGasMetering();
 
@@ -90,6 +91,9 @@ library CoreSimulatorLib {
         // Advance block
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 1);
+
+        // liquidate any positions that are liquidatable
+        hyperCore.liquidatePositions();
 
         // Process any pending actions
         coreWriter.flushActionQueue();

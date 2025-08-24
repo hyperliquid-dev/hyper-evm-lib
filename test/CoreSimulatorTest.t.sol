@@ -31,8 +31,10 @@ contract CoreSimulatorTest is Test {
     L1Read l1Read;
 
     function setUp() public {
-        // hyperliquid RPC:
-        vm.createSelectFork("https://rpc.hyperliquid.xyz/evm");
+        string memory hyperliquidRpc = "https://rpc.hyperliquid.xyz/evm";
+        string memory archiveRpc = "https://rpc.purroofgroup.com";
+        string memory alchemyRpc = vm.envString("ALCHEMY_RPC");
+        vm.createSelectFork(alchemyRpc);
 
         // set up the HyperCore simulation
         hyperCore = CoreSimulatorLib.init();
@@ -64,6 +66,11 @@ contract CoreSimulatorTest is Test {
         console.log("total", total);
         console.log("hold", hold);
         console.log("entryNtl", entryNtl);
+    }
+
+    function test_l1Read() public {
+        uint64 px = RealL1Read.spotPx(uint32(107));
+        console.log("px", px);
     }
 
     function test_bridgeToCoreAndSend() public {
@@ -242,16 +249,12 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.nextBlock();
 
         hyperCore.setMarkPx(perp, startingPrice * 12 / 10);
-        console.log("hypeTrading is ", address(hypeTrading));
-
 
         PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), perp);
         assertEq(position.szi, 1 * 100_000);
 
-
         // short for same sz
         hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 2);
-
 
         CoreSimulatorLib.nextBlock();
 
@@ -264,11 +267,152 @@ contract CoreSimulatorTest is Test {
         uint64 profit = w2 - 10_000e6;
         console.log("profit: %e", profit);
 
-        console.log("profit percentage: %e", profit * 100 / 10_000e6);
+        console.log("profit percentage: ", profit * 100 / 10_000e6);
+    }
+
+    function test_short() public {
+
+        CoreSimulatorLib.setRevertOnFailure(true);
+        vm.startPrank(user);
+        HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
+        hyperCore.forceAccountCreation(address(hypeTrading));
+        vm.label(address(hypeTrading), "hypeTrading");
+
+        uint64 initialPerpBalance = 5000e6;
+        hyperCore.forcePerpBalance(address(hypeTrading), initialPerpBalance);
+
+        uint64 startingPrice = 1000000;
+
+        uint16 perp = 0; // btc
+        console.log("btc mark px is %e", PrecompileLib.markPx(perp));
+        hyperCore.setMarkPx(perp, startingPrice);
+
+        hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 1);
+
 
 
         CoreSimulatorLib.nextBlock();
+
+        hyperCore.setMarkPx(perp, startingPrice * 9 / 10);
+
+        PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), perp);
+        assertEq(position.szi, -1 * 100_000);
+
+        // short for same sz
+        hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 100_000, false, 2);
+
+        CoreSimulatorLib.nextBlock();
+
+        position = hypeTrading.getPosition(address(hypeTrading), perp);
+        console.log("position.entryNtl", position.entryNtl);
+
+        uint64 w2 = PrecompileLib.withdrawable(address(hypeTrading));
+        console.log("withdrawable", w2);
+
+        uint64 profit = w2 - initialPerpBalance;
+        console.log("profit: %e", profit);
+
+        console.log("profit percentage: ", profit * 100 / initialPerpBalance);
     }
+
+    function test_shortThenLong() public {
+
+        CoreSimulatorLib.setRevertOnFailure(true);
+        vm.startPrank(user);
+        HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
+        hyperCore.forceAccountCreation(address(hypeTrading));
+        vm.label(address(hypeTrading), "hypeTrading");
+
+        uint64 initialPerpBalance = 5000e6;
+        hyperCore.forcePerpBalance(address(hypeTrading), initialPerpBalance);
+
+        uint64 startingPrice = 1000000;
+
+        uint16 perp = 0; // btc
+        console.log("btc mark px is %e", PrecompileLib.markPx(perp));
+        hyperCore.setMarkPx(perp, startingPrice);
+
+        hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 1);
+
+
+
+        CoreSimulatorLib.nextBlock();
+
+        hyperCore.setMarkPx(perp, startingPrice * 9 / 10);
+
+        PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), perp);
+        assertEq(position.szi, -1 * 100_000);
+
+        // 
+        hypeTrading.createLimitOrder(perp, true, 1e18, 2 * 100_000, false, 2);
+
+        CoreSimulatorLib.nextBlock();
+        hyperCore.setMarkPx(perp, startingPrice);
+
+
+        hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 3);
+
+        CoreSimulatorLib.nextBlock();
+
+
+        position = hypeTrading.getPosition(address(hypeTrading), perp);
+        console.log("position.entryNtl", position.entryNtl);
+
+        uint64 w2 = PrecompileLib.withdrawable(address(hypeTrading));
+        console.log("withdrawable", w2);
+
+        uint64 profit = w2 - initialPerpBalance;
+        console.log("profit: %e", profit);
+
+        console.log("profit percentage: ", profit * 100 / initialPerpBalance);
+    }
+
+    function test_loss() public {
+
+        CoreSimulatorLib.setRevertOnFailure(true);
+        vm.startPrank(user);
+        HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
+        hyperCore.forceAccountCreation(address(hypeTrading));
+        vm.label(address(hypeTrading), "hypeTrading");
+
+        uint64 initialPerpBalance = 5000e6;
+        hyperCore.forcePerpBalance(address(hypeTrading), initialPerpBalance);
+
+        uint64 startingPrice = 1000000;
+
+        uint16 perp = 0; // btc
+        console.log("btc mark px is %e", PrecompileLib.markPx(perp));
+        hyperCore.setMarkPx(perp, startingPrice);
+
+        hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 1);
+
+        CoreSimulatorLib.nextBlock();
+
+        hyperCore.setMarkPx(perp, startingPrice * 101 / 100);
+
+        PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), perp);
+        assertEq(position.szi, -1 * 100_000);
+
+        CoreSimulatorLib.nextBlock();
+
+        // close pos
+        position = hypeTrading.getPosition(address(hypeTrading), perp);
+        if (position.szi != 0) {
+            hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 100_000, false, 2);
+        }
+
+        CoreSimulatorLib.nextBlock();
+
+        uint64 w2 = PrecompileLib.withdrawable(address(hypeTrading));
+        console.log("withdrawable", w2);
+
+        uint64 loss = initialPerpBalance - w2;
+
+        uint256 lossPercentage = loss * 100 / initialPerpBalance;
+        assertEq(lossPercentage, 20);
+    }
+    
+
 
     function test_spotTrading() public {
         vm.startPrank(user);
@@ -290,7 +434,7 @@ contract CoreSimulatorTest is Test {
         console.log("spotTrader.spotBalance(0)", PrecompileLib.spotBalance(address(spotTrader), 0).total);
     }
 
-    function test_LimitOrder() public {
+    function test_limitOrder() public {
         vm.startPrank(user);
         SpotTrader spotTrader = new SpotTrader();
         hyperCore.forceAccountCreation(address(spotTrader));
@@ -345,7 +489,7 @@ contract CoreSimulatorTest is Test {
         );
     }
 
-    function test_LimitOrderSell() public {
+    function test_limitOrderSell() public {
         vm.startPrank(user);
         SpotTrader spotTrader = new SpotTrader();
         hyperCore.forceAccountCreation(address(spotTrader));

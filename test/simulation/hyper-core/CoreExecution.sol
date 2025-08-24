@@ -24,10 +24,26 @@ uint64 constant KNOWN_TOKEN_HYPE = 150;
 contract CoreExecution is CoreView {
     using SafeCast for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
+    using EnumerableSet for EnumerableSet.Bytes32Set;
     using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
     using Heap for Heap.Uint256Heap;
 
     using RealL1Read for *;
+
+    using EnumerableSet for EnumerableSet.UintSet;
+
+
+    EnumerableSet.Bytes32Set private _openPerpPositions;
+
+    // Maps user address to a set of perp indices they have active positions in
+    mapping(address => EnumerableSet.UintSet) private _userPerpPositions;
+
+    uint16 constant MAX_PERP_INDEX = 256; // Adjust based on expected number of perp markets
+    uint64 constant MM_BPS = 125; // 1.25% maintenance margin fraction (adjust as needed, e.g., for 40x max leverage)
+
+    function _getKey(address user, uint16 perpIndex) internal pure returns (bytes32) {
+        return bytes32((uint256(uint160(user)) << 16) | uint256(perpIndex));
+    }
 
     function executeTokenTransfer(address, uint64 token, address from, uint256 value)
         public
@@ -80,6 +96,7 @@ contract CoreExecution is CoreView {
         }
     }
 
+
     function _executePerpLong(address sender, LimitOrderAction memory action, uint256 markPx) internal {
         uint16 perpIndex = uint16(action.asset);
         int64 szi = _accounts[sender].positions[perpIndex].szi;
@@ -104,6 +121,9 @@ contract CoreExecution is CoreView {
             // Deduct additional margin for the added size only
             // To minimize integer truncation: (action.sz * markPx) / leverage
             _accounts[sender].perpBalance -= (uint64(action.sz) * uint64(markPx)) / leverage;
+
+            _accounts[sender].margin[perpIndex] += (uint64(action.sz) * uint64(markPx)) / leverage;
+
         } else {
             int64 newSzi = szi + int64(action.sz);
 
@@ -111,11 +131,15 @@ contract CoreExecution is CoreView {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi);
                 int64 pnl = int64(action.sz) * (int64(avgEntryPrice) - int64(_markPx));
                 console.log("pnl", pnl);
+
+                uint64 closedMargin = (uint64(action.sz) * _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi)) / leverage;
+                _accounts[sender].perpBalance += closedMargin;
+
                 _accounts[sender].perpBalance = pnl > 0 
                     ? _accounts[sender].perpBalance + uint64(pnl)
                     : _accounts[sender].perpBalance - uint64(-pnl);
-                uint64 closedMargin = (uint64(action.sz) * _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi)) / leverage;
-                _accounts[sender].perpBalance += closedMargin;
+                _accounts[sender].margin[perpIndex] -= closedMargin;
+
                 _accounts[sender].positions[perpIndex].szi = newSzi;
                 _accounts[sender].positions[perpIndex].entryNtl = uint64(-newSzi) * avgEntryPrice;
             } else {
@@ -129,9 +153,20 @@ contract CoreExecution is CoreView {
                 uint64 newLongSize = uint64(newSzi);
                 uint64 newMargin = newLongSize * uint64(_markPx) / leverage;
                 _accounts[sender].perpBalance -= newMargin;
+                _accounts[sender].margin[perpIndex] += newMargin;
                 _accounts[sender].positions[perpIndex].szi = newSzi;
                 _accounts[sender].positions[perpIndex].entryNtl = newLongSize * uint64(_markPx);
             }
+        }
+
+        int64 newSzi = _accounts[sender].positions[perpIndex].szi;
+        bytes32 key = _getKey(sender, perpIndex);
+        if (szi == 0 && newSzi != 0) {
+            _openPerpPositions.add(key);
+            _userPerpPositions[sender].add(perpIndex);
+        } else if (szi != 0 && newSzi == 0) {
+            _openPerpPositions.remove(key);
+            _userPerpPositions[sender].remove(perpIndex);
         }
     }
 
@@ -152,6 +187,8 @@ contract CoreExecution is CoreView {
 
 
         if (szi <= 0) {
+
+            console.log("short position");
         // No PnL realization for same-direction increase
         // Update position size (more negative for short)
         _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
@@ -163,6 +200,9 @@ contract CoreExecution is CoreView {
         // Deduct additional margin for the added size only
         // To minimize integer truncation: (action.sz * markPx) / leverage
         _accounts[sender].perpBalance -= (uint64(action.sz) * uint64(markPx)) / leverage;
+
+        _accounts[sender].margin[perpIndex] += (uint64(action.sz) * uint64(markPx)) / leverage;
+
         } else {
             int64 newSzi = szi - int64(action.sz);
 
@@ -170,11 +210,14 @@ contract CoreExecution is CoreView {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(szi);
                 int64 pnl = int64(action.sz) * (int64(_markPx) - int64(avgEntryPrice));
                 console.log("pnl", pnl);
+                uint64 closedMargin = (uint64(action.sz) * _accounts[sender].positions[perpIndex].entryNtl / uint64(szi)) / leverage;
+                _accounts[sender].perpBalance += closedMargin;
+                
                 _accounts[sender].perpBalance = pnl > 0 
                     ? _accounts[sender].perpBalance + uint64(pnl)
                     : _accounts[sender].perpBalance - uint64(-pnl);
-                uint64 closedMargin = (uint64(action.sz) * _accounts[sender].positions[perpIndex].entryNtl / uint64(szi)) / leverage;
-                _accounts[sender].perpBalance += closedMargin;
+                
+                _accounts[sender].margin[perpIndex] -= closedMargin;
                 _accounts[sender].positions[perpIndex].szi = newSzi;
                 _accounts[sender].positions[perpIndex].entryNtl = uint64(newSzi) * avgEntryPrice;
             } else {
@@ -188,9 +231,20 @@ contract CoreExecution is CoreView {
                 uint64 newShortSize = uint64(-newSzi);
                 uint64 newMargin = newShortSize * uint64(_markPx) / leverage;
                 _accounts[sender].perpBalance -= newMargin;
+                _accounts[sender].margin[perpIndex] += newMargin;
                 _accounts[sender].positions[perpIndex].szi = newSzi;
                 _accounts[sender].positions[perpIndex].entryNtl = newShortSize * uint64(_markPx);
             }
+        }
+
+        int64 newSzi = _accounts[sender].positions[perpIndex].szi;
+        bytes32 key = _getKey(sender, perpIndex);
+        if (szi == 0 && newSzi != 0) {
+            _openPerpPositions.add(key);
+            _userPerpPositions[sender].add(perpIndex);
+        } else if (szi != 0 && newSzi == 0) {
+            _openPerpPositions.remove(key);
+            _userPerpPositions[sender].remove(perpIndex);
         }
 
         // Optional: Add margin sufficiency check after updates
@@ -453,5 +507,91 @@ contract CoreExecution is CoreView {
                 _pendingOrders.pop();
             }
         }
+    }
+
+    ////////// PERP LIQUIDATIONS ////////////////////
+    function isLiquidatable(address user) internal returns (bool) {
+        uint64 totalNotional = 0;
+        int64 totalUPnL = 0;
+        uint64 totalLocked = 0;
+        uint64 mmReq = 0;
+
+
+        uint256 len = _userPerpPositions[user].length();
+
+        for (uint256 i = len; i > 0; i--) {
+            uint16 perpIndex = uint16(_userPerpPositions[user].at(i - 1));
+            PrecompileLib.Position memory pos = _accounts[user].positions[perpIndex];
+            if (pos.szi != 0) {
+                uint64 markPx = readMarkPx(perpIndex);
+                int64 szi = pos.szi;
+                uint64 avgEntry = pos.entryNtl / abs(szi);
+                int64 uPnL = szi * (int64(markPx) - int64(avgEntry));
+                totalUPnL += uPnL;
+                totalLocked += _accounts[user].margin[perpIndex];
+
+                uint64 positionNotional = abs(szi) * markPx;
+                totalNotional += positionNotional;
+
+                // Per-perp maintenance margin requirement based on max leverage
+                uint32 maxLev = _getMaxLeverage(perpIndex);
+                uint64 mmBps = 5000 / maxLev;  // 5000 / maxLev gives bps for mm_fraction = 0.5 / maxLev
+                mmReq += (positionNotional * mmBps) / 10000;
+            }
+        }
+
+        if (totalNotional == 0) {
+            console.log("No open positions found, not liquidatable");
+            return false;
+        }
+
+        int64 equity = int64(_accounts[user].perpBalance) + int64(totalLocked) + totalUPnL;
+        console.log("Is liquidatable: %s", equity < int64(mmReq) ? "true" : "false");
+
+        return equity < int64(mmReq);
+    }
+
+    function abs(int64 value) internal pure returns (uint64) {
+        return value > 0 ? uint64(value) : uint64(-value);
+    }
+
+    function _getMaxLeverage(uint16 perpIndex) internal view returns (uint32) {
+        return _maxLeverage[perpIndex];
+    }
+    
+
+    // simplified liquidation, nukes all positions and resets the perp balance
+    // for future: make this more realistic
+    function _liquidateUser(address user) internal {
+
+        console.log("liquidating user", user);
+        uint256 len = _userPerpPositions[user].length();
+        for (uint256 i = len; i > 0; i--) {
+            uint16 perpIndex = uint16(_userPerpPositions[user].at(i - 1));
+
+            bytes32 key = _getKey(user, perpIndex);
+            _openPerpPositions.remove(key);
+            _accounts[user].positions[perpIndex].szi = 0;
+            _accounts[user].positions[perpIndex].entryNtl = 0;
+            _accounts[user].margin[perpIndex] = 0;
+            _userPerpPositions[user].remove(perpIndex);
+        }
+        
+        _accounts[user].perpBalance = 0;
+    }
+
+    function liquidatePositions() public {
+        uint256 len = _openPerpPositions.length();
+
+        if (len == 0) return;
+
+        for (uint256 i = len; i > 0; i--) {
+            bytes32 key = _openPerpPositions.at(i - 1);
+            address user = address(uint160(uint256(key) >> 16));
+            if (isLiquidatable(user)) {
+                _liquidateUser(user);
+            }
+        }
+  
     }
 }

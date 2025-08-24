@@ -37,12 +37,15 @@ contract CoreState is StdCheats {
 
     struct AccountData {
         bool created;
-        uint64 perpBalance;
+
         mapping(uint64 token => uint64 balance) spot;
         mapping(address vault => PrecompileLib.UserVaultEquity) vaultEquity;
         uint64 staking;
         mapping(address validator => PrecompileLib.Delegation) delegations;
+
+        uint64 perpBalance;
         mapping(uint16 perpIndex => PrecompileLib.Position) positions;
+        mapping(uint16 perpIndex => uint64 margin) margin;
     }
 
     struct PendingOrder {
@@ -54,11 +57,14 @@ contract CoreState is StdCheats {
     mapping(uint64 token => PrecompileLib.TokenInfo) internal _tokens;
 
     mapping(address account => AccountData) internal _accounts;
+    
 
     mapping(address account => bool initialized) internal _initializedAccounts;
     mapping(address account => mapping(uint64 token => bool initialized)) internal _initializedSpotBalance;
     mapping(address account => mapping(address vault => bool initialized)) internal _initializedVaults;
+
     mapping(address account => mapping(uint32 perpIndex => bool initialized)) internal _initializedPerpPosition;
+    mapping(uint16 perpIndex => uint32 maxLeverage) internal _maxLeverage;
 
     mapping(address account => mapping(uint64 token => uint64 latentBalance)) internal _latentSpotBalance;
 
@@ -113,6 +119,11 @@ contract CoreState is StdCheats {
     }
 
     modifier initAccountWithPerp(address _account, uint16 perp) {
+
+        if (_maxLeverage[perp] == 0) {
+            _maxLeverage[perp] = RealL1Read.position(address(1), perp).leverage;
+        }
+
         if (_initializedPerpPosition[_account][perp] == false) {
             _initializeAccount(_account);
             _initializeAccountWithPerp(_account, perp);
