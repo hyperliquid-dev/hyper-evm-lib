@@ -42,8 +42,8 @@ contract CoreSimulatorTest is Test {
 
         bridgingExample = new BridgingExample();
 
-        CoreSimulatorLib.forceAccountCreation(user);
-        CoreSimulatorLib.forceAccountCreation(address(bridgingExample));
+        CoreSimulatorLib.forceAccountActivation(user);
+        CoreSimulatorLib.forceAccountActivation(address(bridgingExample));
 
         l1Read = new L1Read();
     }
@@ -186,7 +186,7 @@ contract CoreSimulatorTest is Test {
     function test_perpTrading() public {
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
-        CoreSimulatorLib.forceAccountCreation(address(hypeTrading));
+        CoreSimulatorLib.forceAccountActivation(address(hypeTrading));
         CoreSimulatorLib.forcePerpBalance(address(hypeTrading), 1e18);
 
         hypeTrading.createLimitOrder(5, true, 1e18, 1e2, false, 1);
@@ -221,7 +221,7 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
-        CoreSimulatorLib.forceAccountCreation(address(hypeTrading));
+        CoreSimulatorLib.forceAccountActivation(address(hypeTrading));
         vm.label(address(hypeTrading), "hypeTrading");
         CoreSimulatorLib.forcePerpBalance(address(hypeTrading), 10_000e6);
 
@@ -261,7 +261,7 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
-        CoreSimulatorLib.forceAccountCreation(address(hypeTrading));
+        CoreSimulatorLib.forceAccountActivation(address(hypeTrading));
         vm.label(address(hypeTrading), "hypeTrading");
 
         uint64 initialPerpBalance = 5000e6;
@@ -303,7 +303,7 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
-        CoreSimulatorLib.forceAccountCreation(address(hypeTrading));
+        CoreSimulatorLib.forceAccountActivation(address(hypeTrading));
         vm.label(address(hypeTrading), "hypeTrading");
 
         uint64 initialPerpBalance = 5000e6;
@@ -350,7 +350,7 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
-        CoreSimulatorLib.forceAccountCreation(address(hypeTrading));
+        CoreSimulatorLib.forceAccountActivation(address(hypeTrading));
         vm.label(address(hypeTrading), "hypeTrading");
 
         uint64 initialPerpBalance = 5000e6;
@@ -393,8 +393,8 @@ contract CoreSimulatorTest is Test {
     function test_spotTrading() public {
         vm.startPrank(user);
         SpotTrader spotTrader = new SpotTrader();
-        CoreSimulatorLib.forceAccountCreation(address(spotTrader));
-        CoreSimulatorLib.forceAccountCreation(address(user));
+        CoreSimulatorLib.forceAccountActivation(address(spotTrader));
+        CoreSimulatorLib.forceAccountActivation(address(user));
         CoreSimulatorLib.forceSpot(address(spotTrader), 0, 1e18);
         CoreSimulatorLib.forceSpot(address(spotTrader), 254, 1e18);
 
@@ -413,8 +413,8 @@ contract CoreSimulatorTest is Test {
     function test_limitOrder() public {
         vm.startPrank(user);
         SpotTrader spotTrader = new SpotTrader();
-        CoreSimulatorLib.forceAccountCreation(address(spotTrader));
-        CoreSimulatorLib.forceAccountCreation(address(user));
+        CoreSimulatorLib.forceAccountActivation(address(spotTrader));
+        CoreSimulatorLib.forceAccountActivation(address(user));
         CoreSimulatorLib.forceSpot(address(spotTrader), 0, 1e18);
         CoreSimulatorLib.forceSpot(address(spotTrader), 254, 1e18);
 
@@ -468,8 +468,8 @@ contract CoreSimulatorTest is Test {
     function test_limitOrderSell() public {
         vm.startPrank(user);
         SpotTrader spotTrader = new SpotTrader();
-        CoreSimulatorLib.forceAccountCreation(address(spotTrader));
-        CoreSimulatorLib.forceAccountCreation(address(user));
+        CoreSimulatorLib.forceAccountActivation(address(spotTrader));
+        CoreSimulatorLib.forceAccountActivation(address(user));
         CoreSimulatorLib.forceSpot(address(spotTrader), 0, 1e18);
         CoreSimulatorLib.forceSpot(address(spotTrader), 254, 1e18);
 
@@ -523,7 +523,7 @@ contract CoreSimulatorTest is Test {
         vm.startPrank(user);
 
         // Give sender 10 USDC
-        CoreSimulatorLib.forceAccountCreation(user);
+        CoreSimulatorLib.forceAccountActivation(user);
         CoreSimulatorLib.forceSpot(user, 0, 10e8);
 
         address newAccount = makeAddr("newAccount");
@@ -605,7 +605,7 @@ contract CoreSimulatorTest is Test {
     function test_vaultMultiplier() public {
         // Deploy VaultExample contract
         VaultExample vaultExample = new VaultExample();
-        CoreSimulatorLib.forceAccountCreation(address(vaultExample));
+        CoreSimulatorLib.forceAccountActivation(address(vaultExample));
         CoreSimulatorLib.forcePerpBalance(address(vaultExample), 1000e6); // Give it some perp balance
 
         address testVault = 0x07Fd993f0fA3A185F7207ADcCD29f7A87404689D;
@@ -630,7 +630,7 @@ contract CoreSimulatorTest is Test {
 
     function test_vaultDepositWithdraw() public {
         VaultExample vault = new VaultExample();
-        CoreSimulatorLib.forceAccountCreation(address(vault));
+        CoreSimulatorLib.forceAccountActivation(address(vault));
         CoreSimulatorLib.forcePerpBalance(address(vault), 100e6);
 
         address testVault = 0x07Fd993f0fA3A185F7207ADcCD29f7A87404689D;

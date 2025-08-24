@@ -37,7 +37,7 @@ contract CoreState is StdCheats {
     }
 
     struct AccountData {
-        bool created;
+        bool activated;
         mapping(uint64 token => uint64 balance) spot;
         mapping(address vault => PrecompileLib.UserVaultEquity) vaultEquity;
         uint64 staking;
@@ -138,7 +138,7 @@ contract CoreState is StdCheats {
     function _initializeAccountWithToken(address _account, uint64 token) internal {
         _initializeAccount(_account);
 
-        if (_accounts[_account].created == false) {
+        if (_accounts[_account].activated == false) {
             return;
         }
 
@@ -172,7 +172,7 @@ contract CoreState is StdCheats {
         }
 
         _initializedAccounts[_account] = true;
-        account.created = true;
+        account.activated = true;
 
         // setting perp balance
         account.perpBalance = RealL1Read.withdrawable(_account).withdrawable;
@@ -189,8 +189,8 @@ contract CoreState is StdCheats {
         }
     }
 
-    modifier whenAccountCreated(address sender) {
-        if (_accounts[sender].created == false) {
+    modifier whenActivated(address sender) {
+        if (_accounts[sender].activated == false) {
             return;
         }
         _;
@@ -214,13 +214,13 @@ contract CoreState is StdCheats {
     }
 
     /// @dev account creation can be forced when there isnt a reliance on testing that workflow.
-    function forceAccountCreation(address account) public {
-        _accounts[account].created = true;
+    function forceAccountActivation(address account) public {
+        _accounts[account].activated = true;
     }
 
     function forceSpot(address account, uint64 token, uint64 _wei) public payable {
-        if (_accounts[account].created == false) {
-            forceAccountCreation(account);
+        if (_accounts[account].activated == false) {
+            forceAccountActivation(account);
         }
 
         if (_initializedSpotBalance[account][token] == false) {
@@ -232,8 +232,8 @@ contract CoreState is StdCheats {
     }
 
     function forcePerpBalance(address account, uint64 usd) public payable {
-        if (_accounts[account].created == false) {
-            forceAccountCreation(account);
+        if (_accounts[account].activated == false) {
+            forceAccountActivation(account);
         }
         if (_initializedAccounts[account] == false) {
             _initializeAccount(account);
@@ -243,18 +243,18 @@ contract CoreState is StdCheats {
     }
 
     function forceStaking(address account, uint64 _wei) public payable {
-        forceAccountCreation(account);
+        forceAccountActivation(account);
         _accounts[account].staking = _wei;
     }
 
     function forceDelegation(address account, address validator, uint64 amount, uint64 lockedUntilTimestamp) public {
-        forceAccountCreation(account);
+        forceAccountActivation(account);
         _accounts[account].delegations[validator] =
             PrecompileLib.Delegation({validator: validator, amount: amount, lockedUntilTimestamp: lockedUntilTimestamp});
     }
 
     function forceVaultEquity(address account, address vault, uint64 usd, uint64 lockedUntilTimestamp) public payable {
-        forceAccountCreation(account);
+        forceAccountActivation(account);
 
         _vaultEquity[vault] -= _accounts[account].vaultEquity[vault].equity;
         _vaultEquity[vault] += usd;

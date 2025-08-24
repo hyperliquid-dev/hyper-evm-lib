@@ -44,7 +44,7 @@ contract CoreExecution is CoreView {
         payable
         initAccountWithToken(from, token)
     {
-        if (_accounts[from].created) {
+        if (_accounts[from].activated) {
             _accounts[from].spot[token] += toWei(value, _tokens[token].evmExtraWeiDecimals);
         } else {
             _latentSpotBalance[from][token] += toWei(value, _tokens[token].evmExtraWeiDecimals);
@@ -56,7 +56,7 @@ contract CoreExecution is CoreView {
         payable
         initAccountWithToken(from, HYPE_TOKEN_INDEX)
     {
-        if (_accounts[from].created) {
+        if (_accounts[from].activated) {
             _accounts[from].spot[HYPE_TOKEN_INDEX] += (value / 1e10).toUint64();
         } else {
             _latentSpotBalance[from][HYPE_TOKEN_INDEX] += (value / 1e10).toUint64();
@@ -277,7 +277,7 @@ contract CoreExecution is CoreView {
 
     function executeSpotSend(address sender, SpotSendAction memory action)
         public
-        whenAccountCreated(sender)
+        whenActivated(sender)
         initAccountWithToken(sender, action.token)
         initAccountWithToken(action.destination, action.token)
     {
@@ -286,10 +286,10 @@ contract CoreExecution is CoreView {
         }
 
         // handle account activation case
-        if (_accounts[action.destination].created == false) {
+        if (_accounts[action.destination].activated == false) {
             _chargeUSDCFee(sender);
 
-            _accounts[action.destination].created = true;
+            _accounts[action.destination].activated = true;
 
             _accounts[sender].spot[action.token] -= action._wei;
             _accounts[action.destination].spot[action.token] += _latentSpotBalance[sender][action.token] + action._wei;
@@ -343,7 +343,7 @@ contract CoreExecution is CoreView {
 
     function executeUsdClassTransfer(address sender, UsdClassTransferAction memory action)
         public
-        whenAccountCreated(sender)
+        whenActivated(sender)
     {
         if (action.toPerp) {
             if (fromPerp(action.ntl) <= _accounts[sender].spot[USDC_TOKEN_INDEX]) {
@@ -360,7 +360,7 @@ contract CoreExecution is CoreView {
 
     function executeVaultTransfer(address sender, VaultTransferAction memory action)
         public
-        whenAccountCreated(sender)
+        whenActivated(sender)
         initAccountWithVault(sender, action.vault)
     {
         // first update their vault equity
@@ -399,7 +399,7 @@ contract CoreExecution is CoreView {
 
     function executeStakingDeposit(address sender, StakingDepositAction memory action)
         public
-        whenAccountCreated(sender)
+        whenActivated(sender)
     {
         if (action._wei <= _accounts[sender].spot[HYPE_TOKEN_INDEX]) {
             _accounts[sender].spot[HYPE_TOKEN_INDEX] -= action._wei;
@@ -409,7 +409,7 @@ contract CoreExecution is CoreView {
 
     function executeStakingWithdraw(address sender, StakingWithdrawAction memory action)
         public
-        whenAccountCreated(sender)
+        whenActivated(sender)
     {
         if (action._wei <= _accounts[sender].staking) {
             _accounts[sender].staking -= action._wei;
@@ -424,7 +424,7 @@ contract CoreExecution is CoreView {
         }
     }
 
-    function executeTokenDelegate(address sender, TokenDelegateAction memory action) public whenAccountCreated(sender) {
+    function executeTokenDelegate(address sender, TokenDelegateAction memory action) public whenActivated(sender) {
         require(_validators.contains(action.validator));
 
         if (action.isUndelegate) {

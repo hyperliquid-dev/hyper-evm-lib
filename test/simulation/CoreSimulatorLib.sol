@@ -108,8 +108,8 @@ library CoreSimulatorLib {
     }
 
     // cheatcodes //
-    function forceAccountCreation(address account) internal {
-        hyperCore.forceAccountCreation(account);
+    function forceAccountActivation(address account) internal {
+        hyperCore.forceAccountActivation(account);
     }
 
     function forceSpot(address account, uint64 token, uint64 _wei) internal {

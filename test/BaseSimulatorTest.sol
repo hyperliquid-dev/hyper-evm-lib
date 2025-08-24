@@ -37,7 +37,7 @@ abstract contract BaseSimulatorTest is Test {
 
         hyperCore = CoreSimulatorLib.init();
         
-        hyperCore.forceAccountCreation(user);
+        hyperCore.forceAccountActivation(user);
         hyperCore.forceSpot(user, USDC_TOKEN, 1000e8);
         hyperCore.forcePerpBalance(user, 1000e6); 
     }

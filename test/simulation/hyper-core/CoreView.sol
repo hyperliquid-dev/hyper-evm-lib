@@ -46,7 +46,7 @@ contract CoreView is CoreState {
 
     // Even if the HyperCore account is not created, the precompile returns 0 (it does not revert)
     function readWithdrawable(address account) public returns (PrecompileLib.Withdrawable memory) {
-        if (_accounts[account].created == false) {
+        if (_accounts[account].activated == false) {
             return RealL1Read.withdrawable(account);
         }
 
@@ -111,11 +111,11 @@ contract CoreView is CoreState {
     }
 
     function coreUserExists(address account) public returns (bool) {
-        if (_accounts[account].created == false) {
+        if (_accounts[account].activated == false) {
             return RealL1Read.coreUserExists(account).exists;
         }
 
-        return _accounts[account].created;
+        return _accounts[account].activated;
     }
 
     function readAccountMarginSummary(address user) public view returns (PrecompileLib.AccountMarginSummary memory) {
