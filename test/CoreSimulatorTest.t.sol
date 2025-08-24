@@ -133,12 +133,6 @@ contract CoreSimulatorTest is Test {
         assertEq(newTotal, realTotal + HLConversions.evmToWei(150, amountToSend));
     }
 
-    function test_readSpotBalance() public {
-        (uint64 realTotal, uint64 realHold, uint64 realEntryNtl) =
-            abi.decode(abi.encode(l1Read.spotBalance(address(user), 150)), (uint64, uint64, uint64));
-        console.log("realTotal", realTotal);
-    }
-
     function test_bridgeEthToCore() public {
         deal(address(uETH), address(bridgingExample), 1e18);
 
@@ -203,10 +197,8 @@ contract CoreSimulatorTest is Test {
         PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), 5);
         assertEq(position.szi, 1e2);
 
-
         // short for 1e3
         hypeTrading.createLimitOrder(5, false, 0, 1e3, false, 2);
-
 
         // increase price by 20%
         hyperCore.setMarkPx(5, 2000, true);
@@ -224,11 +216,9 @@ contract CoreSimulatorTest is Test {
         hypeTrading.createLimitOrder(5, true, 1e18, 1e5, false, 4);
 
         CoreSimulatorLib.nextBlock();
-
     }
 
     function test_perpTrading_profitCalc() public {
-
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
@@ -243,8 +233,6 @@ contract CoreSimulatorTest is Test {
         hyperCore.setMarkPx(perp, startingPrice);
 
         hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 100_000, false, 1);
-
-
 
         CoreSimulatorLib.nextBlock();
 
@@ -271,7 +259,6 @@ contract CoreSimulatorTest is Test {
     }
 
     function test_short() public {
-
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
@@ -288,8 +275,6 @@ contract CoreSimulatorTest is Test {
         hyperCore.setMarkPx(perp, startingPrice);
 
         hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 1);
-
-
 
         CoreSimulatorLib.nextBlock();
 
@@ -316,7 +301,6 @@ contract CoreSimulatorTest is Test {
     }
 
     function test_shortThenLong() public {
-
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
@@ -334,8 +318,6 @@ contract CoreSimulatorTest is Test {
 
         hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 1);
 
-
-
         CoreSimulatorLib.nextBlock();
 
         hyperCore.setMarkPx(perp, startingPrice * 9 / 10);
@@ -343,17 +325,15 @@ contract CoreSimulatorTest is Test {
         PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), perp);
         assertEq(position.szi, -1 * 100_000);
 
-        // 
+        //
         hypeTrading.createLimitOrder(perp, true, 1e18, 2 * 100_000, false, 2);
 
         CoreSimulatorLib.nextBlock();
         hyperCore.setMarkPx(perp, startingPrice);
 
-
         hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 3);
 
         CoreSimulatorLib.nextBlock();
-
 
         position = hypeTrading.getPosition(address(hypeTrading), perp);
         console.log("position.entryNtl", position.entryNtl);
@@ -368,7 +348,6 @@ contract CoreSimulatorTest is Test {
     }
 
     function test_loss() public {
-
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
@@ -411,8 +390,6 @@ contract CoreSimulatorTest is Test {
         uint256 lossPercentage = loss * 100 / initialPerpBalance;
         assertEq(lossPercentage, 20);
     }
-    
-
 
     function test_spotTrading() public {
         vm.startPrank(user);
@@ -589,7 +566,6 @@ contract CoreSimulatorTest is Test {
         assertEq(address(user).balance, initialBalance - amountToBridge);
         assertEq(PrecompileLib.spotBalance(address(user), token).total, HLConversions.evmToWei(token, amountToBridge));
 
-
         // sell to USDC
         // log the spot price
         uint64 spotPx = PrecompileLib.spotPx(uint32(spot));
@@ -632,57 +608,59 @@ contract CoreSimulatorTest is Test {
         VaultExample vaultExample = new VaultExample();
         hyperCore.forceAccountCreation(address(vaultExample));
         hyperCore.forcePerpBalance(address(vaultExample), 1000e6); // Give it some perp balance
-        
+
         address testVault = 0x07Fd993f0fA3A185F7207ADcCD29f7A87404689D;
-        
 
         uint64 depositAmount = 100e6;
         vm.startPrank(address(vaultExample));
         vaultExample.depositToVault(testVault, depositAmount);
-    
+
         CoreSimulatorLib.nextBlock();
-        
-        
+
         // Check initial vault equity
-        PrecompileLib.UserVaultEquity memory initialEquity = hyperCore.readUserVaultEquity(address(vaultExample), testVault);
+        PrecompileLib.UserVaultEquity memory initialEquity =
+            hyperCore.readUserVaultEquity(address(vaultExample), testVault);
         console.log("Initial vault equity:", initialEquity.equity);
 
-    
         // Test 10% profit (1.1x multiplier)
         hyperCore.setVaultMultiplier(testVault, 1.1e18);
-        PrecompileLib.UserVaultEquity memory profitEquity = hyperCore.readUserVaultEquity(address(vaultExample), testVault);
+        PrecompileLib.UserVaultEquity memory profitEquity =
+            hyperCore.readUserVaultEquity(address(vaultExample), testVault);
         console.log("Equity with 10% profit:", profitEquity.equity);
-    
     }
 
     function test_vaultDepositWithdraw() public {
         VaultExample vault = new VaultExample();
         hyperCore.forceAccountCreation(address(vault));
         hyperCore.forcePerpBalance(address(vault), 100e6);
-        
+
         address testVault = 0x07Fd993f0fA3A185F7207ADcCD29f7A87404689D;
         uint64 depositAmount = 100e6;
-        
+
         vm.startPrank(address(vault));
-        
+
         vault.depositToVault(testVault, depositAmount);
         CoreSimulatorLib.nextBlock();
-        
+
         // Try to withdraw before the lock period expires - should revert
         PrecompileLib.UserVaultEquity memory vaultEquity = PrecompileLib.userVaultEquity(address(vault), testVault);
-        vm.expectRevert(abi.encodeWithSelector(CoreWriterLib.CoreWriterLib__StillLockedUntilTimestamp.selector, vaultEquity.lockedUntilTimestamp));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CoreWriterLib.CoreWriterLib__StillLockedUntilTimestamp.selector, vaultEquity.lockedUntilTimestamp
+            )
+        );
         vault.withdrawFromVault(testVault, depositAmount);
         hyperCore.setVaultMultiplier(testVault, 1.1e18);
 
         vm.warp((block.timestamp + 1 days + 1));
-        
-        vault.withdrawFromVault(testVault, depositAmount*11 / 10);
+
+        vault.withdrawFromVault(testVault, depositAmount * 11 / 10);
         CoreSimulatorLib.nextBlock();
 
         uint256 perpBalanceAfter = PrecompileLib.withdrawable(address(vault));
         assertEq(perpBalanceAfter, depositAmount * 11 / 10);
     }
-}   
+}
 
 contract SpotTrader {
     function placeLimitOrder(uint32 asset, bool isBuy, uint64 limitPx, uint64 sz, bool reduceOnly, uint128 cloid)
@@ -708,3 +686,4 @@ contract SpotTrader {
 //      - handle the other fields of the position
 //      - handle isolated margin positions
 // double check HYPE required on HyperCore for spotSend of non-HYPE tokens
+// readAccountMarginSummary

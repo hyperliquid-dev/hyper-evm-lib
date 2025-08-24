@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {PrecompileLib} from "src/PrecompileLib.sol";
-
-import {RealL1Read} from "../../utils/RealL1Read.sol";
-
-import {CoreState} from "./CoreState.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
+import {PrecompileLib} from "src/PrecompileLib.sol";
+import {RealL1Read} from "../../utils/RealL1Read.sol";
+
+import {CoreState} from "./CoreState.sol";
 
 /// Modified from https://github.com/ambitlabsxyz/hypercore
 contract CoreView is CoreState {
@@ -119,7 +119,6 @@ contract CoreView is CoreState {
     }
 
     function readAccountMarginSummary(address user) public returns (PrecompileLib.AccountMarginSummary memory) {
-
         // 1. maintain an enumerable set for the perps that a user is in
         // 2. iterate over their positions and calculate position value, add them up (value = abs(sz * markPx))
         return PrecompileLib.accountMarginSummary(0, user);

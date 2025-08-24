@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import {HLConstants} from "./HLConstants.sol";
 import {PrecompileLib} from "../PrecompileLib.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 library HLConversions {
     error HLConversions__InvalidToken(uint64 token);
 
@@ -53,7 +54,6 @@ library HLConversions {
         PrecompileLib.TokenInfo memory info = PrecompileLib.tokenInfo(uint32(token));
         return amountWei / uint64(10 ** (info.weiDecimals - info.szDecimals));
     }
-    
 
     // for USDC between spot and perp
     function weiToPerp(uint64 amountWei) internal view returns (uint64) {

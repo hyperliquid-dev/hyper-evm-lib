@@ -4,7 +4,6 @@ pragma solidity ^0.8.28;
 import {HyperCore} from "./HyperCore.sol";
 
 import {Vm} from "forge-std/Vm.sol";
-import {console} from "forge-std/console.sol";
 
 /// @dev this contract is deployed for each different precompile address such that the fallback can be executed for each
 contract PrecompileSim {

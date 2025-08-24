@@ -12,7 +12,6 @@ import {HLConstants} from "src/CoreWriterLib.sol";
 import {RealL1Read} from "../../utils/RealL1Read.sol";
 import {StdCheats, Vm} from "forge-std/StdCheats.sol";
 
-
 /// Modified from https://github.com/ambitlabsxyz/hypercore
 contract CoreState is StdCheats {
     using SafeCast for uint256;
@@ -23,7 +22,7 @@ contract CoreState is StdCheats {
     using RealL1Read for *;
 
     Vm internal constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
-    
+
     uint64 public immutable HYPE_TOKEN_INDEX;
     uint64 public constant USDC_TOKEN_INDEX = 0;
 
@@ -39,12 +38,10 @@ contract CoreState is StdCheats {
 
     struct AccountData {
         bool created;
-
         mapping(uint64 token => uint64 balance) spot;
         mapping(address vault => PrecompileLib.UserVaultEquity) vaultEquity;
         uint64 staking;
         mapping(address validator => PrecompileLib.Delegation) delegations;
-
         uint64 perpBalance;
         mapping(uint16 perpIndex => PrecompileLib.Position) positions;
         mapping(uint16 perpIndex => uint64 margin) margin;
@@ -59,7 +56,6 @@ contract CoreState is StdCheats {
     mapping(uint64 token => PrecompileLib.TokenInfo) internal _tokens;
 
     mapping(address account => AccountData) internal _accounts;
-    
 
     mapping(address account => bool initialized) internal _initializedAccounts;
     mapping(address account => mapping(uint64 token => bool initialized)) internal _initializedSpotBalance;
@@ -121,7 +117,6 @@ contract CoreState is StdCheats {
     }
 
     modifier initAccountWithPerp(address _account, uint16 perp) {
-
         if (_maxLeverage[perp] == 0) {
             _maxLeverage[perp] = RealL1Read.position(address(1), perp).leverage;
         }
@@ -223,16 +218,27 @@ contract CoreState is StdCheats {
         _accounts[account].created = true;
     }
 
-    function forceSpot(address account, uint64 token, uint64 _wei)
-        public
-        payable
-        initAccountWithToken(account, token)
-    {
+    function forceSpot(address account, uint64 token, uint64 _wei) public payable {
+        if (_accounts[account].created == false) {
+            forceAccountCreation(account);
+        }
+
+        if (_initializedSpotBalance[account][token] == false) {
+            registerTokenInfo(token);
+            _initializeAccountWithToken(account, token);
+        }
+
         _accounts[account].spot[token] = _wei;
     }
 
     function forcePerpBalance(address account, uint64 usd) public payable {
-        forceAccountCreation(account);
+        if (_accounts[account].created == false) {
+            forceAccountCreation(account);
+        }
+        if (_initializedAccounts[account] == false) {
+            _initializeAccount(account);
+        }
+
         _accounts[account].perpBalance = usd;
     }
 

@@ -54,7 +54,7 @@ contract HyperCore is CoreExecution {
 
     /// @dev unstaking takes 7 days and after which it will automatically appear in the users
     /// spot balance so we need to check this at the end of each operation to simulate that.
-    function flushCWithdrawQueue() public {
+    function processStakingWithdrawals() public {
         while (_withdrawQueue.length() > 0) {
             WithdrawRequest memory request = deserializeWithdrawRequest(_withdrawQueue.front());
 

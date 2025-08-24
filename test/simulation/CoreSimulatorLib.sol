@@ -2,12 +2,11 @@
 pragma solidity ^0.8.0;
 
 import {Vm} from "forge-std/Vm.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {console} from "forge-std/console.sol";
 
 import {HyperCore} from "./HyperCore.sol";
 import {CoreWriterSim} from "./CoreWriterSim.sol";
 import {PrecompileSim} from "./PrecompileSim.sol";
+
 import {HLConstants} from "src/PrecompileLib.sol";
 
 Vm constant vm = Vm(address(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D));
@@ -79,7 +78,6 @@ library CoreSimulatorLib {
                 if (isSystemAddress(to)) {
                     uint64 tokenIndex = getTokenIndexFromSystemAddress(to);
                     address token = address(entry.emitter);
-                    console.log("token", token);
 
                     // Call tokenTransferCallback on HyperCoreWrite
                     hyperCore.executeTokenTransfer(address(0), tokenIndex, from, amount);
@@ -98,7 +96,7 @@ library CoreSimulatorLib {
         hyperCore.liquidatePositions();
 
         // Process any pending actions
-        coreWriter.flushActionQueue();
+        coreWriter.executeQueuedActions();
 
         // Process pending orders
         hyperCore.processPendingOrders();

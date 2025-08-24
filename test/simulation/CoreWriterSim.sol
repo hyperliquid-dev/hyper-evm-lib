@@ -4,8 +4,6 @@ pragma solidity ^0.8.28;
 import {Heap} from "@openzeppelin/contracts/utils/structs/Heap.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {HyperCore, CoreExecution} from "./HyperCore.sol";
-import {console} from "forge-std/console.sol";
-import {HLConstants} from "src/CoreWriterLib.sol";
 
 contract CoreWriterSim {
     using Address for address;
@@ -46,9 +44,8 @@ contract CoreWriterSim {
         _actionQueue.insert(uniqueId);
     }
 
-    function flushActionQueue() external {
+    function executeQueuedActions() external {
         while (_actionQueue.length() > 0) {
-            console.log("actionQueue length", _actionQueue.length());
             Action memory action = _actions[_actionQueue.peek()];
 
             // the action queue is a priority queue so the timestamp takes precedence in the
@@ -66,7 +63,7 @@ contract CoreWriterSim {
             _actionQueue.pop();
         }
 
-        _hyperCore.flushCWithdrawQueue();
+        _hyperCore.processStakingWithdrawals();
     }
 
     function tokenTransferCallback(uint64 token, address from, uint256 value) public {
