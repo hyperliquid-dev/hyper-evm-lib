@@ -108,6 +108,51 @@ library CoreSimulatorLib {
         coreWriter.setRevertOnFailure(_revertOnFailure);
     }
 
+    // cheatcodes //
+    function forceAccountCreation(address account) internal {
+        hyperCore.forceAccountCreation(account);
+    }
+
+    function forceSpot(address account, uint64 token, uint64 _wei) internal {
+        hyperCore.forceSpot(account, token, _wei);
+    }
+
+    function forcePerpBalance(address account, uint64 usd) internal {
+        hyperCore.forcePerpBalance(account, usd);
+    }
+
+    function forceStaking(address account, uint64 _wei) internal {
+        hyperCore.forceStaking(account, _wei);
+    }
+
+    function forceDelegation(address account, address validator, uint64 amount, uint64 lockedUntilTimestamp) internal {
+        hyperCore.forceDelegation(account, validator, amount, lockedUntilTimestamp);
+    }
+
+    function forceVaultEquity(address account, address vault, uint64 usd, uint64 lockedUntilTimestamp) internal {
+        hyperCore.forceVaultEquity(account, vault, usd, lockedUntilTimestamp);
+    }
+
+    function setMarkPx(uint32 perp, uint64 markPx) internal {
+        hyperCore.setMarkPx(perp, markPx);
+    }
+
+    function setMarkPx(uint32 perp, uint64 priceDiffBps, bool isIncrease) internal {
+        hyperCore.setMarkPx(perp, priceDiffBps, isIncrease);
+    }
+
+    function setSpotPx(uint32 spotMarketId, uint64 spotPx) internal {
+        hyperCore.setSpotPx(spotMarketId, spotPx);
+    }
+
+    function setSpotPx(uint32 spotMarketId, uint64 priceDiffBps, bool isIncrease) internal {
+        hyperCore.setSpotPx(spotMarketId, priceDiffBps, isIncrease);
+    }
+
+    function setVaultMultiplier(address vault, uint64 multiplier) internal {
+        hyperCore.setVaultMultiplier(vault, multiplier);
+    }
+
     ///// VIEW AND PURE /////////
 
     function isSystemAddress(address addr) internal view returns (bool) {

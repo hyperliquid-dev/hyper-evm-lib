@@ -452,6 +452,15 @@ contract CoreExecution is CoreView {
         _perpMarkPrice[perp] = markPx;
     }
 
+    function setSpotPx(uint32 spotMarketId, uint64 priceDiffBps, bool isIncrease) public {
+        uint64 basePrice = readSpotPx(spotMarketId);
+        if (isIncrease) {
+            _spotPrice[spotMarketId] = basePrice * (10000 + priceDiffBps) / 10000;
+        } else {
+            _spotPrice[spotMarketId] = basePrice * (10000 - priceDiffBps) / 10000;
+        }
+    }
+
     function setSpotPx(uint32 spotMarketId, uint64 spotPx) public {
         _spotPrice[spotMarketId] = spotPx;
     }
