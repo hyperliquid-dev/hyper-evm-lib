@@ -388,8 +388,13 @@ contract CoreExecution is CoreView {
 
     function executeVaultTransfer(address sender, VaultTransferAction memory action)
         internal
-        whenAccountCreated(sender)
+        whenAccountCreated(sender)  
+        initAccountWithVault(sender, action.vault)
     {
+
+        // first update their vault equity 
+        _accounts[sender].vaultEquity[action.vault].equity = readUserVaultEquity(sender, action.vault).equity;
+        
         if (action.isDeposit) {
             if (action.usd <= _accounts[sender].perpBalance) {
                 _accounts[sender].vaultEquity[action.vault].equity += action.usd;

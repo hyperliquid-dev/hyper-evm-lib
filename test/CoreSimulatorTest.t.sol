@@ -658,29 +658,29 @@ contract CoreSimulatorTest is Test {
     function test_vaultDepositWithdraw() public {
         VaultExample vault = new VaultExample();
         hyperCore.forceAccountCreation(address(vault));
-        hyperCore.forcePerpBalance(address(vault), 1000e6);
+        hyperCore.forcePerpBalance(address(vault), 100e6);
         
         address testVault = 0x07Fd993f0fA3A185F7207ADcCD29f7A87404689D;
         uint64 depositAmount = 100e6;
         
         vm.startPrank(address(vault));
         
-        console.log("Perp balance before deposit:", PrecompileLib.withdrawable(address(vault)));
         vault.depositToVault(testVault, depositAmount);
         CoreSimulatorLib.nextBlock();
-        console.log("Perp balance after deposit:", PrecompileLib.withdrawable(address(vault)));
         
         // Try to withdraw before the lock period expires - should revert
         PrecompileLib.UserVaultEquity memory vaultEquity = PrecompileLib.userVaultEquity(address(vault), testVault);
         vm.expectRevert(abi.encodeWithSelector(CoreWriterLib.CoreWriterLib__StillLockedUntilTimestamp.selector, vaultEquity.lockedUntilTimestamp));
         vault.withdrawFromVault(testVault, depositAmount);
-        
+        hyperCore.setVaultMultiplier(testVault, 1.1e18);
+
         vm.warp((block.timestamp + 1 days + 1));
         
-        vault.withdrawFromVault(testVault, depositAmount);
+        vault.withdrawFromVault(testVault, depositAmount*11 / 10);
         CoreSimulatorLib.nextBlock();
 
-        console.log("Perp balance after withdraw:", PrecompileLib.withdrawable(address(vault)));
+        uint256 perpBalanceAfter = PrecompileLib.withdrawable(address(vault));
+        assertEq(perpBalanceAfter, depositAmount * 11 / 10);
     }
 }   
 
