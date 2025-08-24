@@ -34,7 +34,9 @@ library CoreSimulatorLib {
     function init() internal returns (HyperCore) {
         vm.pauseGasMetering();
 
-        vm.etch(address(hyperCore), type(HyperCore).runtimeCode);
+        HyperCore coreImpl = new HyperCore();
+
+        vm.etch(address(hyperCore), address(coreImpl).code);
         vm.etch(address(coreWriter), type(CoreWriterSim).runtimeCode);
 
         // Initialize precompiles

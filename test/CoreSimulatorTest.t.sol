@@ -703,5 +703,8 @@ contract SpotTrader {
 }
 
 // TODO:
-// - make it so that every time we read or update a user's spot/perp balance, we provide the up-to-date ntl using the current price info
 // - experiment with archive node and calling precompiles from older, specific block.number (instead of latest by default)
+// for perps:
+//      - handle the other fields of the position
+//      - handle isolated margin positions
+// double check HYPE required on HyperCore for spotSend of non-HYPE tokens

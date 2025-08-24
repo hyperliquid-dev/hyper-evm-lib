@@ -6,17 +6,12 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 import {Heap} from "@openzeppelin/contracts/utils/structs/Heap.sol";
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 import {PrecompileLib} from "src/PrecompileLib.sol";
 import {HLConstants} from "src/CoreWriterLib.sol";
-import {console} from "forge-std/console.sol";
 
 import {RealL1Read} from "../../utils/RealL1Read.sol";
 import {StdCheats, Vm} from "forge-std/StdCheats.sol";
 
-uint64 constant KNOWN_TOKEN_USDC = 0;
-uint64 constant KNOWN_TOKEN_HYPE = 150;
 
 /// Modified from https://github.com/ambitlabsxyz/hypercore
 contract CoreState is StdCheats {
@@ -28,6 +23,13 @@ contract CoreState is StdCheats {
     using RealL1Read for *;
 
     Vm internal constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+    
+    uint64 public immutable HYPE_TOKEN_INDEX;
+    uint64 public constant USDC_TOKEN_INDEX = 0;
+
+    constructor() {
+        HYPE_TOKEN_INDEX = HLConstants.hypeTokenIndex();
+    }
 
     struct WithdrawRequest {
         address account;

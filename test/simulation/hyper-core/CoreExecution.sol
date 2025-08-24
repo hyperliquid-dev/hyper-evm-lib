@@ -7,19 +7,16 @@ import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEnde
 import {Heap} from "@openzeppelin/contracts/utils/structs/Heap.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {PrecompileLib} from "src/PrecompileLib.sol";
 import {CoreWriterLib} from "src/CoreWriterLib.sol";
 import {HLConversions} from "src/common/HLConversions.sol";
 
-import {console} from "forge-std/console.sol";
 
 import {RealL1Read} from "../../utils/RealL1Read.sol";
 
 import {CoreView} from "./CoreView.sol";
-
-uint64 constant KNOWN_TOKEN_USDC = 0;
-uint64 constant KNOWN_TOKEN_HYPE = 150;
 
 contract CoreExecution is CoreView {
     using SafeCast for uint256;
@@ -27,7 +24,7 @@ contract CoreExecution is CoreView {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
     using Heap for Heap.Uint256Heap;
-
+    using SafeERC20 for IERC20;
     using RealL1Read for *;
 
     using EnumerableSet for EnumerableSet.UintSet;
@@ -60,18 +57,16 @@ contract CoreExecution is CoreView {
     function executeNativeTransfer(address, address from, uint256 value)
         public
         payable
-        initAccountWithToken(from, KNOWN_TOKEN_HYPE)
+        initAccountWithToken(from, HYPE_TOKEN_INDEX)
     {
         if (_accounts[from].created) {
-            _accounts[from].spot[KNOWN_TOKEN_HYPE] += (value / 1e10).toUint64();
+            _accounts[from].spot[HYPE_TOKEN_INDEX] += (value / 1e10).toUint64();
         } else {
-            _latentSpotBalance[from][KNOWN_TOKEN_HYPE] += (value / 1e10).toUint64();
+            _latentSpotBalance[from][HYPE_TOKEN_INDEX] += (value / 1e10).toUint64();
         }
     }
 
-    // TODO:
-    // - handle the other fields of the position
-    // - handle isolated margin positions
+
     function executePerpLimitOrder(address sender, LimitOrderAction memory action)
         public
         initAccountWithPerp(sender, uint16(action.asset))
@@ -102,7 +97,7 @@ contract CoreExecution is CoreView {
         int64 szi = _accounts[sender].positions[perpIndex].szi;
         uint32 leverage = _accounts[sender].positions[perpIndex].leverage;
         
-        uint64 _markPx = uint64(markPx);
+        uint64 _markPx = markPx.toUint64();
 
         // Add require checks for safety (e.g., leverage > 0, action.sz > 0, etc.)
         require(leverage > 0, "Invalid leverage");
@@ -130,7 +125,6 @@ contract CoreExecution is CoreView {
             if (newSzi <= 0) {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi);
                 int64 pnl = int64(action.sz) * (int64(avgEntryPrice) - int64(_markPx));
-                console.log("pnl", pnl);
 
                 uint64 closedMargin = (uint64(action.sz) * _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi)) / leverage;
                 _accounts[sender].perpBalance += closedMargin;
@@ -151,11 +145,11 @@ contract CoreExecution is CoreView {
                 uint64 oldMargin = _accounts[sender].positions[perpIndex].entryNtl / leverage;
                 _accounts[sender].perpBalance += oldMargin;
                 uint64 newLongSize = uint64(newSzi);
-                uint64 newMargin = newLongSize * uint64(_markPx) / leverage;
+                uint64 newMargin = newLongSize * _markPx / leverage;
                 _accounts[sender].perpBalance -= newMargin;
                 _accounts[sender].margin[perpIndex] += newMargin;
                 _accounts[sender].positions[perpIndex].szi = newSzi;
-                _accounts[sender].positions[perpIndex].entryNtl = newLongSize * uint64(_markPx);
+                _accounts[sender].positions[perpIndex].entryNtl = newLongSize * _markPx;
             }
         }
 
@@ -178,7 +172,7 @@ contract CoreExecution is CoreView {
         int64 szi = _accounts[sender].positions[perpIndex].szi;
         uint32 leverage = _accounts[sender].positions[perpIndex].leverage;
 
-        uint64 _markPx = uint64(markPx);
+        uint64 _markPx = markPx.toUint64();
 
         // Add require checks for safety (e.g., leverage > 0, action.sz > 0, etc.)
         require(leverage > 0, "Invalid leverage");
@@ -187,8 +181,6 @@ contract CoreExecution is CoreView {
 
 
         if (szi <= 0) {
-
-            console.log("short position");
         // No PnL realization for same-direction increase
         // Update position size (more negative for short)
         _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
@@ -209,7 +201,6 @@ contract CoreExecution is CoreView {
             if (newSzi >= 0) {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(szi);
                 int64 pnl = int64(action.sz) * (int64(_markPx) - int64(avgEntryPrice));
-                console.log("pnl", pnl);
                 uint64 closedMargin = (uint64(action.sz) * _accounts[sender].positions[perpIndex].entryNtl / uint64(szi)) / leverage;
                 _accounts[sender].perpBalance += closedMargin;
                 
@@ -229,11 +220,11 @@ contract CoreExecution is CoreView {
                 uint64 oldMargin = _accounts[sender].positions[perpIndex].entryNtl / leverage;
                 _accounts[sender].perpBalance += oldMargin;
                 uint64 newShortSize = uint64(-newSzi);
-                uint64 newMargin = newShortSize * uint64(_markPx) / leverage;
+                uint64 newMargin = newShortSize * _markPx / leverage;
                 _accounts[sender].perpBalance -= newMargin;
                 _accounts[sender].margin[perpIndex] += newMargin;
                 _accounts[sender].positions[perpIndex].szi = newSzi;
-                _accounts[sender].positions[perpIndex].entryNtl = newShortSize * uint64(_markPx);
+                _accounts[sender].positions[perpIndex].entryNtl = newShortSize * _markPx;
             }
         }
 
@@ -256,11 +247,7 @@ contract CoreExecution is CoreView {
         public
         initAccountWithSpotMarket(sender, uint32(HLConversions.assetToSpotId(action.asset)))
     {
-        // 1. find base/quote token
-        // 2. find spot balance of the from token
-        // 3. if enough, execute the order at the spot price (assume infinite depth)
-        // 4. update their balances of the from and to token
-
+        
         PrecompileLib.SpotInfo memory spotInfo = RealL1Read.spotInfo(uint32(HLConversions.assetToSpotId(action.asset)));
 
         PrecompileLib.TokenInfo memory baseToken = _tokens[spotInfo.tokens[0]];
@@ -272,14 +259,13 @@ contract CoreExecution is CoreView {
         uint64 toToken;
 
         if (isActionExecutable(action, spotPx)) {
-            console.log("EXECUTING ORDER!");
             if (action.isBuy) {
                 fromToken = spotInfo.tokens[1];
                 toToken = spotInfo.tokens[0];
 
 
                 uint64 amountIn = action.sz * spotPx;
-                uint64 amountOut = action.sz * uint64(10 ** (baseToken.weiDecimals - baseToken.szDecimals));
+                uint64 amountOut = action.sz * (10 ** (baseToken.weiDecimals - baseToken.szDecimals)).toUint64();
 
 
                 if (_accounts[sender].spot[fromToken] >= amountIn) {
@@ -292,7 +278,7 @@ contract CoreExecution is CoreView {
                 fromToken = spotInfo.tokens[0];
                 toToken = spotInfo.tokens[1];
 
-                uint64 amountIn = action.sz * uint64(10 ** (baseToken.weiDecimals - baseToken.szDecimals));
+                uint64 amountIn = action.sz * (10 ** (baseToken.weiDecimals - baseToken.szDecimals)).toUint64();
 
                 uint64 amountOut = action.sz * spotPx;
 
@@ -343,25 +329,24 @@ contract CoreExecution is CoreView {
         if (action.destination != systemAddress) {
             _accounts[action.destination].spot[action.token] += action._wei;
         } else {
-            if (action.token == KNOWN_TOKEN_HYPE) {
+            if (action.token == HYPE_TOKEN_INDEX) {
                 uint256 amount = action._wei * 1e10;
                 deal(systemAddress, systemAddress.balance + amount);
                 vm.prank(systemAddress);
                 address(sender).call{value: amount, gas: 30000}("");
             }
 
-            // TODO: this requires HYPE balance to pay some gas for the transfer
             address evmContract = _tokens[action.token].evmContract;
             uint256 amount = fromWei(action._wei, _tokens[action.token].evmExtraWeiDecimals);
             deal(evmContract, systemAddress, IERC20(evmContract).balanceOf(systemAddress) + amount);
             vm.prank(systemAddress);
-            IERC20(evmContract).transfer(action.destination, amount);
+            IERC20(evmContract).safeTransfer(action.destination, amount);
         }
     }
 
     function _chargeUSDCFee(address sender) internal {
-        if (_accounts[sender].spot[KNOWN_TOKEN_USDC] >= 1e8) {
-            _accounts[sender].spot[KNOWN_TOKEN_USDC] -= 1e8;
+        if (_accounts[sender].spot[USDC_TOKEN_INDEX] >= 1e8) {
+            _accounts[sender].spot[USDC_TOKEN_INDEX] -= 1e8;
         } else if (_accounts[sender].perpBalance >= 1e8) {
             _accounts[sender].perpBalance -= 1e8;
         } else {
@@ -374,14 +359,14 @@ contract CoreExecution is CoreView {
         whenAccountCreated(sender)
     {
         if (action.toPerp) {
-            if (fromPerp(action.ntl) <= _accounts[sender].spot[KNOWN_TOKEN_USDC]) {
+            if (fromPerp(action.ntl) <= _accounts[sender].spot[USDC_TOKEN_INDEX]) {
                 _accounts[sender].perpBalance += action.ntl;
-                _accounts[sender].spot[KNOWN_TOKEN_USDC] -= fromPerp(action.ntl);
+                _accounts[sender].spot[USDC_TOKEN_INDEX] -= fromPerp(action.ntl);
             }
         } else {
             if (action.ntl <= _accounts[sender].perpBalance) {
                 _accounts[sender].perpBalance -= action.ntl;
-                _accounts[sender].spot[KNOWN_TOKEN_USDC] += fromPerp(action.ntl);
+                _accounts[sender].spot[USDC_TOKEN_INDEX] += fromPerp(action.ntl);
             }
         }
     }
@@ -430,8 +415,8 @@ contract CoreExecution is CoreView {
         internal
         whenAccountCreated(sender)
     {
-        if (action._wei <= _accounts[sender].spot[KNOWN_TOKEN_HYPE]) {
-            _accounts[sender].spot[KNOWN_TOKEN_HYPE] -= action._wei;
+        if (action._wei <= _accounts[sender].spot[HYPE_TOKEN_INDEX]) {
+            _accounts[sender].spot[HYPE_TOKEN_INDEX] -= action._wei;
             _accounts[sender].staking += action._wei;
         }
     }
@@ -546,12 +531,10 @@ contract CoreExecution is CoreView {
         }
 
         if (totalNotional == 0) {
-            console.log("No open positions found, not liquidatable");
             return false;
         }
 
         int64 equity = int64(_accounts[user].perpBalance) + int64(totalLocked) + totalUPnL;
-        console.log("Is liquidatable: %s", equity < int64(mmReq) ? "true" : "false");
 
         return equity < int64(mmReq);
     }
@@ -569,7 +552,6 @@ contract CoreExecution is CoreView {
     // for future: make this more realistic
     function _liquidateUser(address user) internal {
 
-        console.log("liquidating user", user);
         uint256 len = _userPerpPositions[user].length();
         for (uint256 i = len; i > 0; i--) {
             uint16 perpIndex = uint16(_userPerpPositions[user].at(i - 1));
