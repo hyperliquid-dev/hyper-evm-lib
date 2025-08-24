@@ -9,9 +9,9 @@ import {Heap} from "@openzeppelin/contracts/utils/structs/Heap.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {PrecompileLib} from "src/PrecompileLib.sol";
-import {CoreWriterLib} from "src/CoreWriterLib.sol";
-import {HLConversions} from "src/common/HLConversions.sol";
+import {PrecompileLib} from "../../../src/PrecompileLib.sol";
+import {CoreWriterLib} from "../../../src/CoreWriterLib.sol";
+import {HLConversions} from "../../../src/common/HLConversions.sol";
 
 import {RealL1Read} from "../../utils/RealL1Read.sol";
 import {CoreView} from "./CoreView.sol";

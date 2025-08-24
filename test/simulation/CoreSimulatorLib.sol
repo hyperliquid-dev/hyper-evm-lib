@@ -7,7 +7,7 @@ import {HyperCore} from "./HyperCore.sol";
 import {CoreWriterSim} from "./CoreWriterSim.sol";
 import {PrecompileSim} from "./PrecompileSim.sol";
 
-import {HLConstants} from "src/PrecompileLib.sol";
+import {HLConstants} from "../../src/PrecompileLib.sol";
 
 Vm constant vm = Vm(address(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D));
 CoreWriterSim constant coreWriter = CoreWriterSim(0x3333333333333333333333333333333333333333);

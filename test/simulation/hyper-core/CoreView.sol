@@ -5,7 +5,7 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import {PrecompileLib} from "src/PrecompileLib.sol";
+import {PrecompileLib} from "../../../src/PrecompileLib.sol";
 import {RealL1Read} from "../../utils/RealL1Read.sol";
 
 import {CoreState} from "./CoreState.sol";

@@ -6,8 +6,8 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 import {Heap} from "@openzeppelin/contracts/utils/structs/Heap.sol";
 
-import {PrecompileLib} from "src/PrecompileLib.sol";
-import {HLConstants} from "src/CoreWriterLib.sol";
+import {PrecompileLib} from "../../../src/PrecompileLib.sol";
+import {HLConstants} from "../../../src/CoreWriterLib.sol";
 
 import {RealL1Read} from "../../utils/RealL1Read.sol";
 import {StdCheats, Vm} from "forge-std/StdCheats.sol";
