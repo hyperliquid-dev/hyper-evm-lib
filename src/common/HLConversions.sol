@@ -56,19 +56,19 @@ library HLConversions {
     }
 
     // for USDC between spot and perp
-    function weiToPerp(uint64 amountWei) internal view returns (uint64) {
+    function weiToPerp(uint64 amountWei) internal pure returns (uint64) {
         return amountWei / 10 ** 2;
     }
 
-    function perpToWei(uint64 perpAmount) internal view returns (uint64) {
+    function perpToWei(uint64 perpAmount) internal pure returns (uint64) {
         return perpAmount * 10 ** 2;
     }
 
-    function spotToAssetId(uint64 spot) internal view returns (uint64) {
+    function spotToAssetId(uint64 spot) internal pure returns (uint64) {
         return spot + 10000;
     }
 
-    function assetToSpotId(uint64 asset) internal view returns (uint64) {
+    function assetToSpotId(uint64 asset) internal pure returns (uint64) {
         return asset - 10000;
     }
 }

@@ -77,7 +77,6 @@ library CoreSimulatorLib {
                 // Check if destination is a system address
                 if (isSystemAddress(to)) {
                     uint64 tokenIndex = getTokenIndexFromSystemAddress(to);
-                    address token = address(entry.emitter);
 
                     // Call tokenTransferCallback on HyperCoreWrite
                     hyperCore.executeTokenTransfer(address(0), tokenIndex, from, amount);

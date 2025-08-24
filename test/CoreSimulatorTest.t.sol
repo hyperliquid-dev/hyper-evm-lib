@@ -31,8 +31,9 @@ contract CoreSimulatorTest is Test {
     L1Read l1Read;
 
     function setUp() public {
-        string memory hyperliquidRpc = "https://rpc.hyperliquid.xyz/evm";
-        string memory archiveRpc = "https://rpc.purroofgroup.com";
+        //string memory hyperliquidRpc = "https://rpc.hyperliquid.xyz/evm";
+        //string memory archiveRpc = "https://rpc.purroofgroup.com";
+
         string memory alchemyRpc = vm.envString("ALCHEMY_RPC");
         vm.createSelectFork(alchemyRpc);
 
@@ -116,7 +117,7 @@ contract CoreSimulatorTest is Test {
         vm.startPrank(user);
         bridgingExample.bridgeToCoreAndSendHype{value: amountToSend}(amountToSend, address(recipient));
 
-        (uint64 realTotal, uint64 realHold, uint64 realEntryNtl) =
+        (uint64 realTotal,,) =
             abi.decode(abi.encode(RealL1Read.spotBalance(address(recipient), 150)), (uint64, uint64, uint64));
         console.log("realTotal", realTotal);
 
@@ -126,7 +127,7 @@ contract CoreSimulatorTest is Test {
 
         CoreSimulatorLib.nextBlock();
 
-        (uint64 newTotal, uint64 newHold, uint64 newEntryNtl) =
+        (uint64 newTotal,,) =
             abi.decode(abi.encode(l1Read.spotBalance(address(recipient), 150)), (uint64, uint64, uint64));
         console.log("total", newTotal);
         console.log("rhs:", realTotal + HLConversions.evmToWei(150, amountToSend));
@@ -152,7 +153,6 @@ contract CoreSimulatorTest is Test {
     }
 
     function test_readDelegations() public {
-        address kinetiq = 0x68e7E72938db36a5CBbCa7b52c71DBBaaDfB8264;
         PrecompileLib.Delegation[] memory delegations =
             RealL1Read.delegations(address(0x393D0B87Ed38fc779FD9611144aE649BA6082109));
         console.log("delegations", delegations.length);
@@ -170,7 +170,6 @@ contract CoreSimulatorTest is Test {
     }
 
     function test_readDelegatorSummary() public {
-        address kinetiq = 0x68e7E72938db36a5CBbCa7b52c71DBBaaDfB8264;
         PrecompileLib.DelegatorSummary memory summary =
             RealL1Read.delegatorSummary(address(0x393D0B87Ed38fc779FD9611144aE649BA6082109));
         console.log("summary.delegated", summary.delegated);

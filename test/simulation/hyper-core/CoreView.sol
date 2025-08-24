@@ -118,7 +118,7 @@ contract CoreView is CoreState {
         return _accounts[account].created;
     }
 
-    function readAccountMarginSummary(address user) public returns (PrecompileLib.AccountMarginSummary memory) {
+    function readAccountMarginSummary(address user) public view returns (PrecompileLib.AccountMarginSummary memory) {
         // 1. maintain an enumerable set for the perps that a user is in
         // 2. iterate over their positions and calculate position value, add them up (value = abs(sz * markPx))
         return PrecompileLib.accountMarginSummary(0, user);

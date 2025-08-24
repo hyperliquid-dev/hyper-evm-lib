@@ -98,6 +98,7 @@ contract CoreExecution is CoreView {
         require(leverage > 0, "Invalid leverage");
         require(action.sz > 0, "Invalid size");
         require(markPx > 0, "Invalid price");
+        int64 newSzi = szi + int64(action.sz);
 
         if (szi >= 0) {
             // No PnL realization for same-direction increase
@@ -114,7 +115,6 @@ contract CoreExecution is CoreView {
 
             _accounts[sender].margin[perpIndex] += (uint64(action.sz) * uint64(markPx)) / leverage;
         } else {
-            int64 newSzi = szi + int64(action.sz);
 
             if (newSzi <= 0) {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi);
@@ -146,7 +146,6 @@ contract CoreExecution is CoreView {
             }
         }
 
-        int64 newSzi = _accounts[sender].positions[perpIndex].szi;
         bytes32 key = _getKey(sender, perpIndex);
         if (szi == 0 && newSzi != 0) {
             _openPerpPositions.add(key);
@@ -168,6 +167,7 @@ contract CoreExecution is CoreView {
         require(leverage > 0, "Invalid leverage");
         require(action.sz > 0, "Invalid size");
         require(markPx > 0, "Invalid price");
+        int64 newSzi = szi - int64(action.sz);
 
         if (szi <= 0) {
             // No PnL realization for same-direction increase
@@ -184,7 +184,6 @@ contract CoreExecution is CoreView {
 
             _accounts[sender].margin[perpIndex] += (uint64(action.sz) * uint64(markPx)) / leverage;
         } else {
-            int64 newSzi = szi - int64(action.sz);
 
             if (newSzi >= 0) {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(szi);
@@ -215,7 +214,6 @@ contract CoreExecution is CoreView {
             }
         }
 
-        int64 newSzi = _accounts[sender].positions[perpIndex].szi;
         bytes32 key = _getKey(sender, perpIndex);
         if (szi == 0 && newSzi != 0) {
             _openPerpPositions.add(key);
@@ -278,7 +276,7 @@ contract CoreExecution is CoreView {
     }
 
     function executeSpotSend(address sender, SpotSendAction memory action)
-        internal
+        public
         whenAccountCreated(sender)
         initAccountWithToken(sender, action.token)
         initAccountWithToken(action.destination, action.token)
@@ -312,18 +310,24 @@ contract CoreExecution is CoreView {
         if (action.destination != systemAddress) {
             _accounts[action.destination].spot[action.token] += action._wei;
         } else {
+
+            uint256 transferAmount;
             if (action.token == HYPE_TOKEN_INDEX) {
-                uint256 amount = action._wei * 1e10;
-                deal(systemAddress, systemAddress.balance + amount);
+                transferAmount = action._wei * 1e10;
+                deal(systemAddress, systemAddress.balance + transferAmount);
                 vm.prank(systemAddress);
-                address(sender).call{value: amount, gas: 30000}("");
+                (bool success,) = address(sender).call{value: transferAmount, gas: 30000}("");
+                if (!success) {
+                    revert("transfer failed");
+                }
+                return;
             }
 
             address evmContract = _tokens[action.token].evmContract;
-            uint256 amount = fromWei(action._wei, _tokens[action.token].evmExtraWeiDecimals);
-            deal(evmContract, systemAddress, IERC20(evmContract).balanceOf(systemAddress) + amount);
+            transferAmount = fromWei(action._wei, _tokens[action.token].evmExtraWeiDecimals);
+            deal(evmContract, systemAddress, IERC20(evmContract).balanceOf(systemAddress) + transferAmount);
             vm.prank(systemAddress);
-            IERC20(evmContract).safeTransfer(action.destination, amount);
+            IERC20(evmContract).safeTransfer(action.destination, transferAmount);
         }
     }
 
@@ -338,7 +342,7 @@ contract CoreExecution is CoreView {
     }
 
     function executeUsdClassTransfer(address sender, UsdClassTransferAction memory action)
-        internal
+        public
         whenAccountCreated(sender)
     {
         if (action.toPerp) {
@@ -355,7 +359,7 @@ contract CoreExecution is CoreView {
     }
 
     function executeVaultTransfer(address sender, VaultTransferAction memory action)
-        internal
+        public
         whenAccountCreated(sender)
         initAccountWithVault(sender, action.vault)
     {
@@ -394,7 +398,7 @@ contract CoreExecution is CoreView {
     }
 
     function executeStakingDeposit(address sender, StakingDepositAction memory action)
-        internal
+        public
         whenAccountCreated(sender)
     {
         if (action._wei <= _accounts[sender].spot[HYPE_TOKEN_INDEX]) {
@@ -404,7 +408,7 @@ contract CoreExecution is CoreView {
     }
 
     function executeStakingWithdraw(address sender, StakingWithdrawAction memory action)
-        internal
+        public
         whenAccountCreated(sender)
     {
         if (action._wei <= _accounts[sender].staking) {
@@ -420,7 +424,7 @@ contract CoreExecution is CoreView {
         }
     }
 
-    function executeTokenDelegate(address sender, TokenDelegateAction memory action) internal {
+    function executeTokenDelegate(address sender, TokenDelegateAction memory action) public whenAccountCreated(sender) {
         require(_validators.contains(action.validator));
 
         if (action.isUndelegate) {
@@ -491,7 +495,7 @@ contract CoreExecution is CoreView {
     }
 
     ////////// PERP LIQUIDATIONS ////////////////////
-    function isLiquidatable(address user) internal returns (bool) {
+    function isLiquidatable(address user) public returns (bool) {
         uint64 totalNotional = 0;
         int64 totalUPnL = 0;
         uint64 totalLocked = 0;
@@ -533,13 +537,13 @@ contract CoreExecution is CoreView {
         return value > 0 ? uint64(value) : uint64(-value);
     }
 
-    function _getMaxLeverage(uint16 perpIndex) internal view returns (uint32) {
+    function _getMaxLeverage(uint16 perpIndex) public view returns (uint32) {
         return _maxLeverage[perpIndex];
     }
 
     // simplified liquidation, nukes all positions and resets the perp balance
     // for future: make this more realistic
-    function _liquidateUser(address user) internal {
+    function _liquidateUser(address user) public {
         uint256 len = _userPerpPositions[user].length();
         for (uint256 i = len; i > 0; i--) {
             uint16 perpIndex = uint16(_userPerpPositions[user].at(i - 1));
