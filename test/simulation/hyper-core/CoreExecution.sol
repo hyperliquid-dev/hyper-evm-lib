@@ -490,7 +490,7 @@ contract CoreExecution is CoreView {
     }
 
     function setVaultMultiplier(address vault, uint64 multiplier) public {
-        Vault_Value_Multiplier[vault] = multiplier;
+        _vaultMultiplier[vault] = multiplier;
     }
 
     function processPendingOrders() public {

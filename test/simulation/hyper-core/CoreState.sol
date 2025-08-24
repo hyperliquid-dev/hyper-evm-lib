@@ -79,7 +79,7 @@ contract CoreState is StdCheats {
 
     EnumerableSet.AddressSet internal _validators;
 
-    mapping(address vault => uint64) internal Vault_Value_Multiplier;
+    mapping(address vault => uint64) internal _vaultMultiplier;
 
     /////////////////////////
     /// STATE INITIALIZERS///
