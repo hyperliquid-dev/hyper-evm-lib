@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import {ICoreWriter} from "../interfaces/ICoreWriter.sol";
 
 library HLConstants {
-
     /*//////////////////////////////////////////////////////////////
                         Addresses
     //////////////////////////////////////////////////////////////*/
@@ -32,13 +31,13 @@ library HLConstants {
 
     uint8 constant HYPE_EVM_EXTRA_DECIMALS = 10;
 
-
     /*//////////////////////////////////////////////////////////////
                         HYPE Token Index
     //////////////////////////////////////////////////////////////*/
     function hypeTokenIndex() internal view returns (uint64) {
         return block.chainid == 998 ? 1105 : 150;
     }
+
     function isHype(uint64 index) internal view returns (bool) {
         return index == hypeTokenIndex();
     }

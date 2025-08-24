@@ -56,7 +56,7 @@ contract BridgingExample {
     }
 
     /**
-     * @notice Bridges HYPE tokens from Core to EVM 
+     * @notice Bridges HYPE tokens from Core to EVM
      * @param evmAmount Amount of HYPE tokens to bridge (in EVM decimals)
      */
     function bridgeHypeToEvm(uint256 evmAmount) external {
@@ -79,12 +79,22 @@ contract BridgingExample {
         CoreWriterLib.bridgeToCore(tokenAddress, evmAmount);
 
         // Convert EVM amount to core amount
-        uint64 coreAmount = HLConversions.convertEvmToCoreAmount(tokenId, evmAmount);
+        uint64 coreAmount = HLConversions.evmToWei(tokenId, evmAmount);
 
         // Send tokens to recipient on core
         CoreWriterLib.spotSend(recipient, tokenId, coreAmount);
     }
 
+    function bridgeToCoreAndSendHype(uint256 evmAmount, address recipient) external payable {
+        // Bridge tokens to core
+        CoreWriterLib.bridgeToCore(HLConstants.hypeTokenIndex(), evmAmount);
+
+        // Convert EVM amount to core amount
+        uint64 coreAmount = HLConversions.evmToWei(HLConstants.hypeTokenIndex(), evmAmount);
+
+        // Send tokens to recipient on core
+        CoreWriterLib.spotSend(recipient, HLConstants.hypeTokenIndex(), coreAmount);
+    }
 
     /*//////////////////////////////////////////////////////////////
                         Utility Functions

@@ -42,7 +42,7 @@ library CoreWriterLib {
 
     function bridgeToCore(uint64 token, uint256 evmAmount) internal {
         // Check if amount would be 0 after conversion to prevent token loss
-        uint64 coreAmount = HLConversions.convertEvmToCoreAmount(token, evmAmount);
+        uint64 coreAmount = HLConversions.evmToWei(token, evmAmount);
         if (coreAmount == 0) revert CoreWriterLib__EvmAmountTooSmall(evmAmount);
         address systemAddress = getSystemAddress(token);
         if (isHype(token)) {
@@ -66,7 +66,7 @@ library CoreWriterLib {
 
         uint64 coreAmount;
         if (isEvmAmount) {
-            coreAmount = HLConversions.convertEvmToCoreAmount(token, amount);
+            coreAmount = HLConversions.evmToWei(token, amount);
             if (coreAmount == 0) revert CoreWriterLib__EvmAmountTooSmall(amount);
         } else {
             if (amount > type(uint64).max) revert CoreWriterLib__CoreAmountTooLarge(amount);
@@ -100,7 +100,6 @@ library CoreWriterLib {
         return index == HLConstants.hypeTokenIndex();
     }
 
-
     /*//////////////////////////////////////////////////////////////
                               Staking
     //////////////////////////////////////////////////////////////*/
@@ -129,7 +128,9 @@ library CoreWriterLib {
     function _canWithdrawFromVault(address vault) internal view returns (bool, uint64) {
         PrecompileLib.UserVaultEquity memory vaultEquity = PrecompileLib.userVaultEquity(address(this), vault);
 
-        return (toMilliseconds(uint64(block.timestamp)) > toMilliseconds(vaultEquity.lockedUntilTimestamp), vaultEquity.lockedUntilTimestamp);
+        return (
+            toMilliseconds(uint64(block.timestamp)) > vaultEquity.lockedUntilTimestamp, vaultEquity.lockedUntilTimestamp
+        );
     }
 
     function vaultTransfer(address vault, bool isDeposit, uint64 usdAmount) internal {
@@ -169,7 +170,9 @@ library CoreWriterLib {
     }
 
     function addApiWallet(address wallet, string memory name) internal {
-        coreWriter.sendRawAction(abi.encodePacked(uint8(1), HLConstants.ADD_API_WALLET_ACTION, abi.encode(wallet, name)));
+        coreWriter.sendRawAction(
+            abi.encodePacked(uint8(1), HLConstants.ADD_API_WALLET_ACTION, abi.encode(wallet, name))
+        );
     }
 
     function cancelOrderByOrderId(uint32 asset, uint64 orderId) internal {

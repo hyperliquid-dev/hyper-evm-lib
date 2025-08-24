@@ -12,7 +12,6 @@ Vm constant vm = Vm(address(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D));
  * @notice modified from: https://github.com/sprites0/hyperevm-project-template/blob/main/src/MoreRealisticL1Precompiles.sol
  */
 library PrecompileSimulator {
-
     uint256 constant NUM_PRECOMPILES = 17;
 
     function init() internal {
@@ -26,7 +25,6 @@ library PrecompileSimulator {
 }
 
 contract MockPrecompile {
-
     fallback() external payable {
         vm.pauseGasMetering();
         bytes memory response = _makeRpcCall(address(this), msg.data);
@@ -45,4 +43,3 @@ contract MockPrecompile {
         return vm.rpc("eth_call", jsonPayload);
     }
 }
-
