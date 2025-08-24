@@ -59,7 +59,7 @@ contract CoreView is CoreState {
         returns (PrecompileLib.UserVaultEquity memory)
     {
         PrecompileLib.UserVaultEquity memory equity = _accounts[user].vaultEquity[vault];
-        uint64 multiplier = Vault_Value_Multiplier[vault];
+        uint64 multiplier = _vaultMultiplier[vault];
         if (multiplier != 0) equity.equity = uint64((uint256(equity.equity) * multiplier) / 1e18);
         return equity;
     }
