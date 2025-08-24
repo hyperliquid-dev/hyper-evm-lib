@@ -12,7 +12,6 @@ import {CoreSimulatorLib} from "./simulation/CoreSimulatorLib.sol";
 /**
  * @title BaseSimulatorTest
  * @notice Base test contract that sets up the HyperCore simulation
- * @dev Inherit from this contract to 
  */
 abstract contract BaseSimulatorTest is Test {
     using PrecompileLib for address;
