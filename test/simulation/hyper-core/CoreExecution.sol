@@ -340,7 +340,7 @@ contract CoreExecution is CoreView {
             if (action.usd <= _accounts[sender].perpBalance) {
                 _accounts[sender].vaultEquity[action.vault].equity += action.usd;
                 _accounts[sender].vaultEquity[action.vault].lockedUntilTimestamp =
-                    uint64((block.timestamp + 3600) * 1000);
+                    uint64((block.timestamp + 86400) * 1000);
                 _accounts[sender].perpBalance -= action.usd;
                 _vaultEquity[action.vault] += action.usd;
             } else {
