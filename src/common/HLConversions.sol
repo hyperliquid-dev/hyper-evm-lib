@@ -30,6 +30,10 @@ library HLConversions {
         revert HLConversions__InvalidToken(token);
     }
 
+    function evmToWei(address token, uint256 evmAmount) internal view returns (uint64) {
+        return evmToWei(PrecompileLib.getTokenIndex(token), evmAmount);
+    }
+
     function weiToEvm(uint64 token, uint64 amountWei) internal view returns (uint256) {
         PrecompileLib.TokenInfo memory info = PrecompileLib.tokenInfo(uint32(token));
         if (info.evmContract != address(0)) {
@@ -45,14 +49,26 @@ library HLConversions {
         revert HLConversions__InvalidToken(token);
     }
 
+    function weiToEvm(address token, uint64 amountWei) internal view returns (uint256) {
+        return weiToEvm(PrecompileLib.getTokenIndex(token), amountWei);
+    }
+
     function szToWei(uint64 token, uint64 sz) internal view returns (uint64) {
         PrecompileLib.TokenInfo memory info = PrecompileLib.tokenInfo(uint32(token));
         return sz * uint64(10 ** (info.weiDecimals - info.szDecimals));
     }
 
+    function szToWei(address token, uint64 sz) internal view returns (uint64) {
+        return szToWei(PrecompileLib.getTokenIndex(token), sz);
+    }
+
     function weiToSz(uint64 token, uint64 amountWei) internal view returns (uint64) {
         PrecompileLib.TokenInfo memory info = PrecompileLib.tokenInfo(uint32(token));
         return amountWei / uint64(10 ** (info.weiDecimals - info.szDecimals));
+    }
+
+    function weiToSz(address token, uint64 amountWei) internal view returns (uint64) {
+        return weiToSz(PrecompileLib.getTokenIndex(token), amountWei);
     }
 
     // for USDC between spot and perp
@@ -64,8 +80,8 @@ library HLConversions {
         return perpAmount * 10 ** 2;
     }
 
-    function spotToAssetId(uint64 spot) internal pure returns (uint64) {
-        return spot + 10000;
+    function spotToAssetId(uint64 spot) internal pure returns (uint32) {
+        return SafeCast.toUint32(spot + 10000);
     }
 
     function assetToSpotId(uint64 asset) internal pure returns (uint64) {
