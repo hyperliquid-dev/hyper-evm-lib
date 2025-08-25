@@ -4,7 +4,7 @@
 
 <img width="900" height="450" alt="Untitled design (2)" src="https://github.com/user-attachments/assets/6c74dc59-baff-4f6a-9dab-3b92d0cfa133" />
 
-## The all-in-one library to seamlessly build smart contracts on HyperEVM
+## The all-in-one toolkit to seamlessly build smart contracts on HyperEVM
 
 This library makes it easy to build on HyperEVM. It provides a unified interface for:
 
@@ -13,7 +13,9 @@ This library makes it easy to build on HyperEVM. It provides a unified interface
 * Accessing data from native precompiles without needing a token index
 * Retrieving token indexes, and spot market indexes based on their linked evm contract address
 
-This library securely abstracts away the low-level mechanics of Hyperliquid's EVM ↔ Core interactions so you can focus on building your protocol's core business logic.
+The library securely abstracts away the low-level mechanics of Hyperliquid's EVM ↔ Core interactions so you can focus on building your protocol's core business logic.
+
+The testing framework provides a robust simulation engine for HyperCore interactions, enabling local foundry testing of precompile calls, CoreWriter actions, and EVM⇄Core token bridging. This allows developers to test their contracts in a local environment, within seconds, without needing to spend hours deploying and testing on testnet.
 
 ---
 
@@ -40,6 +42,12 @@ Natively, there is no way to derive the token index given a token's contract add
 
 TokenRegistry solves this by providing a deployed-onchain mapping from EVM contract addresses to their HyperCore token indices, populated trustlessly using precompile lookups for each index.
 
+### Testing Framework
+
+A robust and flexible simulation engine for HyperCore interactions, enabling local foundry testing of precompile calls, CoreWriter actions, and EVM⇄Core token bridging. This allows developers to test their contracts in a local environment, within seconds, without needing to spend hours deploying and testing on testnet.
+
+For more information on usage and how it works, see the docs: [https://hyperlib.vercel.app/](https://hyperlib.vercel.app/).
+
 ---
 
 ## Installation
@@ -56,6 +64,8 @@ echo "@hyper-evm-lib=lib/hyper-evm-lib" >> remappings.txt
 
 See the [examples](./src/examples/) directory for examples of how the libraries can be used in practice.
 
+To see how the testing framework can be used, refer to [`CoreSimulatorTest.t.sol`](./test/CoreSimulatorTest.t.sol) and the testing framework docs at [https://hyperlib.vercel.app/](https://hyperlib.vercel.app/).
+
 ---
 
 ## Security Considerations
@@ -69,14 +79,14 @@ See the [examples](./src/examples/) directory for examples of how the libraries 
 ---
 
 ## Contributing
-This library is developed and maintained by the team at [Obsidian Audits](https://github.com/ObsidianAudits):
+This toolkit is developed and maintained by the team at [Obsidian Audits](https://github.com/ObsidianAudits):
 
 - [0xjuaan](https://github.com/0xjuaan)
 - [0xSpearmint](https://github.com/0xspearmint)
 
 For support, bug reports, or integration questions, open an [issue](https://github.com/hyperliquid-dev/hyper-evm-lib/issues) or reach out on [TG](https://t.me/juan_sec)
 
-The library is under active development, and contributions are welcome.
+The library and testing framework are under active development, and contributions are welcome.
 
 Want to improve or extend functionality? Feel free to create a PR.
 
