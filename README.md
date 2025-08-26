@@ -64,7 +64,7 @@ echo "@hyper-evm-lib=lib/hyper-evm-lib" >> remappings.txt
 
 See the [examples](./src/examples/) directory for examples of how the libraries can be used in practice.
 
-To see how the testing framework can be used, refer to [`CoreSimulatorTest.t.sol`](./test/CoreSimulatorTest.t.sol) and the testing framework docs at [https://hyperlib.vercel.app/](https://hyperlib.vercel.app/).
+To see how the testing framework can be used, refer to [`CoreSimulatorTest.t.sol`](./test/CoreSimulatorTest.t.sol) and the testing framework docs at [https://hyper-evm-lib.vercel.app/](https://hyper-evm-lib.vercel.app/).
 
 ---
 
