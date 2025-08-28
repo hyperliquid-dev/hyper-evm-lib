@@ -10,6 +10,8 @@ import {CoreWriterLib, HLConstants, HLConversions} from "@hyper-evm-lib/src/Core
 contract StakingExample {
     using CoreWriterLib for *;
 
+    error NoHypeBalance();
+
     /**
      * @notice Transfers HYPE tokens to core, stakes them, and delegates to a validator
      */
@@ -52,7 +54,7 @@ contract StakingExample {
      */
     function transferAllHypeToSender() external {
         uint256 balance = address(this).balance;
-        require(balance > 0, "No HYPE balance to transfer");
+        if (balance == 0) revert NoHypeBalance();
         payable(msg.sender).transfer(balance);
     }
 
