@@ -742,7 +742,7 @@ contract CoreSimulatorTest is Test {
         staking.withdrawStake(HYPE.evmToWei(100e18));
 
         CoreSimulatorLib.nextBlock();
-        
+
         // should fail due to maximum of 5 pending withdrawals per account
         staking.withdrawStake(HYPE.evmToWei(50e18));
 

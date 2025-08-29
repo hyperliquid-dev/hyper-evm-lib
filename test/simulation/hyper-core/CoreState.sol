@@ -185,7 +185,6 @@ contract CoreState is StdCheats {
         // assume each pending withdrawal is of equal size
         uint64 pendingWithdrawals = summary.nPendingWithdrawals;
 
-
         // when handling existing pending withdrawals, we don't have access to granular details on each one
         // so we assume equal size and expiry after 7 days
         if (pendingWithdrawals > 0) {
@@ -201,11 +200,20 @@ contract CoreState is StdCheats {
                     pendingWithdrawalAmount = summary.totalPendingWithdrawal / pendingWithdrawals;
                 } else {
                     // ensure that sum(withdrawalAmount) = totalPendingWithdrawal (accounting for precision loss during division)
-                    pendingWithdrawalAmount = summary.totalPendingWithdrawal - (summary.totalPendingWithdrawal / pendingWithdrawals) * i;
+                    pendingWithdrawalAmount =
+                        summary.totalPendingWithdrawal - (summary.totalPendingWithdrawal / pendingWithdrawals) * i;
                 }
 
                 // add to withdrawal queue
-                _withdrawQueue.pushBack(serializeWithdrawRequest(WithdrawRequest({account: _account, amount: uint64(pendingWithdrawalAmount), lockedUntilTimestamp: pendingWithdrawalTime})));
+                _withdrawQueue.pushBack(
+                    serializeWithdrawRequest(
+                        WithdrawRequest({
+                            account: _account,
+                            amount: uint64(pendingWithdrawalAmount),
+                            lockedUntilTimestamp: pendingWithdrawalTime
+                        })
+                    )
+                );
             }
         }
 

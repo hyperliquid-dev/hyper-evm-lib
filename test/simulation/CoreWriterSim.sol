@@ -45,7 +45,6 @@ contract CoreWriterSim {
     }
 
     function executeQueuedActions(bool expectRevert) external {
-
         bool atLeastOneFail;
         while (_actionQueue.length() > 0) {
             Action memory action = _actions[_actionQueue.peek()];
@@ -65,7 +64,6 @@ contract CoreWriterSim {
             if (revertOnFailure && !success && !expectRevert) {
                 revert("CoreWriter action failed: Reverting due to revertOnFailure flag");
             }
-
 
             _actionQueue.pop();
         }

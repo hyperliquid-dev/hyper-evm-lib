@@ -6,6 +6,7 @@ import {CoreWriterLib, HLConstants, HLConversions} from "@hyper-evm-lib/src/Core
  * @title StakingExample
  * @dev This contract demonstrates CoreWriterLib staking functionality.
  */
+
 contract StakingExample {
     using CoreWriterLib for *;
 
