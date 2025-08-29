@@ -13,6 +13,7 @@ import {CoreSimulatorLib} from "./simulation/CoreSimulatorLib.sol";
 import {RealL1Read} from "./utils/RealL1Read.sol";
 import {CoreWriterLib} from "../src/CoreWriterLib.sol";
 import {VaultExample} from "../src/examples/VaultExample.sol";
+import {StakingExample} from "../src/examples/StakingExample.sol";
 
 contract CoreSimulatorTest is Test {
     using PrecompileLib for address;
@@ -658,6 +659,95 @@ contract CoreSimulatorTest is Test {
 
         uint256 perpBalanceAfter = PrecompileLib.withdrawable(address(vault));
         assertEq(perpBalanceAfter, depositAmount * 11 / 10);
+    }
+
+    function test_staking() public {
+        uint64 HYPE = 150;
+        address validator = 0xEEEe86F718F9Da3e7250624A460f6EA710E9C006;
+        // deploy staking contract
+        StakingExample staking = new StakingExample();
+        CoreSimulatorLib.forceAccountActivation(address(staking));
+        CoreSimulatorLib.forceAccountActivation(user);
+        CoreSimulatorLib.setRevertOnFailure(true);
+
+        console.log("user", user);
+        console.log("staking", address(staking));
+
+        deal(address(user), 10000e18);
+
+        vm.startPrank(user);
+        staking.bridgeHypeAndStake{value: 1000e18}(1000e18, validator);
+        CoreSimulatorLib.nextBlock();
+
+        vm.warp(block.timestamp + 1 days);
+
+        // check the delegator summary
+        PrecompileLib.DelegatorSummary memory summary = PrecompileLib.delegatorSummary(address(staking));
+        assertEq(summary.delegated, HYPE.evmToWei(1000e18));
+        assertEq(summary.undelegated, 0);
+        assertEq(summary.nPendingWithdrawals, 0);
+        assertEq(summary.totalPendingWithdrawal, 0);
+
+        // undelegate
+        staking.undelegateTokens(validator, HYPE.evmToWei(1000e18));
+
+        CoreSimulatorLib.nextBlock();
+
+        summary = PrecompileLib.delegatorSummary(address(staking));
+        assertEq(summary.delegated, 0);
+        assertEq(summary.undelegated, HYPE.evmToWei(1000e18));
+        assertEq(summary.nPendingWithdrawals, 0);
+        assertEq(summary.totalPendingWithdrawal, 0);
+
+        staking.withdrawStake(HYPE.evmToWei(1000e18));
+        CoreSimulatorLib.nextBlock();
+
+        vm.warp(block.timestamp + 7 days);
+
+        CoreSimulatorLib.nextBlock();
+
+        summary = PrecompileLib.delegatorSummary(address(staking));
+        assertEq(summary.delegated, 0);
+        assertEq(summary.undelegated, 0);
+        assertEq(summary.nPendingWithdrawals, 0);
+        assertEq(summary.totalPendingWithdrawal, 0);
+    }
+
+    function test_maxPendingWithdrawals() public {
+        uint64 HYPE = 150;
+        address validator = 0xEEEe86F718F9Da3e7250624A460f6EA710E9C006;
+        StakingExample staking = new StakingExample();
+        CoreSimulatorLib.forceAccountActivation(address(staking));
+        CoreSimulatorLib.forceAccountActivation(user);
+        CoreSimulatorLib.setRevertOnFailure(true);
+
+        deal(address(user), 10000e18);
+
+        vm.startPrank(user);
+        staking.bridgeHypeAndStake{value: 1000e18}(1000e18, validator);
+        CoreSimulatorLib.nextBlock();
+
+        vm.warp(block.timestamp + 1 days);
+
+        staking.undelegateTokens(validator, HYPE.evmToWei(1000e18));
+
+        CoreSimulatorLib.nextBlock();
+
+        staking.withdrawStake(HYPE.evmToWei(100e18));
+        staking.withdrawStake(HYPE.evmToWei(100e18));
+
+        staking.withdrawStake(HYPE.evmToWei(100e18));
+
+        staking.withdrawStake(HYPE.evmToWei(100e18));
+        staking.withdrawStake(HYPE.evmToWei(100e18));
+
+        CoreSimulatorLib.nextBlock();
+        
+        // should fail due to maximum of 5 pending withdrawals per account
+        staking.withdrawStake(HYPE.evmToWei(50e18));
+
+        bool expectRevert = true;
+        CoreSimulatorLib.nextBlock(expectRevert);
     }
 }
 
