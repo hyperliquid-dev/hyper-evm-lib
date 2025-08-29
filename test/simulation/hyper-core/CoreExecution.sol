@@ -115,7 +115,6 @@ contract CoreExecution is CoreView {
 
             _accounts[sender].margin[perpIndex] += (uint64(action.sz) * uint64(markPx)) / leverage;
         } else {
-
             if (newSzi <= 0) {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi);
                 int64 pnl = int64(action.sz) * (int64(avgEntryPrice) - int64(_markPx));
@@ -184,7 +183,6 @@ contract CoreExecution is CoreView {
 
             _accounts[sender].margin[perpIndex] += (uint64(action.sz) * uint64(markPx)) / leverage;
         } else {
-
             if (newSzi >= 0) {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(szi);
                 int64 pnl = int64(action.sz) * (int64(_markPx) - int64(avgEntryPrice));
@@ -222,9 +220,6 @@ contract CoreExecution is CoreView {
             _openPerpPositions.remove(key);
             _userPerpPositions[sender].remove(perpIndex);
         }
-
-        // Optional: Add margin sufficiency check after updates
-        // e.g., require(_accounts[sender].perpBalance >= someMaintenanceMargin, "Insufficient margin");
     }
 
     // basic simulation of spot trading, not accounting for orderbook depth, or fees
@@ -277,8 +272,8 @@ contract CoreExecution is CoreView {
 
     function executeSpotSend(address sender, SpotSendAction memory action)
         public
-        whenActivated(sender)
         initAccountWithToken(sender, action.token)
+        whenActivated(sender)
         initAccountWithToken(action.destination, action.token)
     {
         if (action._wei > _accounts[sender].spot[action.token]) {
@@ -310,7 +305,6 @@ contract CoreExecution is CoreView {
         if (action.destination != systemAddress) {
             _accounts[action.destination].spot[action.token] += action._wei;
         } else {
-
             uint256 transferAmount;
             if (action.token == HYPE_TOKEN_INDEX) {
                 transferAmount = action._wei * 1e10;
@@ -343,6 +337,7 @@ contract CoreExecution is CoreView {
 
     function executeUsdClassTransfer(address sender, UsdClassTransferAction memory action)
         public
+        initAccountWithToken(sender, USDC_TOKEN_INDEX)
         whenActivated(sender)
     {
         if (action.toPerp) {
@@ -360,8 +355,8 @@ contract CoreExecution is CoreView {
 
     function executeVaultTransfer(address sender, VaultTransferAction memory action)
         public
-        whenActivated(sender)
         initAccountWithVault(sender, action.vault)
+        whenActivated(sender)
     {
         // first update their vault equity
         _accounts[sender].vaultEquity[action.vault].equity = readUserVaultEquity(sender, action.vault).equity;
@@ -399,6 +394,7 @@ contract CoreExecution is CoreView {
 
     function executeStakingDeposit(address sender, StakingDepositAction memory action)
         public
+        initAccountWithToken(sender, HYPE_TOKEN_INDEX)
         whenActivated(sender)
     {
         if (action._wei <= _accounts[sender].spot[HYPE_TOKEN_INDEX]) {
@@ -409,8 +405,15 @@ contract CoreExecution is CoreView {
 
     function executeStakingWithdraw(address sender, StakingWithdrawAction memory action)
         public
+        initAccountWithToken(sender, HYPE_TOKEN_INDEX)
         whenActivated(sender)
     {
+        PrecompileLib.DelegatorSummary memory summary = readDelegatorSummary(sender);
+
+        if (summary.nPendingWithdrawals >= 5) {
+            revert("maximum of 5 pending withdrawals per account");
+        }
+
         if (action._wei <= _accounts[sender].staking) {
             _accounts[sender].staking -= action._wei;
 
@@ -424,21 +427,37 @@ contract CoreExecution is CoreView {
         }
     }
 
-    function executeTokenDelegate(address sender, TokenDelegateAction memory action) public whenActivated(sender) {
-        require(_validators.contains(action.validator));
+    function executeTokenDelegate(address sender, TokenDelegateAction memory action)
+        public
+        initAccountWithToken(sender, HYPE_TOKEN_INDEX)
+        whenActivated(sender)
+    {
+        if (_validators.length() != 0) {
+            require(_validators.contains(action.validator));
+        }
+
+        _accounts[sender].delegatedValidators.add(action.validator);
 
         if (action.isUndelegate) {
             PrecompileLib.Delegation storage delegation = _accounts[sender].delegations[action.validator];
             if (action._wei <= delegation.amount && block.timestamp * 1000 > delegation.lockedUntilTimestamp) {
                 _accounts[sender].staking += action._wei;
                 delegation.amount -= action._wei;
+
+                if (delegation.amount == 0) {
+                    _accounts[sender].delegatedValidators.remove(action.validator);
+                }
+            } else {
+                revert("Insufficient delegation amount OR Delegation is locked");
             }
         } else {
             if (action._wei <= _accounts[sender].staking) {
                 _accounts[sender].staking -= action._wei;
                 _accounts[sender].delegations[action.validator].amount += action._wei;
                 _accounts[sender].delegations[action.validator].lockedUntilTimestamp =
-                    ((block.timestamp + 84600) * 1000).toUint64();
+                    ((block.timestamp + 86400) * 1000).toUint64();
+            } else {
+                revert("Insufficient staking balance");
             }
         }
     }

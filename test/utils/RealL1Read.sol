@@ -124,11 +124,13 @@ library RealL1Read {
             string.concat('[{"to":"', vm.toString(target), '","data":"', vm.toString(params), '"},"latest"]');
 
         bool useArchivedBlockNumber = false;
-        
+
         if (useArchivedBlockNumber) {
             string memory blockNumberHex = string.concat("0x", toHexString(block.number));
 
-            jsonPayload = string.concat('[{"to":"', vm.toString(target), '","data":"', vm.toString(params), '"},"', blockNumberHex, '"]');
+            jsonPayload = string.concat(
+                '[{"to":"', vm.toString(target), '","data":"', vm.toString(params), '"},"', blockNumberHex, '"]'
+            );
         }
 
         // Make the RPC call

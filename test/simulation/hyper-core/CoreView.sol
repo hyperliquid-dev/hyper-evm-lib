@@ -88,7 +88,7 @@ contract CoreView is CoreState {
     }
 
     function readDelegatorSummary(address user) public view returns (PrecompileLib.DelegatorSummary memory summary) {
-        address[] memory validators = _validators.values();
+        address[] memory validators = _accounts[user].delegatedValidators.values();
 
         for (uint256 i; i < validators.length; i++) {
             PrecompileLib.Delegation memory delegation = _accounts[user].delegations[validators[i]];

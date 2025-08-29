@@ -41,6 +41,7 @@ contract CoreState is StdCheats {
         mapping(uint64 token => uint64 balance) spot;
         mapping(address vault => PrecompileLib.UserVaultEquity) vaultEquity;
         uint64 staking;
+        EnumerableSet.AddressSet delegatedValidators;
         mapping(address validator => PrecompileLib.Delegation) delegations;
         uint64 perpBalance;
         mapping(uint16 perpIndex => PrecompileLib.Position) positions;
@@ -180,7 +181,41 @@ contract CoreState is StdCheats {
         // setting staking balance
         PrecompileLib.DelegatorSummary memory summary = RealL1Read.delegatorSummary(_account);
         account.staking = summary.undelegated;
-        // note: no way to track the pending withdrawals, and have a way to credit them later
+
+        // assume each pending withdrawal is of equal size
+        uint64 pendingWithdrawals = summary.nPendingWithdrawals;
+
+        // when handling existing pending withdrawals, we don't have access to granular details on each one
+        // so we assume equal size and expiry after 7 days
+        if (pendingWithdrawals > 0) {
+            // assume that they all expire after 7 days
+            uint32 pendingWithdrawalTime = uint32(block.timestamp + 7 days);
+
+            for (uint256 i = 0; i < pendingWithdrawals; i++) {
+                uint256 pendingWithdrawalAmount;
+
+                bool last = i == pendingWithdrawals - 1;
+
+                if (!last) {
+                    pendingWithdrawalAmount = summary.totalPendingWithdrawal / pendingWithdrawals;
+                } else {
+                    // ensure that sum(withdrawalAmount) = totalPendingWithdrawal (accounting for precision loss during division)
+                    pendingWithdrawalAmount =
+                        summary.totalPendingWithdrawal - (summary.totalPendingWithdrawal / pendingWithdrawals) * i;
+                }
+
+                // add to withdrawal queue
+                _withdrawQueue.pushBack(
+                    serializeWithdrawRequest(
+                        WithdrawRequest({
+                            account: _account,
+                            amount: uint64(pendingWithdrawalAmount),
+                            lockedUntilTimestamp: pendingWithdrawalTime
+                        })
+                    )
+                );
+            }
+        }
 
         // set delegations
         PrecompileLib.Delegation[] memory delegations = RealL1Read.delegations(_account);

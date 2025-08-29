@@ -60,7 +60,7 @@ library CoreSimulatorLib {
         return hyperCore;
     }
 
-    function nextBlock() internal {
+    function nextBlock(bool expectRevert) internal {
         // Get all recorded logs
         Vm.Log[] memory entries = vm.getRecordedLogs();
 
@@ -95,13 +95,17 @@ library CoreSimulatorLib {
         hyperCore.liquidatePositions();
 
         // Process any pending actions
-        coreWriter.executeQueuedActions();
+        coreWriter.executeQueuedActions(expectRevert);
 
         // Process pending orders
         hyperCore.processPendingOrders();
     }
 
-    ////// TESTING CONFIG SETTERS /////////
+    function nextBlock() internal {
+        nextBlock(false);
+    }
+
+    ////// Testing Config Setters /////////
 
     function setRevertOnFailure(bool _revertOnFailure) internal {
         coreWriter.setRevertOnFailure(_revertOnFailure);

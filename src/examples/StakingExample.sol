@@ -2,11 +2,11 @@
 pragma solidity ^0.8.0;
 
 import {CoreWriterLib, HLConstants, HLConversions} from "@hyper-evm-lib/src/CoreWriterLib.sol";
-
 /**
  * @title StakingExample
  * @dev This contract demonstrates CoreWriterLib staking functionality.
  */
+
 contract StakingExample {
     using CoreWriterLib for *;
 
@@ -46,6 +46,14 @@ contract StakingExample {
         CoreWriterLib.delegateToken(validator, coreAmount, true);
 
         // Withdraw the tokens from staking
+        CoreWriterLib.withdrawStake(coreAmount);
+    }
+
+    /**
+     * @notice Withdraws tokens from the staking balance
+     */
+    function withdrawStake(uint64 coreAmount) external {
+        // Withdraw the tokens from the staking balance
         CoreWriterLib.withdrawStake(coreAmount);
     }
 
