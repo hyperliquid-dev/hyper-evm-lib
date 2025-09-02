@@ -44,7 +44,7 @@ Natively, there is no way to derive the token index given a token's contract add
 
 ### Testing Framework
 
-A robust and flexible simulation engine for HyperCore interactions, enabling local foundry testing of precompile calls, CoreWriter actions, and EVM⇄Core token bridging. This allows developers to test their contracts in a local environment, within seconds, without needing to spend hours deploying and testing on testnet.
+A robust and flexible test engine for HyperCore interactions, enabling local foundry testing of precompile calls, CoreWriter actions, and EVM⇄Core token bridging. This allows developers to test their contracts in a local environment, within seconds, without needing to spend hours deploying and testing on testnet.
 
 For more information on usage and how it works, see the [docs](https://hyper-evm-lib.vercel.app/testing/overview).
 
