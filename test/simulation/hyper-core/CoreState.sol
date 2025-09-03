@@ -253,7 +253,7 @@ contract CoreState is StdCheats {
         _accounts[account].activated = true;
     }
 
-    function forceSpot(address account, uint64 token, uint64 _wei) public payable {
+    function forceSpotBalance(address account, uint64 token, uint64 _wei) public payable {
         if (_accounts[account].activated == false) {
             forceAccountActivation(account);
         }
@@ -277,7 +277,7 @@ contract CoreState is StdCheats {
         _accounts[account].perpBalance = usd;
     }
 
-    function forceStaking(address account, uint64 _wei) public payable {
+    function forceStakingBalance(address account, uint64 _wei) public payable {
         forceAccountActivation(account);
         _accounts[account].staking = _wei;
     }
