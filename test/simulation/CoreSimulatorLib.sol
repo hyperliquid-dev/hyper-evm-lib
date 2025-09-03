@@ -116,16 +116,16 @@ library CoreSimulatorLib {
         hyperCore.forceAccountActivation(account);
     }
 
-    function forceSpot(address account, uint64 token, uint64 _wei) internal {
-        hyperCore.forceSpot(account, token, _wei);
+    function forceSpotBalance(address account, uint64 token, uint64 _wei) internal {
+        hyperCore.forceSpotBalance(account, token, _wei);
     }
 
     function forcePerpBalance(address account, uint64 usd) internal {
         hyperCore.forcePerpBalance(account, usd);
     }
 
-    function forceStaking(address account, uint64 _wei) internal {
-        hyperCore.forceStaking(account, _wei);
+    function forceStakingBalance(address account, uint64 _wei) internal {
+        hyperCore.forceStakingBalance(account, _wei);
     }
 
     function forceDelegation(address account, address validator, uint64 amount, uint64 lockedUntilTimestamp) internal {

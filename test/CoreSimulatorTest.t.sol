@@ -396,8 +396,8 @@ contract CoreSimulatorTest is Test {
         SpotTrader spotTrader = new SpotTrader();
         CoreSimulatorLib.forceAccountActivation(address(spotTrader));
         CoreSimulatorLib.forceAccountActivation(address(user));
-        CoreSimulatorLib.forceSpot(address(spotTrader), 0, 1e18);
-        CoreSimulatorLib.forceSpot(address(spotTrader), 254, 1e18);
+        CoreSimulatorLib.forceSpotBalance(address(spotTrader), 0, 1e18);
+        CoreSimulatorLib.forceSpotBalance(address(spotTrader), 254, 1e18);
 
         spotTrader.placeLimitOrder(10000 + 156, true, 1e18, 1e2, false, 1);
 
@@ -416,8 +416,8 @@ contract CoreSimulatorTest is Test {
         SpotTrader spotTrader = new SpotTrader();
         CoreSimulatorLib.forceAccountActivation(address(spotTrader));
         CoreSimulatorLib.forceAccountActivation(address(user));
-        CoreSimulatorLib.forceSpot(address(spotTrader), 0, 1e18);
-        CoreSimulatorLib.forceSpot(address(spotTrader), 254, 1e18);
+        CoreSimulatorLib.forceSpotBalance(address(spotTrader), 0, 1e18);
+        CoreSimulatorLib.forceSpotBalance(address(spotTrader), 254, 1e18);
 
         // Log the current spot price before placing order
         uint32 spotMarketId = 156;
@@ -471,8 +471,8 @@ contract CoreSimulatorTest is Test {
         SpotTrader spotTrader = new SpotTrader();
         CoreSimulatorLib.forceAccountActivation(address(spotTrader));
         CoreSimulatorLib.forceAccountActivation(address(user));
-        CoreSimulatorLib.forceSpot(address(spotTrader), 0, 1e18);
-        CoreSimulatorLib.forceSpot(address(spotTrader), 254, 1e18);
+        CoreSimulatorLib.forceSpotBalance(address(spotTrader), 0, 1e18);
+        CoreSimulatorLib.forceSpotBalance(address(spotTrader), 254, 1e18);
 
         // Log the current spot price before placing order
         uint32 spotMarketId = 156;
@@ -525,7 +525,7 @@ contract CoreSimulatorTest is Test {
 
         // Give sender 10 USDC
         CoreSimulatorLib.forceAccountActivation(user);
-        CoreSimulatorLib.forceSpot(user, 0, 10e8);
+        CoreSimulatorLib.forceSpotBalance(user, 0, 10e8);
 
         address newAccount = makeAddr("newAccount");
 
