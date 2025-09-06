@@ -7,7 +7,6 @@ import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEnde
 import {Heap} from "@openzeppelin/contracts/utils/structs/Heap.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-
 import {PrecompileLib} from "../../../src/PrecompileLib.sol";
 import {CoreWriterLib} from "../../../src/CoreWriterLib.sol";
 import {HLConversions} from "../../../src/common/HLConversions.sol";
@@ -303,7 +302,8 @@ contract CoreExecution is CoreView {
 
         if (action.destination != systemAddress) {
             _accounts[action.destination].spot[action.token] += action._wei;
-        } else {
+        } 
+        else {
             uint256 transferAmount;
             if (action.token == HYPE_TOKEN_INDEX) {
                 transferAmount = action._wei * 1e10;
@@ -319,8 +319,8 @@ contract CoreExecution is CoreView {
             address evmContract = _tokens[action.token].evmContract;
             transferAmount = fromWei(action._wei, _tokens[action.token].evmExtraWeiDecimals);
             deal(evmContract, systemAddress, IERC20(evmContract).balanceOf(systemAddress) + transferAmount);
-            vm.prank(systemAddress);
-            IERC20(evmContract).safeTransfer(action.destination, transferAmount);
+            vm.startPrank(systemAddress);
+            IERC20(evmContract).safeTransfer(sender, transferAmount);
         }
     }
 
@@ -499,11 +499,11 @@ contract CoreExecution is CoreView {
         return executable;
     }
 
-    function setVaultMultiplier(address vault, uint64 multiplier) public {
+    function setVaultMultiplier(address vault, uint256 multiplier) public {
         _vaultMultiplier[vault] = multiplier;
     }
 
-    function setStakingYieldIndex(uint64 multiplier) public {
+    function setStakingYieldIndex(uint256 multiplier) public {
         _stakingYieldIndex = multiplier;
     }
 

@@ -14,6 +14,7 @@ import {RealL1Read} from "./utils/RealL1Read.sol";
 import {CoreWriterLib} from "../src/CoreWriterLib.sol";
 import {VaultExample} from "../src/examples/VaultExample.sol";
 import {StakingExample} from "../src/examples/StakingExample.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 contract CoreSimulatorTest is Test {
     using PrecompileLib for address;
@@ -759,6 +760,25 @@ contract CoreSimulatorTest is Test {
         bool expectRevert = true;
         CoreSimulatorLib.nextBlock(expectRevert);
     }
+
+    // bridging
+    function test_bridgeToEvm() public {
+
+        // force balances on Core
+        CoreSimulatorLib.forceAccountActivation(address(user));
+        CoreSimulatorLib.forceSpotBalance(address(user), PrecompileLib.getTokenIndex(uETH), 1e15);
+
+        vm.startPrank(address(user));
+        uint256 amount = 20e18;
+
+        CoreWriterLib.bridgeToEvm(uETH, amount);
+
+        CoreSimulatorLib.nextBlock();
+
+        uint256 userBalance = IERC20(uETH).balanceOf(address(user));
+        assertEq(userBalance, amount);
+    }
+
 }
 
 contract SpotTrader {
