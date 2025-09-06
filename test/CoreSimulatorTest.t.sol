@@ -688,6 +688,16 @@ contract CoreSimulatorTest is Test {
         assertEq(summary.nPendingWithdrawals, 0);
         assertEq(summary.totalPendingWithdrawal, 0);
 
+        // set staking multiplier to 1.1x
+        CoreSimulatorLib.setStakingYieldIndex(1.1e18);
+        summary = PrecompileLib.delegatorSummary(address(staking));
+        assertEq(uint256(summary.delegated), uint256(HYPE.evmToWei(1000e18)) * 1.1e18 / 1e18);
+        assertEq(summary.undelegated, 0);
+        assertEq(summary.nPendingWithdrawals, 0);
+        assertEq(summary.totalPendingWithdrawal, 0);
+
+        CoreSimulatorLib.setStakingYieldIndex(1e18);
+
         // undelegate
         staking.undelegateTokens(validator, HYPE.evmToWei(1000e18));
 

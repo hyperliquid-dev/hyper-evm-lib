@@ -36,6 +36,7 @@ library CoreSimulatorLib {
         HyperCore coreImpl = new HyperCore();
 
         vm.etch(address(hyperCore), address(coreImpl).code);
+        hyperCore.setStakingYieldIndex(1e18);
         vm.etch(address(coreWriter), type(CoreWriterSim).runtimeCode);
 
         // Initialize precompiles
@@ -154,6 +155,9 @@ library CoreSimulatorLib {
 
     function setVaultMultiplier(address vault, uint64 multiplier) internal {
         hyperCore.setVaultMultiplier(vault, multiplier);
+    }
+    function setStakingYieldIndex(uint64 multiplier) internal {
+        hyperCore.setStakingYieldIndex(multiplier);
     }
 
     ///// VIEW AND PURE /////////

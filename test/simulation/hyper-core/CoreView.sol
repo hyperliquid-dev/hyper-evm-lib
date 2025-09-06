@@ -4,10 +4,10 @@ pragma solidity ^0.8.28;
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {PrecompileLib} from "../../../src/PrecompileLib.sol";
 import {RealL1Read} from "../../utils/RealL1Read.sol";
-
 import {CoreState} from "./CoreState.sol";
 
 /// Modified from https://github.com/ambitlabsxyz/hypercore
@@ -59,9 +59,18 @@ contract CoreView is CoreState {
         returns (PrecompileLib.UserVaultEquity memory)
     {
         PrecompileLib.UserVaultEquity memory equity = _accounts[user].vaultEquity[vault];
-        uint64 multiplier = _vaultMultiplier[vault];
-        if (multiplier != 0) equity.equity = uint64((uint256(equity.equity) * multiplier) / 1e18);
+
+        uint256 multiplier = _vaultMultiplier[vault] == 0 ? 1e18 : _vaultMultiplier[vault];
+        uint256 lastMultiplier = _userVaultMultiplier[user][vault] == 0 ? 1e18 : _userVaultMultiplier[user][vault];
+        if (multiplier != 0) equity.equity = uint64((uint256(equity.equity) * multiplier) / lastMultiplier);
         return equity;
+    }
+
+    function _getDelegationAmount(address user, address validator) internal view returns (uint64) {
+        uint256 multiplier = _stakingYieldIndex;
+        uint256 userLastMultiplier = _userStakingYieldIndex[user][validator] == 0 ? 1e18 : _userStakingYieldIndex[user][validator];
+
+        return SafeCast.toUint64(uint256(_accounts[user].delegations[validator].amount) * multiplier / userLastMultiplier);
     }
 
     function readDelegation(address user, address validator)
@@ -70,7 +79,7 @@ contract CoreView is CoreState {
         returns (PrecompileLib.Delegation memory delegation)
     {
         delegation.validator = validator;
-        delegation.amount = _accounts[user].delegations[validator].amount;
+        delegation.amount = _getDelegationAmount(user, validator);
         delegation.lockedUntilTimestamp = _accounts[user].delegations[validator].lockedUntilTimestamp;
     }
 
@@ -80,10 +89,8 @@ contract CoreView is CoreState {
         userDelegations = new PrecompileLib.Delegation[](validators.length);
         for (uint256 i; i < userDelegations.length; i++) {
             userDelegations[i].validator = validators[i];
-
-            PrecompileLib.Delegation memory delegation = _accounts[user].delegations[validators[i]];
-            userDelegations[i].amount = delegation.amount;
-            userDelegations[i].lockedUntilTimestamp = delegation.lockedUntilTimestamp;
+            userDelegations[i].amount = _getDelegationAmount(user, validators[i]);
+            userDelegations[i].lockedUntilTimestamp = _accounts[user].delegations[validators[i]].lockedUntilTimestamp;
         }
     }
 
@@ -91,10 +98,8 @@ contract CoreView is CoreState {
         address[] memory validators = _accounts[user].delegatedValidators.values();
 
         for (uint256 i; i < validators.length; i++) {
-            PrecompileLib.Delegation memory delegation = _accounts[user].delegations[validators[i]];
-            summary.delegated += delegation.amount;
+            summary.delegated += _getDelegationAmount(user, validators[i]);
         }
-
         summary.undelegated = _accounts[user].staking;
 
         for (uint256 i; i < _withdrawQueue.length(); i++) {
