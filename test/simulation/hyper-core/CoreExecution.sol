@@ -5,7 +5,6 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 import {Heap} from "@openzeppelin/contracts/utils/structs/Heap.sol";
-
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -360,6 +359,7 @@ contract CoreExecution is CoreView {
     {
         // first update their vault equity
         _accounts[sender].vaultEquity[action.vault].equity = readUserVaultEquity(sender, action.vault).equity;
+        _userVaultMultiplier[sender][action.vault] = _vaultMultiplier[action.vault];
 
         if (action.isDeposit) {
             if (action.usd <= _accounts[sender].perpBalance) {
@@ -432,14 +432,19 @@ contract CoreExecution is CoreView {
         initAccountWithToken(sender, HYPE_TOKEN_INDEX)
         whenActivated(sender)
     {
+
         if (_validators.length() != 0) {
             require(_validators.contains(action.validator));
         }
 
+        // first update their delegation amount based on staking multiplier
+        PrecompileLib.Delegation storage delegation = _accounts[sender].delegations[action.validator];
+        delegation.amount = _getDelegationAmount(sender, action.validator);
+        _userStakingYieldIndex[sender][action.validator] = _stakingYieldIndex;
+
         _accounts[sender].delegatedValidators.add(action.validator);
 
         if (action.isUndelegate) {
-            PrecompileLib.Delegation storage delegation = _accounts[sender].delegations[action.validator];
             if (action._wei <= delegation.amount && block.timestamp * 1000 > delegation.lockedUntilTimestamp) {
                 _accounts[sender].staking += action._wei;
                 delegation.amount -= action._wei;
@@ -454,6 +459,7 @@ contract CoreExecution is CoreView {
             if (action._wei <= _accounts[sender].staking) {
                 _accounts[sender].staking -= action._wei;
                 _accounts[sender].delegations[action.validator].amount += action._wei;
+
                 _accounts[sender].delegations[action.validator].lockedUntilTimestamp =
                     ((block.timestamp + 86400) * 1000).toUint64();
             } else {
@@ -495,6 +501,10 @@ contract CoreExecution is CoreView {
 
     function setVaultMultiplier(address vault, uint64 multiplier) public {
         _vaultMultiplier[vault] = multiplier;
+    }
+
+    function setStakingYieldIndex(uint64 multiplier) public {
+        _stakingYieldIndex = multiplier;
     }
 
     function processPendingOrders() public {

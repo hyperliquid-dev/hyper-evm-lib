@@ -78,7 +78,14 @@ contract CoreState is StdCheats {
 
     EnumerableSet.AddressSet internal _validators;
 
-    mapping(address vault => uint64) internal _vaultMultiplier;
+
+
+
+    mapping(address user => mapping(address vault => uint256 userVaultMultiplier)) internal _userVaultMultiplier;
+    mapping(address vault => uint256 multiplier) internal _vaultMultiplier;
+    
+    mapping(address user => mapping(address validator => uint256 userStakingYieldIndex)) internal _userStakingYieldIndex;
+    uint256 internal _stakingYieldIndex; // assumes same yield for all validators TODO: account for differences due to commissions
 
     /////////////////////////
     /// STATE INITIALIZERS///

@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import {Vm} from "forge-std/Vm.sol";
 import {PrecompileLib} from "../../src/PrecompileLib.sol";
-import {console} from "forge-std/console.sol";
 
 // Makes RPC calls to get real precompile data (independent of the test environment)
 library RealL1Read {
