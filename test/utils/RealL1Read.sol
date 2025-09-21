@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import {Vm} from "forge-std/Vm.sol";
 import {PrecompileLib} from "../../src/PrecompileLib.sol";
-import {console} from "forge-std/console.sol";
 
 // Makes RPC calls to get real precompile data (independent of the test environment)
 library RealL1Read {
@@ -263,9 +262,13 @@ library RealL1Read {
         return abi.decode(result, (Bbo));
     }
 
-    function accountMarginSummary(uint32 perp_dex_index, address user) internal returns (AccountMarginSummary memory) {
+    function accountMarginSummary(uint32 perp_dex_index, address user)
+        internal
+        returns (PrecompileLib.AccountMarginSummary memory)
+    {
+
         bytes memory result = _makeRpcCall(ACCOUNT_MARGIN_SUMMARY_PRECOMPILE_ADDRESS, abi.encode(perp_dex_index, user));
-        return abi.decode(result, (AccountMarginSummary));
+        return abi.decode(result, (PrecompileLib.AccountMarginSummary));
     }
 
     function coreUserExists(address user) internal returns (CoreUserExists memory) {

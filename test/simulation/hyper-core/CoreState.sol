@@ -45,6 +45,7 @@ contract CoreState is StdCheats {
         uint64 perpBalance;
         mapping(uint16 perpIndex => PrecompileLib.Position) positions;
         mapping(uint16 perpIndex => uint64 margin) margin;
+        mapping(uint16 perpIndex => PrecompileLib.AccountMarginSummary) marginSummary;
     }
 
     struct PendingOrder {
@@ -187,6 +188,8 @@ contract CoreState is StdCheats {
         for (uint256 i = 0; i < delegations.length; i++) {
             account.delegations[delegations[i].validator] = delegations[i];
         }
+
+        _accounts[_account].marginSummary[0] = RealL1Read.accountMarginSummary(0, _account);
     }
 
     modifier whenAccountCreated(address sender) {

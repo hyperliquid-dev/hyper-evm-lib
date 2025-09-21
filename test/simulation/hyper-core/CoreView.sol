@@ -50,6 +50,11 @@ contract CoreView is CoreState {
             return RealL1Read.withdrawable(account);
         }
 
+        return _previewWithdrawable(account);
+    }
+
+    function _previewWithdrawable(address account) internal virtual returns (PrecompileLib.Withdrawable memory) {
+        // Overriden by core execution
         return PrecompileLib.Withdrawable({withdrawable: _accounts[account].perpBalance});
     }
 
@@ -118,9 +123,22 @@ contract CoreView is CoreState {
         return _accounts[account].created;
     }
 
-    function readAccountMarginSummary(address user) public returns (PrecompileLib.AccountMarginSummary memory) {
+    function readAccountMarginSummary(uint16 perp, address user)
+        public
+        returns (PrecompileLib.AccountMarginSummary memory)
+    {
         // 1. maintain an enumerable set for the perps that a user is in
         // 2. iterate over their positions and calculate position value, add them up (value = abs(sz * markPx))
-        return PrecompileLib.accountMarginSummary(0, user);
+        //_updateMarginSummary(user);
+        return _previewAccountMarginSummary(user);
+    }
+
+    function _previewAccountMarginSummary(address sender)
+        internal
+        virtual
+        returns (PrecompileLib.AccountMarginSummary memory)
+    {
+        // overriden by core execution
+        return _accounts[sender].marginSummary[0];
     }
 }

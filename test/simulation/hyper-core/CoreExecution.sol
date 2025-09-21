@@ -77,11 +77,15 @@ contract CoreExecution is CoreView {
         if (!isolated) {
             if (action.isBuy) {
                 if (markPx <= action.limitPx) {
+                    _updateMarginSummary(sender);
                     _executePerpLong(sender, action, markPx);
+                    _updateMarginSummary(sender);
                 }
             } else {
                 if (markPx >= action.limitPx) {
+                    _updateMarginSummary(sender);
                     _executePerpShort(sender, action, markPx);
+                    _updateMarginSummary(sender);
                 }
             }
         }
@@ -107,12 +111,6 @@ contract CoreExecution is CoreView {
             // Additive update to entryNtl to preserve weighted average
             // New entryNtl = old_entryNtl + (action.sz * markPx)
             _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
-
-            // Deduct additional margin for the added size only
-            // To minimize integer truncation: (action.sz * markPx) / leverage
-            _accounts[sender].perpBalance -= (uint64(action.sz) * uint64(markPx)) / leverage;
-
-            _accounts[sender].margin[perpIndex] += (uint64(action.sz) * uint64(markPx)) / leverage;
         } else {
             int64 newSzi = szi + int64(action.sz);
 
@@ -122,11 +120,9 @@ contract CoreExecution is CoreView {
 
                 uint64 closedMargin =
                     (uint64(action.sz) * _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi)) / leverage;
-                _accounts[sender].perpBalance += closedMargin;
 
                 _accounts[sender].perpBalance =
                     pnl > 0 ? _accounts[sender].perpBalance + uint64(pnl) : _accounts[sender].perpBalance - uint64(-pnl);
-                _accounts[sender].margin[perpIndex] -= closedMargin;
 
                 _accounts[sender].positions[perpIndex].szi = newSzi;
                 _accounts[sender].positions[perpIndex].entryNtl = uint64(-newSzi) * avgEntryPrice;
@@ -135,12 +131,10 @@ contract CoreExecution is CoreView {
                 int64 pnl = int64(-szi) * (int64(avgEntryPrice) - int64(_markPx));
                 _accounts[sender].perpBalance =
                     pnl > 0 ? _accounts[sender].perpBalance + uint64(pnl) : _accounts[sender].perpBalance - uint64(-pnl);
-                uint64 oldMargin = _accounts[sender].positions[perpIndex].entryNtl / leverage;
-                _accounts[sender].perpBalance += oldMargin;
+
                 uint64 newLongSize = uint64(newSzi);
                 uint64 newMargin = newLongSize * _markPx / leverage;
-                _accounts[sender].perpBalance -= newMargin;
-                _accounts[sender].margin[perpIndex] += newMargin;
+
                 _accounts[sender].positions[perpIndex].szi = newSzi;
                 _accounts[sender].positions[perpIndex].entryNtl = newLongSize * _markPx;
             }
@@ -177,12 +171,6 @@ contract CoreExecution is CoreView {
             // Additive update to entryNtl to preserve weighted average
             // New entryNtl = old_entryNtl + (action.sz * markPx)
             _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
-
-            // Deduct additional margin for the added size only
-            // To minimize integer truncation: (action.sz * markPx) / leverage
-            _accounts[sender].perpBalance -= (uint64(action.sz) * uint64(markPx)) / leverage;
-
-            _accounts[sender].margin[perpIndex] += (uint64(action.sz) * uint64(markPx)) / leverage;
         } else {
             int64 newSzi = szi - int64(action.sz);
 
@@ -191,12 +179,10 @@ contract CoreExecution is CoreView {
                 int64 pnl = int64(action.sz) * (int64(_markPx) - int64(avgEntryPrice));
                 uint64 closedMargin =
                     (uint64(action.sz) * _accounts[sender].positions[perpIndex].entryNtl / uint64(szi)) / leverage;
-                _accounts[sender].perpBalance += closedMargin;
 
                 _accounts[sender].perpBalance =
                     pnl > 0 ? _accounts[sender].perpBalance + uint64(pnl) : _accounts[sender].perpBalance - uint64(-pnl);
 
-                _accounts[sender].margin[perpIndex] -= closedMargin;
                 _accounts[sender].positions[perpIndex].szi = newSzi;
                 _accounts[sender].positions[perpIndex].entryNtl = uint64(newSzi) * avgEntryPrice;
             } else {
@@ -204,12 +190,10 @@ contract CoreExecution is CoreView {
                 int64 pnl = int64(szi) * (int64(_markPx) - int64(avgEntryPrice));
                 _accounts[sender].perpBalance =
                     pnl > 0 ? _accounts[sender].perpBalance + uint64(pnl) : _accounts[sender].perpBalance - uint64(-pnl);
-                uint64 oldMargin = _accounts[sender].positions[perpIndex].entryNtl / leverage;
-                _accounts[sender].perpBalance += oldMargin;
+
                 uint64 newShortSize = uint64(-newSzi);
                 uint64 newMargin = newShortSize * _markPx / leverage;
-                _accounts[sender].perpBalance -= newMargin;
-                _accounts[sender].margin[perpIndex] += newMargin;
+
                 _accounts[sender].positions[perpIndex].szi = newSzi;
                 _accounts[sender].positions[perpIndex].entryNtl = newShortSize * _markPx;
             }
@@ -227,6 +211,53 @@ contract CoreExecution is CoreView {
 
         // Optional: Add margin sufficiency check after updates
         // e.g., require(_accounts[sender].perpBalance >= someMaintenanceMargin, "Insufficient margin");
+    }
+
+    function _updateMarginSummary(address sender) internal {
+        uint64 totalNtlPos = 0;
+        uint64 totalMarginUsed = 0;
+
+        uint64 entryNtlByLeverage = 0;
+
+        uint64 totalLongNtlPos = 0;
+        uint64 totalShortNtlPos = 0;
+
+        for (uint256 i = 0; i < _userPerpPositions[sender].length(); i++) {
+            uint16 perpIndex = uint16(_userPerpPositions[sender].at(i));
+
+            PrecompileLib.Position memory position = _accounts[sender].positions[perpIndex];
+
+            uint32 leverage = position.leverage;
+            uint64 markPx = readMarkPx(perpIndex);
+
+            entryNtlByLeverage += position.entryNtl / leverage;
+
+            int64 szi = position.szi;
+
+            if (szi > 0) {
+                uint64 ntlPos = uint64(szi) * markPx;
+                totalNtlPos += ntlPos;
+                totalMarginUsed += ntlPos / leverage;
+
+                totalLongNtlPos += ntlPos;
+            } else if (szi < 0) {
+                uint64 ntlPos = uint64(-szi) * markPx;
+                totalNtlPos += ntlPos;
+                totalMarginUsed += ntlPos / leverage;
+
+                totalShortNtlPos += ntlPos;
+            }
+        }
+
+        int64 totalAccountValue = int64(_accounts[sender].perpBalance - entryNtlByLeverage + totalMarginUsed);
+        int64 totalRawUsd = totalAccountValue - int64(totalLongNtlPos) + int64(totalShortNtlPos);
+
+        _accounts[sender].marginSummary[0] = PrecompileLib.AccountMarginSummary({
+            accountValue: totalAccountValue,
+            marginUsed: totalMarginUsed,
+            ntlPos: totalNtlPos,
+            rawUsd: totalRawUsd
+        });
     }
 
     // basic simulation of spot trading, not accounting for orderbook depth, or fees
@@ -558,5 +589,90 @@ contract CoreExecution is CoreView {
                 _liquidateUser(user);
             }
         }
+    }
+
+    function _previewAccountMarginSummary(address sender)
+        internal
+        override
+        returns (PrecompileLib.AccountMarginSummary memory)
+    {
+        uint64 totalNtlPos = 0;
+        uint64 totalMarginUsed = 0;
+
+        uint64 entryNtlByLeverage = 0;
+
+        uint64 totalLongNtlPos = 0;
+        uint64 totalShortNtlPos = 0;
+
+        for (uint256 i = 0; i < _userPerpPositions[sender].length(); i++) {
+            uint16 perpIndex = uint16(_userPerpPositions[sender].at(i));
+
+            PrecompileLib.Position memory position = _accounts[sender].positions[perpIndex];
+
+            uint32 leverage = position.leverage;
+            uint64 markPx = readMarkPx(perpIndex);
+
+            entryNtlByLeverage += position.entryNtl / leverage;
+
+            int64 szi = position.szi;
+
+            if (szi > 0) {
+                uint64 ntlPos = uint64(szi) * markPx;
+                totalNtlPos += ntlPos;
+                totalMarginUsed += ntlPos / leverage;
+
+                totalLongNtlPos += ntlPos;
+            } else if (szi < 0) {
+                uint64 ntlPos = uint64(-szi) * markPx;
+                totalNtlPos += ntlPos;
+                totalMarginUsed += ntlPos / leverage;
+
+                totalShortNtlPos += ntlPos;
+            }
+        }
+
+        int64 totalAccountValue = int64(_accounts[sender].perpBalance - entryNtlByLeverage + totalMarginUsed);
+        int64 totalRawUsd = totalAccountValue - int64(totalLongNtlPos) + int64(totalShortNtlPos);
+
+        return PrecompileLib.AccountMarginSummary({
+            accountValue: totalAccountValue,
+            marginUsed: totalMarginUsed,
+            ntlPos: totalNtlPos,
+            rawUsd: totalRawUsd
+        });
+    }
+
+    function _previewWithdrawable(address account) internal override returns (PrecompileLib.Withdrawable memory) {
+        PrecompileLib.AccountMarginSummary memory summary = _previewAccountMarginSummary(account);
+
+        uint64 transferMarginRequirement = 0;
+
+        for (uint256 i = 0; i < _userPerpPositions[account].length(); i++) {
+            uint16 perpIndex = uint16(_userPerpPositions[account].at(i));
+            PrecompileLib.Position memory position = _accounts[account].positions[perpIndex];
+            uint64 markPx = readMarkPx(perpIndex);
+
+            uint64 ntlPos = 0;
+
+            if (position.szi > 0) {
+                ntlPos = uint64(position.szi) * markPx;
+            } else if (position.szi < 0) {
+                ntlPos = uint64(-position.szi) * markPx;
+            }
+
+            uint64 initialMargin = position.entryNtl / position.leverage;
+
+            transferMarginRequirement += max(ntlPos / 10, initialMargin);
+        }
+
+        int64 withdrawable = summary.accountValue - int64(transferMarginRequirement);
+
+        uint64 withdrawableAmount = withdrawable > 0 ? uint64(withdrawable) : 0;
+
+        return PrecompileLib.Withdrawable({withdrawable: withdrawableAmount});
+    }
+
+    function max(uint64 a, uint64 b) internal pure returns (uint64) {
+        return a > b ? a : b;
     }
 }

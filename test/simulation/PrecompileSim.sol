@@ -72,8 +72,8 @@ contract PrecompileSim {
         }
 
         if (address(this) == ACCOUNT_MARGIN_SUMMARY_PRECOMPILE_ADDRESS) {
-            address user = abi.decode(data, (address));
-            return abi.encode(_hyperCore.readAccountMarginSummary(user));
+            (uint16 perp, address user) = abi.decode(data, (uint16, address));
+            return abi.encode(_hyperCore.readAccountMarginSummary(perp, user));
         }
 
         return _makeRpcCall(address(this), data);

@@ -258,6 +258,99 @@ contract CoreSimulatorTest is Test {
         console.log("profit percentage: ", profit * 100 / 10_000e6);
     }
 
+    function test_1_BTC_Long_AccountMarginSummaryTest() public {
+        CoreSimulatorLib.setRevertOnFailure(true);
+        vm.startPrank(user);
+        HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
+        hyperCore.forceAccountCreation(address(hypeTrading));
+        vm.label(address(hypeTrading), "hypeTrading");
+        hyperCore.forcePerpBalance(address(hypeTrading), 10_000e6);
+
+        uint64 startingPrice = 1000000;
+
+        uint16 perp = 0; // btc
+        console.log("btc mark px is %e", PrecompileLib.markPx(perp));
+        hyperCore.setMarkPx(perp, startingPrice);
+
+        hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 100_000, false, 1);
+
+        CoreSimulatorLib.nextBlock();
+
+        PrecompileLib.AccountMarginSummary memory marginSummary0 =
+            hypeTrading.getAccountMarginSummary(address(hypeTrading));
+        console.log("marginSummary.accountValue %e", marginSummary0.accountValue);
+        console.log("marginSummary.marginUsed %e", marginSummary0.marginUsed);
+        console.log("marginSummary.ntlPos %e", marginSummary0.ntlPos);
+        console.log("marginSummary.rawUsd %e", marginSummary0.rawUsd);
+
+        uint64 w0 = PrecompileLib.withdrawable(address(hypeTrading));
+        console.log("withdrawable %e", w0);
+
+        hyperCore.setMarkPx(perp, startingPrice * 12 / 10);
+
+        PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), perp);
+        assertEq(position.szi, 1 * 100_000);
+
+        PrecompileLib.AccountMarginSummary memory marginSummary =
+            hypeTrading.getAccountMarginSummary(address(hypeTrading));
+        console.log("marginSummary.accountValue %e", marginSummary.accountValue);
+        console.log("marginSummary.marginUsed %e", marginSummary.marginUsed);
+        console.log("marginSummary.ntlPos %e", marginSummary.ntlPos);
+        console.log("marginSummary.rawUsd %e", marginSummary.rawUsd);
+
+        uint64 w1 = PrecompileLib.withdrawable(address(hypeTrading));
+        console.log("withdrawable %e", w1);
+
+        // short for same sz
+        hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 2);
+        CoreSimulatorLib.nextBlock();
+
+        PrecompileLib.Position memory position2 = hypeTrading.getPosition(address(hypeTrading), perp);
+        console.log("position2.szi %e", position2.szi);
+
+        PrecompileLib.AccountMarginSummary memory marginSummary2 =
+            hypeTrading.getAccountMarginSummary(address(hypeTrading));
+        console.log("marginSummary2.accountValue %e", marginSummary2.accountValue);
+        console.log("marginSummary2.marginUsed %e", marginSummary2.marginUsed);
+        console.log("marginSummary2.ntlPos %e", marginSummary2.ntlPos);
+        console.log("marginSummary2.rawUsd %e", marginSummary2.rawUsd);
+
+        uint64 w2 = PrecompileLib.withdrawable(address(hypeTrading));
+        console.log("withdrawable %e", w2);
+
+        uint64 profit = w2 - 10_000e6;
+        console.log("profit: %e", profit);
+
+        console.log("profit percentage: ", profit * 100 / 10_000e6);
+    }
+
+    function test_margin_summary() public {
+        CoreSimulatorLib.setRevertOnFailure(true);
+        vm.startPrank(user);
+        HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
+        hyperCore.forceAccountCreation(address(hypeTrading));
+        vm.label(address(hypeTrading), "hypeTrading");
+        hyperCore.forcePerpBalance(address(hypeTrading), 20e6);
+
+        uint16 perpBTC = 0;
+        uint16 perpETH = 1;
+
+        hypeTrading.createLimitOrder(perpBTC, true, 1e18, 0.00025 * 100_000, false, 1);
+        hypeTrading.createLimitOrder(perpETH, false, 1, 0.0044 * 100_00, false, 2);
+
+        CoreSimulatorLib.nextBlock();
+
+        PrecompileLib.AccountMarginSummary memory marginSummary =
+            hypeTrading.getAccountMarginSummary(address(hypeTrading));
+        console.log("marginSummary.accountValue %e", marginSummary.accountValue);
+        console.log("marginSummary.marginUsed %e", marginSummary.marginUsed);
+        console.log("marginSummary.ntlPos %e", marginSummary.ntlPos);
+        console.log("marginSummary.rawUsd %e", marginSummary.rawUsd);
+
+        uint64 w1 = PrecompileLib.withdrawable(address(hypeTrading));
+        console.log("withdrawable %e", w1);
+    }
+
     function test_short() public {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
@@ -659,6 +752,10 @@ contract CoreSimulatorTest is Test {
 
         uint256 perpBalanceAfter = PrecompileLib.withdrawable(address(vault));
         assertEq(perpBalanceAfter, depositAmount * 11 / 10);
+    }
+
+    function max(uint64 a, uint64 b) internal pure returns (uint64) {
+        return a > b ? a : b;
     }
 }
 
