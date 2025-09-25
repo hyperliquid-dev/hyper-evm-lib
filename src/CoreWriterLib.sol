@@ -194,4 +194,10 @@ library CoreWriterLib {
             )
         );
     }
+
+    function approveBuilderFee(uint64 maxFeeRate, address builder) internal {
+        coreWriter.sendRawAction(
+            abi.encodePacked(uint8(1), HLConstants.APPROVE_BUILDER_FEE_ACTION, abi.encode(maxFeeRate, builder))
+        );
+    }
 }

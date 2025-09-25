@@ -521,6 +521,19 @@ contract CoreSimulatorTest is Test {
         );
     }
 
+    function test_approveBuilderFee() public {
+        vm.startPrank(user);
+        BuilderFeeApprover approver = new BuilderFeeApprover();
+        CoreSimulatorLib.forceAccountActivation(address(approver));
+
+        approver.approveBuilderFee(10, user);
+
+        approver.approveBuilderFee(type(uint64).max, USDT0);
+
+        address zeroFeeBuilder = makeAddr("zeroFeeBuilder");
+        approver.approveBuilderFee(0, zeroFeeBuilder);
+    }
+
     function test_usdc_creation_fee() public {
         vm.startPrank(user);
 
@@ -796,6 +809,12 @@ contract SpotTrader {
 
     function bridgeToCore(address asset, uint64 amount) public {
         CoreWriterLib.bridgeToCore(asset, amount);
+    }
+}
+
+contract BuilderFeeApprover {
+    function approveBuilderFee(uint64 maxFeeRate, address builder) public {
+        CoreWriterLib.approveBuilderFee(maxFeeRate, builder);
     }
 }
 
