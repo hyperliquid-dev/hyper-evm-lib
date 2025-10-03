@@ -735,6 +735,37 @@ contract CoreSimulatorTest is Test {
         assertEq(summary.undelegated, 0);
         assertEq(summary.nPendingWithdrawals, 0);
         assertEq(summary.totalPendingWithdrawal, 0);
+
+
+    }
+
+    function test_staking_delegations() public {
+
+        uint64 HYPE = 150;
+        address validator = 0xEEEe86F718F9Da3e7250624A460f6EA710E9C006;
+        // deploy staking contract
+        StakingExample staking = new StakingExample();
+        CoreSimulatorLib.forceAccountActivation(address(staking));
+        CoreSimulatorLib.forceAccountActivation(user);
+        CoreSimulatorLib.setRevertOnFailure(true);
+
+        console.log("user", user);
+        console.log("staking", address(staking));
+
+        deal(address(user), 10000e18);
+
+        vm.startPrank(user);
+        staking.bridgeHypeAndStake{value: 1000e18}(1000e18, validator);
+        CoreSimulatorLib.nextBlock();
+
+        vm.warp(block.timestamp + 1 days);
+
+        // check delegations
+        PrecompileLib.Delegation[] memory delegations = PrecompileLib.delegations(address(staking));
+        assertEq(delegations.length, 1);
+        assertEq(delegations[0].validator, validator);
+        assertEq(delegations[0].amount, HYPE.evmToWei(1000e18));
+        assertEq(delegations[0].lockedUntilTimestamp, block.timestamp * 1000);
     }
 
     function test_maxPendingWithdrawals() public {
