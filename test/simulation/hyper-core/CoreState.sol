@@ -251,6 +251,7 @@ contract CoreState is StdCheats {
         _tokens[index] = tokenInfo;
     }
 
+    // @dev if this set has len > 0, only validators within the set can be delegated to
     function registerValidator(address validator) public {
         _validators.add(validator);
     }
