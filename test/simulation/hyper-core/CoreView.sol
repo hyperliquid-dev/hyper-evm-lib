@@ -126,7 +126,6 @@ contract CoreView is CoreState {
     {
         // 1. maintain an enumerable set for the perps that a user is in
         // 2. iterate over their positions and calculate position value, add them up (value = abs(sz * markPx))
-        //_updateMarginSummary(user);
         return _previewAccountMarginSummary(user);
     }
 
