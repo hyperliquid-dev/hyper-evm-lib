@@ -263,15 +263,15 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
-        hyperCore.forceAccountCreation(address(hypeTrading));
+        CoreSimulatorLib.forceAccountActivation(address(hypeTrading));
         vm.label(address(hypeTrading), "hypeTrading");
-        hyperCore.forcePerpBalance(address(hypeTrading), 10_000e6);
+        CoreSimulatorLib.forcePerpBalance(address(hypeTrading), 10_000e6);
 
         uint64 startingPrice = 1000000;
 
         uint16 perp = 0; // btc
         console.log("btc mark px is %e", PrecompileLib.markPx(perp));
-        hyperCore.setMarkPx(perp, startingPrice);
+        CoreSimulatorLib.setMarkPx(perp, startingPrice);
 
         hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 100_000, false, 1);
 
@@ -287,7 +287,7 @@ contract CoreSimulatorTest is Test {
         uint64 w0 = PrecompileLib.withdrawable(address(hypeTrading));
         console.log("withdrawable %e", w0);
 
-        hyperCore.setMarkPx(perp, startingPrice * 12 / 10);
+        CoreSimulatorLib.setMarkPx(perp, startingPrice * 12 / 10);
 
         PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), perp);
         assertEq(position.szi, 1 * 100_000);
@@ -329,9 +329,9 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
-        hyperCore.forceAccountCreation(address(hypeTrading));
+        CoreSimulatorLib.forceAccountActivation(address(hypeTrading));
         vm.label(address(hypeTrading), "hypeTrading");
-        hyperCore.forcePerpBalance(address(hypeTrading), 20e6);
+        CoreSimulatorLib.forcePerpBalance(address(hypeTrading), 20e6);
 
         uint16 perpBTC = 0;
         uint16 perpETH = 1;
@@ -627,7 +627,7 @@ contract CoreSimulatorTest is Test {
         approver.approveBuilderFee(0, zeroFeeBuilder);
     }
 
-    function test_usdc_creation_fee() public {
+    function test_account_activation_fee() public {
         vm.startPrank(user);
 
         // Give sender 10 USDC
@@ -636,13 +636,13 @@ contract CoreSimulatorTest is Test {
 
         address newAccount = makeAddr("newAccount");
 
-        uint64 before = hyperCore.readSpotBalance(user, 0).total;
+        uint64 before = PrecompileLib.spotBalance(user, 0).total;
 
         // Send 2 USDC to new account
         CoreWriterLib.spotSend(newAccount, 0, 2e8);
         CoreSimulatorLib.nextBlock();
 
-        uint64 afterBalance = hyperCore.readSpotBalance(user, 0).total;
+        uint64 afterBalance = PrecompileLib.spotBalance(user, 0).total;
 
         console.log("Before:", before);
         console.log("After:", afterBalance);
