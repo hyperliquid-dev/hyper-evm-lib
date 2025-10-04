@@ -47,7 +47,7 @@ library CoreWriterLib {
         address systemAddress = getSystemAddress(token);
         if (isHype(token)) {
             (bool success,) = systemAddress.call{value: evmAmount}("");
-            require(success, "HYPE transfer failed");
+            if (!success) revert CoreWriterLib__HypeTransferFailed();
         } else {
             PrecompileLib.TokenInfo memory info = PrecompileLib.tokenInfo(uint32(token));
             address tokenAddress = info.evmContract;
@@ -78,7 +78,7 @@ library CoreWriterLib {
 
     function spotSend(address to, uint64 token, uint64 amountWei) internal {
         // Self-transfers will always fail, so reverting here
-        require(to != address(this), "Cannot self-transfer");
+        if (to == address(this)) revert CoreWriterLib__CannotSelfTransfer();
 
         coreWriter.sendRawAction(
             abi.encodePacked(uint8(1), HLConstants.SPOT_SEND_ACTION, abi.encode(to, token, amountWei))
@@ -192,6 +192,12 @@ library CoreWriterLib {
             abi.encodePacked(
                 uint8(1), HLConstants.FINALIZE_EVM_CONTRACT_ACTION, abi.encode(token, encodedVariant, createNonce)
             )
+        );
+    }
+
+    function approveBuilderFee(uint64 maxFeeRate, address builder) internal {
+        coreWriter.sendRawAction(
+            abi.encodePacked(uint8(1), HLConstants.APPROVE_BUILDER_FEE_ACTION, abi.encode(maxFeeRate, builder))
         );
     }
 }

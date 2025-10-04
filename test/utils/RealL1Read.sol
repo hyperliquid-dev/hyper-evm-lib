@@ -121,9 +121,16 @@ library RealL1Read {
         // Construct the JSON-RPC payload
         string memory jsonPayload =
             string.concat('[{"to":"', vm.toString(target), '","data":"', vm.toString(params), '"},"latest"]');
-        string memory blockNumberHex = string.concat("0x", toHexString(block.number));
 
-        //jsonPayload = string.concat('[{"to":"', vm.toString(target), '","data":"', vm.toString(params), '"},"', blockNumberHex, '"]');
+        bool useArchivedBlockNumber = false;
+
+        if (useArchivedBlockNumber) {
+            string memory blockNumberHex = string.concat("0x", toHexString(block.number));
+
+            jsonPayload = string.concat(
+                '[{"to":"', vm.toString(target), '","data":"', vm.toString(params), '"},"', blockNumberHex, '"]'
+            );
+        }
 
         // Make the RPC call
         try vm.rpc("eth_call", jsonPayload) returns (bytes memory data) {

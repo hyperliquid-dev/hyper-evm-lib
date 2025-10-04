@@ -7,7 +7,7 @@ import {HyperCore} from "./HyperCore.sol";
 import {CoreWriterSim} from "./CoreWriterSim.sol";
 import {PrecompileSim} from "./PrecompileSim.sol";
 
-import {HLConstants} from "src/PrecompileLib.sol";
+import {HLConstants} from "../../src/PrecompileLib.sol";
 
 Vm constant vm = Vm(address(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D));
 CoreWriterSim constant coreWriter = CoreWriterSim(0x3333333333333333333333333333333333333333);
@@ -36,6 +36,7 @@ library CoreSimulatorLib {
         HyperCore coreImpl = new HyperCore();
 
         vm.etch(address(hyperCore), address(coreImpl).code);
+        hyperCore.setStakingYieldIndex(1e18);
         vm.etch(address(coreWriter), type(CoreWriterSim).runtimeCode);
 
         // Initialize precompiles
@@ -60,7 +61,7 @@ library CoreSimulatorLib {
         return hyperCore;
     }
 
-    function nextBlock() internal {
+    function nextBlock(bool expectRevert) internal {
         // Get all recorded logs
         Vm.Log[] memory entries = vm.getRecordedLogs();
 
@@ -77,7 +78,6 @@ library CoreSimulatorLib {
                 // Check if destination is a system address
                 if (isSystemAddress(to)) {
                     uint64 tokenIndex = getTokenIndexFromSystemAddress(to);
-                    address token = address(entry.emitter);
 
                     // Call tokenTransferCallback on HyperCoreWrite
                     hyperCore.executeTokenTransfer(address(0), tokenIndex, from, amount);
@@ -96,16 +96,68 @@ library CoreSimulatorLib {
         hyperCore.liquidatePositions();
 
         // Process any pending actions
-        coreWriter.executeQueuedActions();
+        coreWriter.executeQueuedActions(expectRevert);
 
         // Process pending orders
         hyperCore.processPendingOrders();
     }
 
-    ////// TESTING CONFIG SETTERS /////////
+    function nextBlock() internal {
+        nextBlock(false);
+    }
+
+    ////// Testing Config Setters /////////
 
     function setRevertOnFailure(bool _revertOnFailure) internal {
         coreWriter.setRevertOnFailure(_revertOnFailure);
+    }
+
+    // cheatcodes //
+    function forceAccountActivation(address account) internal {
+        hyperCore.forceAccountActivation(account);
+    }
+
+    function forceSpotBalance(address account, uint64 token, uint64 _wei) internal {
+        hyperCore.forceSpotBalance(account, token, _wei);
+    }
+
+    function forcePerpBalance(address account, uint64 usd) internal {
+        hyperCore.forcePerpBalance(account, usd);
+    }
+
+    function forceStakingBalance(address account, uint64 _wei) internal {
+        hyperCore.forceStakingBalance(account, _wei);
+    }
+
+    function forceDelegation(address account, address validator, uint64 amount, uint64 lockedUntilTimestamp) internal {
+        hyperCore.forceDelegation(account, validator, amount, lockedUntilTimestamp);
+    }
+
+    function forceVaultEquity(address account, address vault, uint64 usd, uint64 lockedUntilTimestamp) internal {
+        hyperCore.forceVaultEquity(account, vault, usd, lockedUntilTimestamp);
+    }
+
+    function setMarkPx(uint32 perp, uint64 markPx) internal {
+        hyperCore.setMarkPx(perp, markPx);
+    }
+
+    function setMarkPx(uint32 perp, uint64 priceDiffBps, bool isIncrease) internal {
+        hyperCore.setMarkPx(perp, priceDiffBps, isIncrease);
+    }
+
+    function setSpotPx(uint32 spotMarketId, uint64 spotPx) internal {
+        hyperCore.setSpotPx(spotMarketId, spotPx);
+    }
+
+    function setSpotPx(uint32 spotMarketId, uint64 priceDiffBps, bool isIncrease) internal {
+        hyperCore.setSpotPx(spotMarketId, priceDiffBps, isIncrease);
+    }
+
+    function setVaultMultiplier(address vault, uint64 multiplier) internal {
+        hyperCore.setVaultMultiplier(vault, multiplier);
+    }
+    function setStakingYieldIndex(uint64 multiplier) internal {
+        hyperCore.setStakingYieldIndex(multiplier);
     }
 
     ///// VIEW AND PURE /////////

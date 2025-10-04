@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {CoreExecution} from "./hyper-core/CoreExecution.sol";
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
-import {HLConstants} from "src/PrecompileLib.sol";
+import {HLConstants} from "../../src/PrecompileLib.sol";
 
 contract HyperCore is CoreExecution {
     using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;

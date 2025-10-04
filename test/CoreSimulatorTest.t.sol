@@ -13,6 +13,8 @@ import {CoreSimulatorLib} from "./simulation/CoreSimulatorLib.sol";
 import {RealL1Read} from "./utils/RealL1Read.sol";
 import {CoreWriterLib} from "../src/CoreWriterLib.sol";
 import {VaultExample} from "../src/examples/VaultExample.sol";
+import {StakingExample} from "../src/examples/StakingExample.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 contract CoreSimulatorTest is Test {
     using PrecompileLib for address;
@@ -31,8 +33,9 @@ contract CoreSimulatorTest is Test {
     L1Read l1Read;
 
     function setUp() public {
-        string memory hyperliquidRpc = "https://rpc.hyperliquid.xyz/evm";
-        string memory archiveRpc = "https://rpc.purroofgroup.com";
+        //string memory hyperliquidRpc = "https://rpc.hyperliquid.xyz/evm";
+        //string memory archiveRpc = "https://rpc.purroofgroup.com";
+
         string memory alchemyRpc = vm.envString("ALCHEMY_RPC");
         vm.createSelectFork(alchemyRpc);
 
@@ -41,8 +44,8 @@ contract CoreSimulatorTest is Test {
 
         bridgingExample = new BridgingExample();
 
-        hyperCore.forceAccountCreation(user);
-        hyperCore.forceAccountCreation(address(bridgingExample));
+        CoreSimulatorLib.forceAccountActivation(user);
+        CoreSimulatorLib.forceAccountActivation(address(bridgingExample));
 
         l1Read = new L1Read();
     }
@@ -116,7 +119,7 @@ contract CoreSimulatorTest is Test {
         vm.startPrank(user);
         bridgingExample.bridgeToCoreAndSendHype{value: amountToSend}(amountToSend, address(recipient));
 
-        (uint64 realTotal, uint64 realHold, uint64 realEntryNtl) =
+        (uint64 realTotal,,) =
             abi.decode(abi.encode(RealL1Read.spotBalance(address(recipient), 150)), (uint64, uint64, uint64));
         console.log("realTotal", realTotal);
 
@@ -126,7 +129,7 @@ contract CoreSimulatorTest is Test {
 
         CoreSimulatorLib.nextBlock();
 
-        (uint64 newTotal, uint64 newHold, uint64 newEntryNtl) =
+        (uint64 newTotal,,) =
             abi.decode(abi.encode(l1Read.spotBalance(address(recipient), 150)), (uint64, uint64, uint64));
         console.log("total", newTotal);
         console.log("rhs:", realTotal + HLConversions.evmToWei(150, amountToSend));
@@ -152,7 +155,6 @@ contract CoreSimulatorTest is Test {
     }
 
     function test_readDelegations() public {
-        address kinetiq = 0x68e7E72938db36a5CBbCa7b52c71DBBaaDfB8264;
         PrecompileLib.Delegation[] memory delegations =
             RealL1Read.delegations(address(0x393D0B87Ed38fc779FD9611144aE649BA6082109));
         console.log("delegations", delegations.length);
@@ -170,7 +172,6 @@ contract CoreSimulatorTest is Test {
     }
 
     function test_readDelegatorSummary() public {
-        address kinetiq = 0x68e7E72938db36a5CBbCa7b52c71DBBaaDfB8264;
         PrecompileLib.DelegatorSummary memory summary =
             RealL1Read.delegatorSummary(address(0x393D0B87Ed38fc779FD9611144aE649BA6082109));
         console.log("summary.delegated", summary.delegated);
@@ -187,8 +188,8 @@ contract CoreSimulatorTest is Test {
     function test_perpTrading() public {
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
-        hyperCore.forceAccountCreation(address(hypeTrading));
-        hyperCore.forcePerpBalance(address(hypeTrading), 1e18);
+        CoreSimulatorLib.forceAccountActivation(address(hypeTrading));
+        CoreSimulatorLib.forcePerpBalance(address(hypeTrading), 1e18);
 
         hypeTrading.createLimitOrder(5, true, 1e18, 1e2, false, 1);
 
@@ -201,7 +202,7 @@ contract CoreSimulatorTest is Test {
         hypeTrading.createLimitOrder(5, false, 0, 1e3, false, 2);
 
         // increase price by 20%
-        hyperCore.setMarkPx(5, 2000, true);
+        CoreSimulatorLib.setMarkPx(5, 2000, true);
 
         CoreSimulatorLib.nextBlock();
 
@@ -222,21 +223,21 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
-        hyperCore.forceAccountCreation(address(hypeTrading));
+        CoreSimulatorLib.forceAccountActivation(address(hypeTrading));
         vm.label(address(hypeTrading), "hypeTrading");
-        hyperCore.forcePerpBalance(address(hypeTrading), 10_000e6);
+        CoreSimulatorLib.forcePerpBalance(address(hypeTrading), 10_000e6);
 
         uint64 startingPrice = 1000000;
 
         uint16 perp = 0; // btc
         console.log("btc mark px is %e", PrecompileLib.markPx(perp));
-        hyperCore.setMarkPx(perp, startingPrice);
+        CoreSimulatorLib.setMarkPx(perp, startingPrice);
 
         hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 100_000, false, 1);
 
         CoreSimulatorLib.nextBlock();
 
-        hyperCore.setMarkPx(perp, startingPrice * 12 / 10);
+        CoreSimulatorLib.setMarkPx(perp, startingPrice * 12 / 10);
 
         PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), perp);
         assertEq(position.szi, 1 * 100_000);
@@ -355,23 +356,23 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
-        hyperCore.forceAccountCreation(address(hypeTrading));
+        CoreSimulatorLib.forceAccountActivation(address(hypeTrading));
         vm.label(address(hypeTrading), "hypeTrading");
 
         uint64 initialPerpBalance = 5000e6;
-        hyperCore.forcePerpBalance(address(hypeTrading), initialPerpBalance);
+        CoreSimulatorLib.forcePerpBalance(address(hypeTrading), initialPerpBalance);
 
         uint64 startingPrice = 1000000;
 
         uint16 perp = 0; // btc
         console.log("btc mark px is %e", PrecompileLib.markPx(perp));
-        hyperCore.setMarkPx(perp, startingPrice);
+        CoreSimulatorLib.setMarkPx(perp, startingPrice);
 
         hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 1);
 
         CoreSimulatorLib.nextBlock();
 
-        hyperCore.setMarkPx(perp, startingPrice * 9 / 10);
+        CoreSimulatorLib.setMarkPx(perp, startingPrice * 9 / 10);
 
         PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), perp);
         assertEq(position.szi, -1 * 100_000);
@@ -397,23 +398,23 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
-        hyperCore.forceAccountCreation(address(hypeTrading));
+        CoreSimulatorLib.forceAccountActivation(address(hypeTrading));
         vm.label(address(hypeTrading), "hypeTrading");
 
         uint64 initialPerpBalance = 5000e6;
-        hyperCore.forcePerpBalance(address(hypeTrading), initialPerpBalance);
+        CoreSimulatorLib.forcePerpBalance(address(hypeTrading), initialPerpBalance);
 
         uint64 startingPrice = 1000000;
 
         uint16 perp = 0; // btc
         console.log("btc mark px is %e", PrecompileLib.markPx(perp));
-        hyperCore.setMarkPx(perp, startingPrice);
+        CoreSimulatorLib.setMarkPx(perp, startingPrice);
 
         hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 1);
 
         CoreSimulatorLib.nextBlock();
 
-        hyperCore.setMarkPx(perp, startingPrice * 9 / 10);
+        CoreSimulatorLib.setMarkPx(perp, startingPrice * 9 / 10);
 
         PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), perp);
         assertEq(position.szi, -1 * 100_000);
@@ -422,7 +423,7 @@ contract CoreSimulatorTest is Test {
         hypeTrading.createLimitOrder(perp, true, 1e18, 2 * 100_000, false, 2);
 
         CoreSimulatorLib.nextBlock();
-        hyperCore.setMarkPx(perp, startingPrice);
+        CoreSimulatorLib.setMarkPx(perp, startingPrice);
 
         hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 3);
 
@@ -444,23 +445,23 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
-        hyperCore.forceAccountCreation(address(hypeTrading));
+        CoreSimulatorLib.forceAccountActivation(address(hypeTrading));
         vm.label(address(hypeTrading), "hypeTrading");
 
         uint64 initialPerpBalance = 5000e6;
-        hyperCore.forcePerpBalance(address(hypeTrading), initialPerpBalance);
+        CoreSimulatorLib.forcePerpBalance(address(hypeTrading), initialPerpBalance);
 
         uint64 startingPrice = 1000000;
 
         uint16 perp = 0; // btc
         console.log("btc mark px is %e", PrecompileLib.markPx(perp));
-        hyperCore.setMarkPx(perp, startingPrice);
+        CoreSimulatorLib.setMarkPx(perp, startingPrice);
 
         hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 1);
 
         CoreSimulatorLib.nextBlock();
 
-        hyperCore.setMarkPx(perp, startingPrice * 101 / 100);
+        CoreSimulatorLib.setMarkPx(perp, startingPrice * 101 / 100);
 
         PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), perp);
         assertEq(position.szi, -1 * 100_000);
@@ -487,10 +488,10 @@ contract CoreSimulatorTest is Test {
     function test_spotTrading() public {
         vm.startPrank(user);
         SpotTrader spotTrader = new SpotTrader();
-        hyperCore.forceAccountCreation(address(spotTrader));
-        hyperCore.forceAccountCreation(address(user));
-        hyperCore.forceSpot(address(spotTrader), 0, 1e18);
-        hyperCore.forceSpot(address(spotTrader), 254, 1e18);
+        CoreSimulatorLib.forceAccountActivation(address(spotTrader));
+        CoreSimulatorLib.forceAccountActivation(address(user));
+        CoreSimulatorLib.forceSpotBalance(address(spotTrader), 0, 1e18);
+        CoreSimulatorLib.forceSpotBalance(address(spotTrader), 254, 1e18);
 
         spotTrader.placeLimitOrder(10000 + 156, true, 1e18, 1e2, false, 1);
 
@@ -507,10 +508,10 @@ contract CoreSimulatorTest is Test {
     function test_limitOrder() public {
         vm.startPrank(user);
         SpotTrader spotTrader = new SpotTrader();
-        hyperCore.forceAccountCreation(address(spotTrader));
-        hyperCore.forceAccountCreation(address(user));
-        hyperCore.forceSpot(address(spotTrader), 0, 1e18);
-        hyperCore.forceSpot(address(spotTrader), 254, 1e18);
+        CoreSimulatorLib.forceAccountActivation(address(spotTrader));
+        CoreSimulatorLib.forceAccountActivation(address(user));
+        CoreSimulatorLib.forceSpotBalance(address(spotTrader), 0, 1e18);
+        CoreSimulatorLib.forceSpotBalance(address(spotTrader), 254, 1e18);
 
         // Log the current spot price before placing order
         uint32 spotMarketId = 156;
@@ -545,7 +546,7 @@ contract CoreSimulatorTest is Test {
 
         // Now update the price to match the order's limit price
         console.log("Updating spot price to:", limitPx);
-        hyperCore.setSpotPx(spotMarketId, limitPx);
+        CoreSimulatorLib.setSpotPx(spotMarketId, limitPx);
 
         CoreSimulatorLib.nextBlock();
 
@@ -562,10 +563,10 @@ contract CoreSimulatorTest is Test {
     function test_limitOrderSell() public {
         vm.startPrank(user);
         SpotTrader spotTrader = new SpotTrader();
-        hyperCore.forceAccountCreation(address(spotTrader));
-        hyperCore.forceAccountCreation(address(user));
-        hyperCore.forceSpot(address(spotTrader), 0, 1e18);
-        hyperCore.forceSpot(address(spotTrader), 254, 1e18);
+        CoreSimulatorLib.forceAccountActivation(address(spotTrader));
+        CoreSimulatorLib.forceAccountActivation(address(user));
+        CoreSimulatorLib.forceSpotBalance(address(spotTrader), 0, 1e18);
+        CoreSimulatorLib.forceSpotBalance(address(spotTrader), 254, 1e18);
 
         // Log the current spot price before placing order
         uint32 spotMarketId = 156;
@@ -599,7 +600,7 @@ contract CoreSimulatorTest is Test {
 
         // Now update the price to match the order's limit price
         console.log("Updating spot price to:", limitPx);
-        hyperCore.setSpotPx(spotMarketId, limitPx);
+        CoreSimulatorLib.setSpotPx(spotMarketId, limitPx);
 
         CoreSimulatorLib.nextBlock();
 
@@ -613,12 +614,25 @@ contract CoreSimulatorTest is Test {
         );
     }
 
+    function test_approveBuilderFee() public {
+        vm.startPrank(user);
+        BuilderFeeApprover approver = new BuilderFeeApprover();
+        CoreSimulatorLib.forceAccountActivation(address(approver));
+
+        approver.approveBuilderFee(10, user);
+
+        approver.approveBuilderFee(type(uint64).max, USDT0);
+
+        address zeroFeeBuilder = makeAddr("zeroFeeBuilder");
+        approver.approveBuilderFee(0, zeroFeeBuilder);
+    }
+
     function test_usdc_creation_fee() public {
         vm.startPrank(user);
 
         // Give sender 10 USDC
-        hyperCore.forceAccountCreation(user);
-        hyperCore.forceSpot(user, 0, 10e8);
+        CoreSimulatorLib.forceAccountActivation(user);
+        CoreSimulatorLib.forceSpotBalance(user, 0, 10e8);
 
         address newAccount = makeAddr("newAccount");
 
@@ -699,8 +713,8 @@ contract CoreSimulatorTest is Test {
     function test_vaultMultiplier() public {
         // Deploy VaultExample contract
         VaultExample vaultExample = new VaultExample();
-        hyperCore.forceAccountCreation(address(vaultExample));
-        hyperCore.forcePerpBalance(address(vaultExample), 1000e6); // Give it some perp balance
+        CoreSimulatorLib.forceAccountActivation(address(vaultExample));
+        CoreSimulatorLib.forcePerpBalance(address(vaultExample), 1000e6); // Give it some perp balance
 
         address testVault = 0x07Fd993f0fA3A185F7207ADcCD29f7A87404689D;
 
@@ -716,7 +730,7 @@ contract CoreSimulatorTest is Test {
         console.log("Initial vault equity:", initialEquity.equity);
 
         // Test 10% profit (1.1x multiplier)
-        hyperCore.setVaultMultiplier(testVault, 1.1e18);
+        CoreSimulatorLib.setVaultMultiplier(testVault, 1.1e18);
         PrecompileLib.UserVaultEquity memory profitEquity =
             hyperCore.readUserVaultEquity(address(vaultExample), testVault);
         console.log("Equity with 10% profit:", profitEquity.equity);
@@ -724,8 +738,8 @@ contract CoreSimulatorTest is Test {
 
     function test_vaultDepositWithdraw() public {
         VaultExample vault = new VaultExample();
-        hyperCore.forceAccountCreation(address(vault));
-        hyperCore.forcePerpBalance(address(vault), 100e6);
+        CoreSimulatorLib.forceAccountActivation(address(vault));
+        CoreSimulatorLib.forcePerpBalance(address(vault), 100e6);
 
         address testVault = 0x07Fd993f0fA3A185F7207ADcCD29f7A87404689D;
         uint64 depositAmount = 100e6;
@@ -743,7 +757,7 @@ contract CoreSimulatorTest is Test {
             )
         );
         vault.withdrawFromVault(testVault, depositAmount);
-        hyperCore.setVaultMultiplier(testVault, 1.1e18);
+        CoreSimulatorLib.setVaultMultiplier(testVault, 1.1e18);
 
         vm.warp((block.timestamp + 1 days + 1));
 
@@ -757,6 +771,154 @@ contract CoreSimulatorTest is Test {
     function max(uint64 a, uint64 b) internal pure returns (uint64) {
         return a > b ? a : b;
     }
+    function test_staking() public {
+        uint64 HYPE = 150;
+        address validator = 0xEEEe86F718F9Da3e7250624A460f6EA710E9C006;
+        // deploy staking contract
+        StakingExample staking = new StakingExample();
+        CoreSimulatorLib.forceAccountActivation(address(staking));
+        CoreSimulatorLib.forceAccountActivation(user);
+        CoreSimulatorLib.setRevertOnFailure(true);
+
+        console.log("user", user);
+        console.log("staking", address(staking));
+
+        deal(address(user), 10000e18);
+
+        vm.startPrank(user);
+        staking.bridgeHypeAndStake{value: 1000e18}(1000e18, validator);
+        CoreSimulatorLib.nextBlock();
+
+        vm.warp(block.timestamp + 1 days);
+
+        // check the delegator summary
+        PrecompileLib.DelegatorSummary memory summary = PrecompileLib.delegatorSummary(address(staking));
+        assertEq(summary.delegated, HYPE.evmToWei(1000e18));
+        assertEq(summary.undelegated, 0);
+        assertEq(summary.nPendingWithdrawals, 0);
+        assertEq(summary.totalPendingWithdrawal, 0);
+
+        // set staking multiplier to 1.1x
+        CoreSimulatorLib.setStakingYieldIndex(1.1e18);
+        summary = PrecompileLib.delegatorSummary(address(staking));
+        assertEq(uint256(summary.delegated), uint256(HYPE.evmToWei(1000e18)) * 1.1e18 / 1e18);
+        assertEq(summary.undelegated, 0);
+        assertEq(summary.nPendingWithdrawals, 0);
+        assertEq(summary.totalPendingWithdrawal, 0);
+
+        CoreSimulatorLib.setStakingYieldIndex(1e18);
+
+        // undelegate
+        staking.undelegateTokens(validator, HYPE.evmToWei(1000e18));
+
+        CoreSimulatorLib.nextBlock();
+
+        summary = PrecompileLib.delegatorSummary(address(staking));
+        assertEq(summary.delegated, 0);
+        assertEq(summary.undelegated, HYPE.evmToWei(1000e18));
+        assertEq(summary.nPendingWithdrawals, 0);
+        assertEq(summary.totalPendingWithdrawal, 0);
+
+        staking.withdrawStake(HYPE.evmToWei(1000e18));
+        CoreSimulatorLib.nextBlock();
+
+        vm.warp(block.timestamp + 7 days);
+
+        CoreSimulatorLib.nextBlock();
+
+        summary = PrecompileLib.delegatorSummary(address(staking));
+        assertEq(summary.delegated, 0);
+        assertEq(summary.undelegated, 0);
+        assertEq(summary.nPendingWithdrawals, 0);
+        assertEq(summary.totalPendingWithdrawal, 0);
+
+
+    }
+
+    function test_staking_delegations() public {
+
+        uint64 HYPE = 150;
+        address validator = 0xEEEe86F718F9Da3e7250624A460f6EA710E9C006;
+        // deploy staking contract
+        StakingExample staking = new StakingExample();
+        CoreSimulatorLib.forceAccountActivation(address(staking));
+        CoreSimulatorLib.forceAccountActivation(user);
+        CoreSimulatorLib.setRevertOnFailure(true);
+
+        console.log("user", user);
+        console.log("staking", address(staking));
+
+        deal(address(user), 10000e18);
+
+        vm.startPrank(user);
+        staking.bridgeHypeAndStake{value: 1000e18}(1000e18, validator);
+        CoreSimulatorLib.nextBlock();
+
+        vm.warp(block.timestamp + 1 days);
+
+        // check delegations
+        PrecompileLib.Delegation[] memory delegations = PrecompileLib.delegations(address(staking));
+        assertEq(delegations.length, 1);
+        assertEq(delegations[0].validator, validator);
+        assertEq(delegations[0].amount, HYPE.evmToWei(1000e18));
+        assertEq(delegations[0].lockedUntilTimestamp, block.timestamp * 1000);
+    }
+
+    function test_maxPendingWithdrawals() public {
+        uint64 HYPE = 150;
+        address validator = 0xEEEe86F718F9Da3e7250624A460f6EA710E9C006;
+        StakingExample staking = new StakingExample();
+        CoreSimulatorLib.forceAccountActivation(address(staking));
+        CoreSimulatorLib.forceAccountActivation(user);
+        CoreSimulatorLib.setRevertOnFailure(true);
+
+        deal(address(user), 10000e18);
+
+        vm.startPrank(user);
+        staking.bridgeHypeAndStake{value: 1000e18}(1000e18, validator);
+        CoreSimulatorLib.nextBlock();
+
+        vm.warp(block.timestamp + 1 days);
+
+        staking.undelegateTokens(validator, HYPE.evmToWei(1000e18));
+
+        CoreSimulatorLib.nextBlock();
+
+        staking.withdrawStake(HYPE.evmToWei(100e18));
+        staking.withdrawStake(HYPE.evmToWei(100e18));
+
+        staking.withdrawStake(HYPE.evmToWei(100e18));
+
+        staking.withdrawStake(HYPE.evmToWei(100e18));
+        staking.withdrawStake(HYPE.evmToWei(100e18));
+
+        CoreSimulatorLib.nextBlock();
+
+        // should fail due to maximum of 5 pending withdrawals per account
+        staking.withdrawStake(HYPE.evmToWei(50e18));
+
+        bool expectRevert = true;
+        CoreSimulatorLib.nextBlock(expectRevert);
+    }
+
+    // bridging
+    function test_bridgeToEvm() public {
+
+        // force balances on Core
+        CoreSimulatorLib.forceAccountActivation(address(user));
+        CoreSimulatorLib.forceSpotBalance(address(user), PrecompileLib.getTokenIndex(uETH), 1e15);
+
+        vm.startPrank(address(user));
+        uint256 amount = 20e18;
+
+        CoreWriterLib.bridgeToEvm(uETH, amount);
+
+        CoreSimulatorLib.nextBlock();
+
+        uint256 userBalance = IERC20(uETH).balanceOf(address(user));
+        assertEq(userBalance, amount);
+    }
+
 }
 
 contract SpotTrader {
@@ -777,10 +939,16 @@ contract SpotTrader {
     }
 }
 
+contract BuilderFeeApprover {
+    function approveBuilderFee(uint64 maxFeeRate, address builder) public {
+        CoreWriterLib.approveBuilderFee(maxFeeRate, builder);
+    }
+}
+
 // TODO:
-// - experiment with archive node and calling precompiles from older, specific block.number (instead of latest by default)
 // for perps:
 //      - handle the other fields of the position
 //      - handle isolated margin positions
+//      - handle leverage changes (assuming theres an API wallet to do this)
 // double check HYPE required on HyperCore for spotSend of non-HYPE tokens
 // readAccountMarginSummary

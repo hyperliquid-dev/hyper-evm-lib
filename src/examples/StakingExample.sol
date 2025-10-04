@@ -2,13 +2,15 @@
 pragma solidity ^0.8.0;
 
 import {CoreWriterLib, HLConstants, HLConversions} from "@hyper-evm-lib/src/CoreWriterLib.sol";
-
 /**
  * @title StakingExample
  * @dev This contract demonstrates CoreWriterLib staking functionality.
  */
+
 contract StakingExample {
     using CoreWriterLib for *;
+
+    error NoHypeBalance();
 
     /**
      * @notice Transfers HYPE tokens to core, stakes them, and delegates to a validator
@@ -48,11 +50,19 @@ contract StakingExample {
     }
 
     /**
+     * @notice Withdraws tokens from the staking balance
+     */
+    function withdrawStake(uint64 coreAmount) external {
+        // Withdraw the tokens from the staking balance
+        CoreWriterLib.withdrawStake(coreAmount);
+    }
+
+    /**
      * @notice Transfers all HYPE balance to the sender
      */
     function transferAllHypeToSender() external {
         uint256 balance = address(this).balance;
-        require(balance > 0, "No HYPE balance to transfer");
+        if (balance == 0) revert NoHypeBalance();
         payable(msg.sender).transfer(balance);
     }
 

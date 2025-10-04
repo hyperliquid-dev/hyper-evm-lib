@@ -5,13 +5,11 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 import {Heap} from "@openzeppelin/contracts/utils/structs/Heap.sol";
-
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-
-import {PrecompileLib} from "src/PrecompileLib.sol";
-import {CoreWriterLib} from "src/CoreWriterLib.sol";
-import {HLConversions} from "src/common/HLConversions.sol";
+import {PrecompileLib} from "../../../src/PrecompileLib.sol";
+import {CoreWriterLib} from "../../../src/CoreWriterLib.sol";
+import {HLConversions} from "../../../src/common/HLConversions.sol";
 
 import {RealL1Read} from "../../utils/RealL1Read.sol";
 import {CoreView} from "./CoreView.sol";
@@ -39,7 +37,7 @@ contract CoreExecution is CoreView {
         payable
         initAccountWithToken(from, token)
     {
-        if (_accounts[from].created) {
+        if (_accounts[from].activated) {
             _accounts[from].spot[token] += toWei(value, _tokens[token].evmExtraWeiDecimals);
         } else {
             _latentSpotBalance[from][token] += toWei(value, _tokens[token].evmExtraWeiDecimals);
@@ -51,7 +49,7 @@ contract CoreExecution is CoreView {
         payable
         initAccountWithToken(from, HYPE_TOKEN_INDEX)
     {
-        if (_accounts[from].created) {
+        if (_accounts[from].activated) {
             _accounts[from].spot[HYPE_TOKEN_INDEX] += (value / 1e10).toUint64();
         } else {
             _latentSpotBalance[from][HYPE_TOKEN_INDEX] += (value / 1e10).toUint64();
@@ -97,6 +95,7 @@ contract CoreExecution is CoreView {
         require(leverage > 0, "Invalid leverage");
         require(action.sz > 0, "Invalid size");
         require(markPx > 0, "Invalid price");
+        int64 newSzi = szi + int64(action.sz);
 
         if (szi >= 0) {
             // No PnL realization for same-direction increase
@@ -107,8 +106,6 @@ contract CoreExecution is CoreView {
             // New entryNtl = old_entryNtl + (action.sz * markPx)
             _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
         } else {
-            int64 newSzi = szi + int64(action.sz);
-
             if (newSzi <= 0) {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi);
                 int64 pnl = int64(action.sz) * (int64(avgEntryPrice) - int64(_markPx));
@@ -135,7 +132,6 @@ contract CoreExecution is CoreView {
             }
         }
 
-        int64 newSzi = _accounts[sender].positions[perpIndex].szi;
         bytes32 key = _getKey(sender, perpIndex);
         if (szi == 0 && newSzi != 0) {
             _openPerpPositions.add(key);
@@ -157,6 +153,7 @@ contract CoreExecution is CoreView {
         require(leverage > 0, "Invalid leverage");
         require(action.sz > 0, "Invalid size");
         require(markPx > 0, "Invalid price");
+        int64 newSzi = szi - int64(action.sz);
 
         if (szi <= 0) {
             // No PnL realization for same-direction increase
@@ -167,8 +164,6 @@ contract CoreExecution is CoreView {
             // New entryNtl = old_entryNtl + (action.sz * markPx)
             _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
         } else {
-            int64 newSzi = szi - int64(action.sz);
-
             if (newSzi >= 0) {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(szi);
                 int64 pnl = int64(action.sz) * (int64(_markPx) - int64(avgEntryPrice));
@@ -194,7 +189,6 @@ contract CoreExecution is CoreView {
             }
         }
 
-        int64 newSzi = _accounts[sender].positions[perpIndex].szi;
         bytes32 key = _getKey(sender, perpIndex);
         if (szi == 0 && newSzi != 0) {
             _openPerpPositions.add(key);
@@ -203,9 +197,6 @@ contract CoreExecution is CoreView {
             _openPerpPositions.remove(key);
             _userPerpPositions[sender].remove(perpIndex);
         }
-
-        // Optional: Add margin sufficiency check after updates
-        // e.g., require(_accounts[sender].perpBalance >= someMaintenanceMargin, "Insufficient margin");
     }
 
     function _updateMarginSummary(address sender) internal {
@@ -304,9 +295,9 @@ contract CoreExecution is CoreView {
     }
 
     function executeSpotSend(address sender, SpotSendAction memory action)
-        internal
-        whenAccountCreated(sender)
+        public
         initAccountWithToken(sender, action.token)
+        whenActivated(sender)
         initAccountWithToken(action.destination, action.token)
     {
         if (action._wei > _accounts[sender].spot[action.token]) {
@@ -314,10 +305,10 @@ contract CoreExecution is CoreView {
         }
 
         // handle account activation case
-        if (_accounts[action.destination].created == false) {
+        if (_accounts[action.destination].activated == false) {
             _chargeUSDCFee(sender);
 
-            _accounts[action.destination].created = true;
+            _accounts[action.destination].activated = true;
 
             _accounts[sender].spot[action.token] -= action._wei;
             _accounts[action.destination].spot[action.token] += _latentSpotBalance[sender][action.token] + action._wei;
@@ -337,19 +328,25 @@ contract CoreExecution is CoreView {
 
         if (action.destination != systemAddress) {
             _accounts[action.destination].spot[action.token] += action._wei;
-        } else {
+        } 
+        else {
+            uint256 transferAmount;
             if (action.token == HYPE_TOKEN_INDEX) {
-                uint256 amount = action._wei * 1e10;
-                deal(systemAddress, systemAddress.balance + amount);
-                vm.prank(systemAddress);
-                address(sender).call{value: amount, gas: 30000}("");
+                transferAmount = action._wei * 1e10;
+                deal(systemAddress, systemAddress.balance + transferAmount);
+                vm.startPrank(systemAddress);
+                (bool success,) = address(sender).call{value: transferAmount, gas: 30000}("");
+                if (!success) {
+                    revert("transfer failed");
+                }
+                return;
             }
 
             address evmContract = _tokens[action.token].evmContract;
-            uint256 amount = fromWei(action._wei, _tokens[action.token].evmExtraWeiDecimals);
-            deal(evmContract, systemAddress, IERC20(evmContract).balanceOf(systemAddress) + amount);
-            vm.prank(systemAddress);
-            IERC20(evmContract).safeTransfer(action.destination, amount);
+            transferAmount = fromWei(action._wei, _tokens[action.token].evmExtraWeiDecimals);
+            deal(evmContract, systemAddress, IERC20(evmContract).balanceOf(systemAddress) + transferAmount);
+            vm.startPrank(systemAddress);
+            IERC20(evmContract).safeTransfer(sender, transferAmount);
         }
     }
 
@@ -364,8 +361,9 @@ contract CoreExecution is CoreView {
     }
 
     function executeUsdClassTransfer(address sender, UsdClassTransferAction memory action)
-        internal
-        whenAccountCreated(sender)
+        public
+        initAccountWithToken(sender, USDC_TOKEN_INDEX)
+        whenActivated(sender)
     {
         if (action.toPerp) {
             if (fromPerp(action.ntl) <= _accounts[sender].spot[USDC_TOKEN_INDEX]) {
@@ -381,12 +379,13 @@ contract CoreExecution is CoreView {
     }
 
     function executeVaultTransfer(address sender, VaultTransferAction memory action)
-        internal
-        whenAccountCreated(sender)
+        public
         initAccountWithVault(sender, action.vault)
+        whenActivated(sender)
     {
         // first update their vault equity
         _accounts[sender].vaultEquity[action.vault].equity = readUserVaultEquity(sender, action.vault).equity;
+        _userVaultMultiplier[sender][action.vault] = _vaultMultiplier[action.vault];
 
         if (action.isDeposit) {
             if (action.usd <= _accounts[sender].perpBalance) {
@@ -420,8 +419,9 @@ contract CoreExecution is CoreView {
     }
 
     function executeStakingDeposit(address sender, StakingDepositAction memory action)
-        internal
-        whenAccountCreated(sender)
+        public
+        initAccountWithToken(sender, HYPE_TOKEN_INDEX)
+        whenActivated(sender)
     {
         if (action._wei <= _accounts[sender].spot[HYPE_TOKEN_INDEX]) {
             _accounts[sender].spot[HYPE_TOKEN_INDEX] -= action._wei;
@@ -430,9 +430,16 @@ contract CoreExecution is CoreView {
     }
 
     function executeStakingWithdraw(address sender, StakingWithdrawAction memory action)
-        internal
-        whenAccountCreated(sender)
+        public
+        initAccountWithToken(sender, HYPE_TOKEN_INDEX)
+        whenActivated(sender)
     {
+        PrecompileLib.DelegatorSummary memory summary = readDelegatorSummary(sender);
+
+        if (summary.nPendingWithdrawals >= 5) {
+            revert("maximum of 5 pending withdrawals per account");
+        }
+
         if (action._wei <= _accounts[sender].staking) {
             _accounts[sender].staking -= action._wei;
 
@@ -446,21 +453,43 @@ contract CoreExecution is CoreView {
         }
     }
 
-    function executeTokenDelegate(address sender, TokenDelegateAction memory action) internal {
-        require(_validators.contains(action.validator));
+    function executeTokenDelegate(address sender, TokenDelegateAction memory action)
+        public
+        initAccountWithToken(sender, HYPE_TOKEN_INDEX)
+        whenActivated(sender)
+    {
+
+        if (_validators.length() != 0) {
+            require(_validators.contains(action.validator));
+        }
+
+        // first update their delegation amount based on staking multiplier
+        PrecompileLib.Delegation storage delegation = _accounts[sender].delegations[action.validator];
+        delegation.amount = _getDelegationAmount(sender, action.validator);
+        _userStakingYieldIndex[sender][action.validator] = _stakingYieldIndex;
+
+        _accounts[sender].delegatedValidators.add(action.validator);
 
         if (action.isUndelegate) {
-            PrecompileLib.Delegation storage delegation = _accounts[sender].delegations[action.validator];
             if (action._wei <= delegation.amount && block.timestamp * 1000 > delegation.lockedUntilTimestamp) {
                 _accounts[sender].staking += action._wei;
                 delegation.amount -= action._wei;
+
+                if (delegation.amount == 0) {
+                    _accounts[sender].delegatedValidators.remove(action.validator);
+                }
+            } else {
+                revert("Insufficient delegation amount OR Delegation is locked");
             }
         } else {
             if (action._wei <= _accounts[sender].staking) {
                 _accounts[sender].staking -= action._wei;
                 _accounts[sender].delegations[action.validator].amount += action._wei;
+
                 _accounts[sender].delegations[action.validator].lockedUntilTimestamp =
-                    ((block.timestamp + 84600) * 1000).toUint64();
+                    ((block.timestamp + 86400) * 1000).toUint64();
+            } else {
+                revert("Insufficient staking balance");
             }
         }
     }
@@ -478,6 +507,15 @@ contract CoreExecution is CoreView {
         _perpMarkPrice[perp] = markPx;
     }
 
+    function setSpotPx(uint32 spotMarketId, uint64 priceDiffBps, bool isIncrease) public {
+        uint64 basePrice = readSpotPx(spotMarketId);
+        if (isIncrease) {
+            _spotPrice[spotMarketId] = basePrice * (10000 + priceDiffBps) / 10000;
+        } else {
+            _spotPrice[spotMarketId] = basePrice * (10000 - priceDiffBps) / 10000;
+        }
+    }
+
     function setSpotPx(uint32 spotMarketId, uint64 spotPx) public {
         _spotPrice[spotMarketId] = spotPx;
     }
@@ -487,8 +525,12 @@ contract CoreExecution is CoreView {
         return executable;
     }
 
-    function setVaultMultiplier(address vault, uint64 multiplier) public {
+    function setVaultMultiplier(address vault, uint256 multiplier) public {
         _vaultMultiplier[vault] = multiplier;
+    }
+
+    function setStakingYieldIndex(uint256 multiplier) public {
+        _stakingYieldIndex = multiplier;
     }
 
     function processPendingOrders() public {
@@ -508,7 +550,7 @@ contract CoreExecution is CoreView {
     }
 
     ////////// PERP LIQUIDATIONS ////////////////////
-    function isLiquidatable(address user) internal returns (bool) {
+    function isLiquidatable(address user) public returns (bool) {
         uint64 totalNotional = 0;
         int64 totalUPnL = 0;
         uint64 totalLocked = 0;
@@ -550,13 +592,13 @@ contract CoreExecution is CoreView {
         return value > 0 ? uint64(value) : uint64(-value);
     }
 
-    function _getMaxLeverage(uint16 perpIndex) internal view returns (uint32) {
+    function _getMaxLeverage(uint16 perpIndex) public view returns (uint32) {
         return _maxLeverage[perpIndex];
     }
 
     // simplified liquidation, nukes all positions and resets the perp balance
     // for future: make this more realistic
-    function _liquidateUser(address user) internal {
+    function _liquidateUser(address user) public {
         uint256 len = _userPerpPositions[user].length();
         for (uint256 i = len; i > 0; i--) {
             uint16 perpIndex = uint16(_userPerpPositions[user].at(i - 1));

@@ -76,7 +76,7 @@ contract TokenRegistry {
      */
     function getTokenAddress(uint32 index) public view returns (address) {
         (bool success, bytes memory result) = TOKEN_INFO_PRECOMPILE_ADDRESS.staticcall(abi.encode(index));
-        require(success, "TokenInfo precompile call failed");
+        if (!success) revert PrecompileCallFailed();
         TokenInfo memory info = abi.decode(result, (TokenInfo));
         return info.evmContract;
     }
@@ -99,4 +99,5 @@ contract TokenRegistry {
 
     error TokenNotFound(address evmContract);
     error NoEvmContract(uint32 index);
+    error PrecompileCallFailed();
 }

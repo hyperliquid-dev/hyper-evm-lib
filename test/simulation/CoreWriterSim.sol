@@ -44,7 +44,8 @@ contract CoreWriterSim {
         _actionQueue.insert(uniqueId);
     }
 
-    function executeQueuedActions() external {
+    function executeQueuedActions(bool expectRevert) external {
+        bool atLeastOneFail;
         while (_actionQueue.length() > 0) {
             Action memory action = _actions[_actionQueue.peek()];
 
@@ -56,11 +57,19 @@ contract CoreWriterSim {
 
             (bool success,) = address(_hyperCore).call{value: action.value}(action.data);
 
-            if (revertOnFailure && !success) {
+            if (!success) {
+                atLeastOneFail = true;
+            }
+
+            if (revertOnFailure && !success && !expectRevert) {
                 revert("CoreWriter action failed: Reverting due to revertOnFailure flag");
             }
 
             _actionQueue.pop();
+        }
+
+        if (expectRevert && !atLeastOneFail) {
+            revert("Expected revert, but action succeeded");
         }
 
         _hyperCore.processStakingWithdrawals();

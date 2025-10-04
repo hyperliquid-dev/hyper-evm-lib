@@ -97,7 +97,7 @@ contract VaultExample {
      */
     function isWithdrawable(address user, address vault) public view returns (bool withdrawable) {
         PrecompileLib.UserVaultEquity memory vaultEquity = PrecompileLib.userVaultEquity(user, vault);
-        return block.timestamp >= vaultEquity.lockedUntilTimestamp;
+        return CoreWriterLib.toMilliseconds(uint64(block.timestamp)) >= vaultEquity.lockedUntilTimestamp;
     }
 
     receive() external payable {}

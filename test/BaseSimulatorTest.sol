@@ -36,9 +36,9 @@ abstract contract BaseSimulatorTest is Test {
         vm.createSelectFork(hyperliquidRpc);
 
         hyperCore = CoreSimulatorLib.init();
-        
-        hyperCore.forceAccountCreation(user);
-        hyperCore.forceSpot(user, USDC_TOKEN, 1000e8);
-        hyperCore.forcePerpBalance(user, 1000e6); 
+
+        hyperCore.forceAccountActivation(user);
+        hyperCore.forceSpotBalance(user, USDC_TOKEN, 1000e8);
+        hyperCore.forcePerpBalance(user, 1000e6);
     }
 }

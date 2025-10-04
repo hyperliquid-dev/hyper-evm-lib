@@ -6,8 +6,8 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 import {Heap} from "@openzeppelin/contracts/utils/structs/Heap.sol";
 
-import {PrecompileLib} from "src/PrecompileLib.sol";
-import {HLConstants} from "src/CoreWriterLib.sol";
+import {PrecompileLib} from "../../../src/PrecompileLib.sol";
+import {HLConstants} from "../../../src/CoreWriterLib.sol";
 
 import {RealL1Read} from "../../utils/RealL1Read.sol";
 import {StdCheats, Vm} from "forge-std/StdCheats.sol";
@@ -37,10 +37,11 @@ contract CoreState is StdCheats {
     }
 
     struct AccountData {
-        bool created;
+        bool activated;
         mapping(uint64 token => uint64 balance) spot;
         mapping(address vault => PrecompileLib.UserVaultEquity) vaultEquity;
         uint64 staking;
+        EnumerableSet.AddressSet delegatedValidators;
         mapping(address validator => PrecompileLib.Delegation) delegations;
         uint64 perpBalance;
         mapping(uint16 perpIndex => PrecompileLib.Position) positions;
@@ -78,7 +79,14 @@ contract CoreState is StdCheats {
 
     EnumerableSet.AddressSet internal _validators;
 
-    mapping(address vault => uint64) internal _vaultMultiplier;
+
+
+
+    mapping(address user => mapping(address vault => uint256 userVaultMultiplier)) internal _userVaultMultiplier;
+    mapping(address vault => uint256 multiplier) internal _vaultMultiplier;
+    
+    mapping(address user => mapping(address validator => uint256 userStakingYieldIndex)) internal _userStakingYieldIndex;
+    uint256 internal _stakingYieldIndex; // assumes same yield for all validators TODO: account for differences due to commissions
 
     EnumerableSet.Bytes32Set internal _openPerpPositions;
 
@@ -144,7 +152,7 @@ contract CoreState is StdCheats {
     function _initializeAccountWithToken(address _account, uint64 token) internal {
         _initializeAccount(_account);
 
-        if (_accounts[_account].created == false) {
+        if (_accounts[_account].activated == false) {
             return;
         }
 
@@ -178,7 +186,7 @@ contract CoreState is StdCheats {
         }
 
         _initializedAccounts[_account] = true;
-        account.created = true;
+        account.activated = true;
 
         // setting perp balance
         account.perpBalance = RealL1Read.withdrawable(_account).withdrawable;
@@ -186,7 +194,41 @@ contract CoreState is StdCheats {
         // setting staking balance
         PrecompileLib.DelegatorSummary memory summary = RealL1Read.delegatorSummary(_account);
         account.staking = summary.undelegated;
-        // note: no way to track the pending withdrawals, and have a way to credit them later
+
+        // assume each pending withdrawal is of equal size
+        uint64 pendingWithdrawals = summary.nPendingWithdrawals;
+
+        // when handling existing pending withdrawals, we don't have access to granular details on each one
+        // so we assume equal size and expiry after 7 days
+        if (pendingWithdrawals > 0) {
+            // assume that they all expire after 7 days
+            uint32 pendingWithdrawalTime = uint32(block.timestamp + 7 days);
+
+            for (uint256 i = 0; i < pendingWithdrawals; i++) {
+                uint256 pendingWithdrawalAmount;
+
+                bool last = i == pendingWithdrawals - 1;
+
+                if (!last) {
+                    pendingWithdrawalAmount = summary.totalPendingWithdrawal / pendingWithdrawals;
+                } else {
+                    // ensure that sum(withdrawalAmount) = totalPendingWithdrawal (accounting for precision loss during division)
+                    pendingWithdrawalAmount =
+                        summary.totalPendingWithdrawal - (summary.totalPendingWithdrawal / pendingWithdrawals) * i;
+                }
+
+                // add to withdrawal queue
+                _withdrawQueue.pushBack(
+                    serializeWithdrawRequest(
+                        WithdrawRequest({
+                            account: _account,
+                            amount: uint64(pendingWithdrawalAmount),
+                            lockedUntilTimestamp: pendingWithdrawalTime
+                        })
+                    )
+                );
+            }
+        }
 
         // set delegations
         PrecompileLib.Delegation[] memory delegations = RealL1Read.delegations(_account);
@@ -197,8 +239,8 @@ contract CoreState is StdCheats {
         _accounts[_account].marginSummary[0] = RealL1Read.accountMarginSummary(0, _account);
     }
 
-    modifier whenAccountCreated(address sender) {
-        if (_accounts[sender].created == false) {
+    modifier whenActivated(address sender) {
+        if (_accounts[sender].activated == false) {
             return;
         }
         _;
@@ -217,18 +259,19 @@ contract CoreState is StdCheats {
         _tokens[index] = tokenInfo;
     }
 
+    // @dev if this set has len > 0, only validators within the set can be delegated to
     function registerValidator(address validator) public {
         _validators.add(validator);
     }
 
     /// @dev account creation can be forced when there isnt a reliance on testing that workflow.
-    function forceAccountCreation(address account) public {
-        _accounts[account].created = true;
+    function forceAccountActivation(address account) public {
+        _accounts[account].activated = true;
     }
 
-    function forceSpot(address account, uint64 token, uint64 _wei) public payable {
-        if (_accounts[account].created == false) {
-            forceAccountCreation(account);
+    function forceSpotBalance(address account, uint64 token, uint64 _wei) public payable {
+        if (_accounts[account].activated == false) {
+            forceAccountActivation(account);
         }
 
         if (_initializedSpotBalance[account][token] == false) {
@@ -240,8 +283,8 @@ contract CoreState is StdCheats {
     }
 
     function forcePerpBalance(address account, uint64 usd) public payable {
-        if (_accounts[account].created == false) {
-            forceAccountCreation(account);
+        if (_accounts[account].activated == false) {
+            forceAccountActivation(account);
         }
         if (_initializedAccounts[account] == false) {
             _initializeAccount(account);
@@ -250,19 +293,19 @@ contract CoreState is StdCheats {
         _accounts[account].perpBalance = usd;
     }
 
-    function forceStaking(address account, uint64 _wei) public payable {
-        forceAccountCreation(account);
+    function forceStakingBalance(address account, uint64 _wei) public payable {
+        forceAccountActivation(account);
         _accounts[account].staking = _wei;
     }
 
     function forceDelegation(address account, address validator, uint64 amount, uint64 lockedUntilTimestamp) public {
-        forceAccountCreation(account);
+        forceAccountActivation(account);
         _accounts[account].delegations[validator] =
             PrecompileLib.Delegation({validator: validator, amount: amount, lockedUntilTimestamp: lockedUntilTimestamp});
     }
 
     function forceVaultEquity(address account, address vault, uint64 usd, uint64 lockedUntilTimestamp) public payable {
-        forceAccountCreation(account);
+        forceAccountActivation(account);
 
         _vaultEquity[vault] -= _accounts[account].vaultEquity[vault].equity;
         _vaultEquity[vault] += usd;
