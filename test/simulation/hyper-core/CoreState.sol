@@ -80,6 +80,11 @@ contract CoreState is StdCheats {
 
     mapping(address vault => uint64) internal _vaultMultiplier;
 
+    EnumerableSet.Bytes32Set internal _openPerpPositions;
+
+    // Maps user address to a set of perp indices they have active positions in
+    mapping(address => EnumerableSet.UintSet) internal _userPerpPositions;
+
     /////////////////////////
     /// STATE INITIALIZERS///
     /////////////////////////

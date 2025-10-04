@@ -27,11 +27,6 @@ contract CoreExecution is CoreView {
 
     using EnumerableSet for EnumerableSet.UintSet;
 
-    EnumerableSet.Bytes32Set private _openPerpPositions;
-
-    // Maps user address to a set of perp indices they have active positions in
-    mapping(address => EnumerableSet.UintSet) private _userPerpPositions;
-
     uint16 constant MAX_PERP_INDEX = 256; // Adjust based on expected number of perp markets
     uint64 constant MM_BPS = 125; // 1.25% maintenance margin fraction (adjust as needed, e.g., for 40x max leverage)
 
@@ -589,90 +584,5 @@ contract CoreExecution is CoreView {
                 _liquidateUser(user);
             }
         }
-    }
-
-    function _previewAccountMarginSummary(address sender)
-        internal
-        override
-        returns (PrecompileLib.AccountMarginSummary memory)
-    {
-        uint64 totalNtlPos = 0;
-        uint64 totalMarginUsed = 0;
-
-        uint64 entryNtlByLeverage = 0;
-
-        uint64 totalLongNtlPos = 0;
-        uint64 totalShortNtlPos = 0;
-
-        for (uint256 i = 0; i < _userPerpPositions[sender].length(); i++) {
-            uint16 perpIndex = uint16(_userPerpPositions[sender].at(i));
-
-            PrecompileLib.Position memory position = _accounts[sender].positions[perpIndex];
-
-            uint32 leverage = position.leverage;
-            uint64 markPx = readMarkPx(perpIndex);
-
-            entryNtlByLeverage += position.entryNtl / leverage;
-
-            int64 szi = position.szi;
-
-            if (szi > 0) {
-                uint64 ntlPos = uint64(szi) * markPx;
-                totalNtlPos += ntlPos;
-                totalMarginUsed += ntlPos / leverage;
-
-                totalLongNtlPos += ntlPos;
-            } else if (szi < 0) {
-                uint64 ntlPos = uint64(-szi) * markPx;
-                totalNtlPos += ntlPos;
-                totalMarginUsed += ntlPos / leverage;
-
-                totalShortNtlPos += ntlPos;
-            }
-        }
-
-        int64 totalAccountValue = int64(_accounts[sender].perpBalance - entryNtlByLeverage + totalMarginUsed);
-        int64 totalRawUsd = totalAccountValue - int64(totalLongNtlPos) + int64(totalShortNtlPos);
-
-        return PrecompileLib.AccountMarginSummary({
-            accountValue: totalAccountValue,
-            marginUsed: totalMarginUsed,
-            ntlPos: totalNtlPos,
-            rawUsd: totalRawUsd
-        });
-    }
-
-    function _previewWithdrawable(address account) internal override returns (PrecompileLib.Withdrawable memory) {
-        PrecompileLib.AccountMarginSummary memory summary = _previewAccountMarginSummary(account);
-
-        uint64 transferMarginRequirement = 0;
-
-        for (uint256 i = 0; i < _userPerpPositions[account].length(); i++) {
-            uint16 perpIndex = uint16(_userPerpPositions[account].at(i));
-            PrecompileLib.Position memory position = _accounts[account].positions[perpIndex];
-            uint64 markPx = readMarkPx(perpIndex);
-
-            uint64 ntlPos = 0;
-
-            if (position.szi > 0) {
-                ntlPos = uint64(position.szi) * markPx;
-            } else if (position.szi < 0) {
-                ntlPos = uint64(-position.szi) * markPx;
-            }
-
-            uint64 initialMargin = position.entryNtl / position.leverage;
-
-            transferMarginRequirement += max(ntlPos / 10, initialMargin);
-        }
-
-        int64 withdrawable = summary.accountValue - int64(transferMarginRequirement);
-
-        uint64 withdrawableAmount = withdrawable > 0 ? uint64(withdrawable) : 0;
-
-        return PrecompileLib.Withdrawable({withdrawable: withdrawableAmount});
-    }
-
-    function max(uint64 a, uint64 b) internal pure returns (uint64) {
-        return a > b ? a : b;
     }
 }
