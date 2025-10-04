@@ -14,6 +14,8 @@ import {CoreState} from "./CoreState.sol";
 contract CoreView is CoreState {
     using EnumerableSet for EnumerableSet.AddressSet;
     using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
+    using EnumerableSet for EnumerableSet.UintSet;
+
     using SafeCast for uint256;
 
     function tokenExists(uint32 token) public view returns (bool) {
@@ -50,7 +52,7 @@ contract CoreView is CoreState {
             return RealL1Read.withdrawable(account);
         }
 
-        return PrecompileLib.Withdrawable({withdrawable: _accounts[account].perpBalance});
+        return _previewWithdrawable(account);
     }
 
     function readUserVaultEquity(address user, address vault)
@@ -123,9 +125,96 @@ contract CoreView is CoreState {
         return _accounts[account].activated;
     }
 
-    function readAccountMarginSummary(address user) public view returns (PrecompileLib.AccountMarginSummary memory) {
+    function readAccountMarginSummary(uint16 perp, address user)
+        public
+        returns (PrecompileLib.AccountMarginSummary memory)
+    {
         // 1. maintain an enumerable set for the perps that a user is in
         // 2. iterate over their positions and calculate position value, add them up (value = abs(sz * markPx))
-        return PrecompileLib.accountMarginSummary(0, user);
+        return _previewAccountMarginSummary(user);
+    }
+
+    function _previewAccountMarginSummary(address sender)
+        internal
+        returns (PrecompileLib.AccountMarginSummary memory)
+    {
+        uint64 totalNtlPos = 0;
+        uint64 totalMarginUsed = 0;
+
+        uint64 entryNtlByLeverage = 0;
+
+        uint64 totalLongNtlPos = 0;
+        uint64 totalShortNtlPos = 0;
+
+        for (uint256 i = 0; i < _userPerpPositions[sender].length(); i++) {
+            uint16 perpIndex = uint16(_userPerpPositions[sender].at(i));
+
+            PrecompileLib.Position memory position = _accounts[sender].positions[perpIndex];
+
+            uint32 leverage = position.leverage;
+            uint64 markPx = readMarkPx(perpIndex);
+
+            entryNtlByLeverage += position.entryNtl / leverage;
+
+            int64 szi = position.szi;
+
+            if (szi > 0) {
+                uint64 ntlPos = uint64(szi) * markPx;
+                totalNtlPos += ntlPos;
+                totalMarginUsed += ntlPos / leverage;
+
+                totalLongNtlPos += ntlPos;
+            } else if (szi < 0) {
+                uint64 ntlPos = uint64(-szi) * markPx;
+                totalNtlPos += ntlPos;
+                totalMarginUsed += ntlPos / leverage;
+
+                totalShortNtlPos += ntlPos;
+            }
+        }
+
+        int64 totalAccountValue = int64(_accounts[sender].perpBalance - entryNtlByLeverage + totalMarginUsed);
+        int64 totalRawUsd = totalAccountValue - int64(totalLongNtlPos) + int64(totalShortNtlPos);
+
+        return PrecompileLib.AccountMarginSummary({
+            accountValue: totalAccountValue,
+            marginUsed: totalMarginUsed,
+            ntlPos: totalNtlPos,
+            rawUsd: totalRawUsd
+        });
+    }
+
+    function _previewWithdrawable(address account) internal returns (PrecompileLib.Withdrawable memory) {
+        PrecompileLib.AccountMarginSummary memory summary = _previewAccountMarginSummary(account);
+
+        uint64 transferMarginRequirement = 0;
+
+        for (uint256 i = 0; i < _userPerpPositions[account].length(); i++) {
+            uint16 perpIndex = uint16(_userPerpPositions[account].at(i));
+            PrecompileLib.Position memory position = _accounts[account].positions[perpIndex];
+            uint64 markPx = readMarkPx(perpIndex);
+
+            uint64 ntlPos = 0;
+
+            if (position.szi > 0) {
+                ntlPos = uint64(position.szi) * markPx;
+            } else if (position.szi < 0) {
+                ntlPos = uint64(-position.szi) * markPx;
+            }
+
+            uint64 initialMargin = position.entryNtl / position.leverage;
+
+            transferMarginRequirement += max(ntlPos / 10, initialMargin);
+        }
+
+        int64 withdrawable = summary.accountValue - int64(transferMarginRequirement);
+
+        uint64 withdrawableAmount = withdrawable > 0 ? uint64(withdrawable) : 0;
+
+        return PrecompileLib.Withdrawable({withdrawable: withdrawableAmount});
+    }
+
+    function max(uint64 a, uint64 b) internal pure returns (uint64) {
+        return a > b ? a : b;
     }
 }

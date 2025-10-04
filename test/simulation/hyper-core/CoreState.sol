@@ -46,6 +46,7 @@ contract CoreState is StdCheats {
         uint64 perpBalance;
         mapping(uint16 perpIndex => PrecompileLib.Position) positions;
         mapping(uint16 perpIndex => uint64 margin) margin;
+        mapping(uint16 perpIndex => PrecompileLib.AccountMarginSummary) marginSummary;
     }
 
     struct PendingOrder {
@@ -86,6 +87,11 @@ contract CoreState is StdCheats {
     
     mapping(address user => mapping(address validator => uint256 userStakingYieldIndex)) internal _userStakingYieldIndex;
     uint256 internal _stakingYieldIndex; // assumes same yield for all validators TODO: account for differences due to commissions
+
+    EnumerableSet.Bytes32Set internal _openPerpPositions;
+
+    // Maps user address to a set of perp indices they have active positions in
+    mapping(address => EnumerableSet.UintSet) internal _userPerpPositions;
 
     /////////////////////////
     /// STATE INITIALIZERS///
@@ -229,6 +235,8 @@ contract CoreState is StdCheats {
         for (uint256 i = 0; i < delegations.length; i++) {
             account.delegations[delegations[i].validator] = delegations[i];
         }
+
+        _accounts[_account].marginSummary[0] = RealL1Read.accountMarginSummary(0, _account);
     }
 
     modifier whenActivated(address sender) {
