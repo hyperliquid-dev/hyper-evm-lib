@@ -771,6 +771,7 @@ contract CoreSimulatorTest is Test {
     function max(uint64 a, uint64 b) internal pure returns (uint64) {
         return a > b ? a : b;
     }
+
     function test_staking() public {
         uint64 HYPE = 150;
         address validator = 0xEEEe86F718F9Da3e7250624A460f6EA710E9C006;
@@ -831,12 +832,9 @@ contract CoreSimulatorTest is Test {
         assertEq(summary.undelegated, 0);
         assertEq(summary.nPendingWithdrawals, 0);
         assertEq(summary.totalPendingWithdrawal, 0);
-
-
     }
 
     function test_staking_delegations() public {
-
         uint64 HYPE = 150;
         address validator = 0xEEEe86F718F9Da3e7250624A460f6EA710E9C006;
         // deploy staking contract
@@ -903,7 +901,6 @@ contract CoreSimulatorTest is Test {
 
     // bridging
     function test_bridgeToEvm() public {
-
         // force balances on Core
         CoreSimulatorLib.forceAccountActivation(address(user));
         CoreSimulatorLib.forceSpotBalance(address(user), PrecompileLib.getTokenIndex(uETH), 1e15);
@@ -918,7 +915,6 @@ contract CoreSimulatorTest is Test {
         uint256 userBalance = IERC20(uETH).balanceOf(address(user));
         assertEq(userBalance, amount);
     }
-
 }
 
 contract SpotTrader {

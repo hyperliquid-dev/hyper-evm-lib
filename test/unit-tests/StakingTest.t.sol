@@ -22,5 +22,3 @@ contract StakingBalanceTest is Test {
         assertGt(totalStaking, 0);
     }
 }
-
-

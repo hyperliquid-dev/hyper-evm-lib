@@ -70,13 +70,14 @@ contract CoreView is CoreState {
 
     function _getDelegationAmount(address user, address validator) internal view returns (uint64) {
         uint256 multiplier = _stakingYieldIndex;
-        uint256 userLastMultiplier = _userStakingYieldIndex[user][validator] == 0 ? 1e18 : _userStakingYieldIndex[user][validator];
+        uint256 userLastMultiplier =
+            _userStakingYieldIndex[user][validator] == 0 ? 1e18 : _userStakingYieldIndex[user][validator];
 
-        return SafeCast.toUint64(uint256(_accounts[user].delegations[validator].amount) * multiplier / userLastMultiplier);
+        return
+            SafeCast.toUint64(uint256(_accounts[user].delegations[validator].amount) * multiplier / userLastMultiplier);
     }
 
     function readDelegations(address user) public returns (PrecompileLib.Delegation[] memory userDelegations) {
-
         if (_accounts[user].activated == false) {
             return RealL1Read.delegations(user);
         }
@@ -92,7 +93,6 @@ contract CoreView is CoreState {
     }
 
     function readDelegatorSummary(address user) public returns (PrecompileLib.DelegatorSummary memory summary) {
-
         if (_accounts[user].activated == false) {
             return RealL1Read.delegatorSummary(user);
         }

@@ -79,12 +79,9 @@ contract CoreState is StdCheats {
 
     EnumerableSet.AddressSet internal _validators;
 
-
-
-
     mapping(address user => mapping(address vault => uint256 userVaultMultiplier)) internal _userVaultMultiplier;
     mapping(address vault => uint256 multiplier) internal _vaultMultiplier;
-    
+
     mapping(address user => mapping(address validator => uint256 userStakingYieldIndex)) internal _userStakingYieldIndex;
     uint256 internal _stakingYieldIndex; // assumes same yield for all validators TODO: account for differences due to commissions
 
@@ -270,7 +267,6 @@ contract CoreState is StdCheats {
 
     /// @dev account creation can be forced when there isnt a reliance on testing that workflow.
     function forceAccountActivation(address account) public {
-
         // force initialize the account
         _initializeAccount(account, true);
         _accounts[account].activated = true;

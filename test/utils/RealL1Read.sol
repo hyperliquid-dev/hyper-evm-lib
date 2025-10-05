@@ -273,7 +273,6 @@ library RealL1Read {
         internal
         returns (PrecompileLib.AccountMarginSummary memory)
     {
-
         bytes memory result = _makeRpcCall(ACCOUNT_MARGIN_SUMMARY_PRECOMPILE_ADDRESS, abi.encode(perp_dex_index, user));
         return abi.decode(result, (PrecompileLib.AccountMarginSummary));
     }

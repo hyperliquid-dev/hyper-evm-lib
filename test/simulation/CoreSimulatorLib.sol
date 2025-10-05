@@ -156,6 +156,7 @@ library CoreSimulatorLib {
     function setVaultMultiplier(address vault, uint64 multiplier) internal {
         hyperCore.setVaultMultiplier(vault, multiplier);
     }
+
     function setStakingYieldIndex(uint64 multiplier) internal {
         hyperCore.setStakingYieldIndex(multiplier);
     }
