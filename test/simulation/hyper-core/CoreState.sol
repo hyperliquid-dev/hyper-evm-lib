@@ -171,6 +171,10 @@ contract CoreState is StdCheats {
     }
 
     function _initializeAccount(address _account) internal {
+        _initializeAccount(_account, false);
+    }
+
+    function _initializeAccount(address _account, bool force) internal {
         bool initialized = _initializedAccounts[_account];
 
         if (initialized) {
@@ -181,7 +185,7 @@ contract CoreState is StdCheats {
 
         // check if the acc is created on Core
         RealL1Read.CoreUserExists memory coreUserExists = RealL1Read.coreUserExists(_account);
-        if (!coreUserExists.exists) {
+        if (!coreUserExists.exists && !force) {
             return;
         }
 
@@ -266,6 +270,9 @@ contract CoreState is StdCheats {
 
     /// @dev account creation can be forced when there isnt a reliance on testing that workflow.
     function forceAccountActivation(address account) public {
+
+        // force initialize the account
+        _initializeAccount(account, true);
         _accounts[account].activated = true;
     }
 
