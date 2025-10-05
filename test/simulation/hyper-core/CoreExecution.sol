@@ -328,8 +328,7 @@ contract CoreExecution is CoreView {
 
         if (action.destination != systemAddress) {
             _accounts[action.destination].spot[action.token] += action._wei;
-        } 
-        else {
+        } else {
             uint256 transferAmount;
             if (action.token == HYPE_TOKEN_INDEX) {
                 transferAmount = action._wei * 1e10;
@@ -458,7 +457,6 @@ contract CoreExecution is CoreView {
         initAccountWithToken(sender, HYPE_TOKEN_INDEX)
         whenActivated(sender)
     {
-
         if (_validators.length() != 0) {
             require(_validators.contains(action.validator));
         }

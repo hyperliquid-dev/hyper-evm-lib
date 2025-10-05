@@ -70,22 +70,18 @@ contract CoreView is CoreState {
 
     function _getDelegationAmount(address user, address validator) internal view returns (uint64) {
         uint256 multiplier = _stakingYieldIndex;
-        uint256 userLastMultiplier = _userStakingYieldIndex[user][validator] == 0 ? 1e18 : _userStakingYieldIndex[user][validator];
+        uint256 userLastMultiplier =
+            _userStakingYieldIndex[user][validator] == 0 ? 1e18 : _userStakingYieldIndex[user][validator];
 
-        return SafeCast.toUint64(uint256(_accounts[user].delegations[validator].amount) * multiplier / userLastMultiplier);
+        return
+            SafeCast.toUint64(uint256(_accounts[user].delegations[validator].amount) * multiplier / userLastMultiplier);
     }
 
-    function readDelegation(address user, address validator)
-        public
-        view
-        returns (PrecompileLib.Delegation memory delegation)
-    {
-        delegation.validator = validator;
-        delegation.amount = _getDelegationAmount(user, validator);
-        delegation.lockedUntilTimestamp = _accounts[user].delegations[validator].lockedUntilTimestamp;
-    }
+    function readDelegations(address user) public returns (PrecompileLib.Delegation[] memory userDelegations) {
+        if (_accounts[user].activated == false) {
+            return RealL1Read.delegations(user);
+        }
 
-    function readDelegations(address user) public view returns (PrecompileLib.Delegation[] memory userDelegations) {
         address[] memory validators = _accounts[user].delegatedValidators.values();
 
         userDelegations = new PrecompileLib.Delegation[](validators.length);
@@ -96,7 +92,11 @@ contract CoreView is CoreState {
         }
     }
 
-    function readDelegatorSummary(address user) public view returns (PrecompileLib.DelegatorSummary memory summary) {
+    function readDelegatorSummary(address user) public returns (PrecompileLib.DelegatorSummary memory summary) {
+        if (_accounts[user].activated == false) {
+            return RealL1Read.delegatorSummary(user);
+        }
+
         address[] memory validators = _accounts[user].delegatedValidators.values();
 
         for (uint256 i; i < validators.length; i++) {
@@ -113,7 +113,11 @@ contract CoreView is CoreState {
         }
     }
 
-    function readPosition(address user, uint16 perp) public view returns (PrecompileLib.Position memory) {
+    function readPosition(address user, uint16 perp) public returns (PrecompileLib.Position memory) {
+        if (_accounts[user].activated == false) {
+            return RealL1Read.position(user, perp);
+        }
+
         return _accounts[user].positions[perp];
     }
 
@@ -125,7 +129,7 @@ contract CoreView is CoreState {
         return _accounts[account].activated;
     }
 
-    function readAccountMarginSummary(uint16 perp, address user)
+    function readAccountMarginSummary(uint16 perp_dex_index, address user)
         public
         returns (PrecompileLib.AccountMarginSummary memory)
     {
