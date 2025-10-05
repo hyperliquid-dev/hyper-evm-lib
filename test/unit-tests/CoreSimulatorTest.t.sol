@@ -2,18 +2,18 @@
 pragma solidity ^0.8.0;
 
 import {Test, console} from "forge-std/Test.sol";
-import {PrecompileLib} from "../src/PrecompileLib.sol";
-import {HLConversions} from "../src/common/HLConversions.sol";
-import {HLConstants} from "../src/common/HLConstants.sol";
-import {BridgingExample} from "../src/examples/BridgingExample.sol";
-import {HyperCore} from "./simulation/HyperCore.sol";
-import {L1Read} from "./utils/L1Read.sol";
-import {HypeTradingContract} from "./utils/HypeTradingContract.sol";
-import {CoreSimulatorLib} from "./simulation/CoreSimulatorLib.sol";
-import {RealL1Read} from "./utils/RealL1Read.sol";
-import {CoreWriterLib} from "../src/CoreWriterLib.sol";
-import {VaultExample} from "../src/examples/VaultExample.sol";
-import {StakingExample} from "../src/examples/StakingExample.sol";
+import {PrecompileLib} from "../../src/PrecompileLib.sol";
+import {HLConversions} from "../../src/common/HLConversions.sol";
+import {HLConstants} from "../../src/common/HLConstants.sol";
+import {BridgingExample} from "../../src/examples/BridgingExample.sol";
+import {HyperCore} from "../simulation/HyperCore.sol";
+import {L1Read} from "../utils/L1Read.sol";
+import {HypeTradingContract} from "../utils/HypeTradingContract.sol";
+import {CoreSimulatorLib} from "../simulation/CoreSimulatorLib.sol";
+import {RealL1Read} from "../utils/RealL1Read.sol";
+import {CoreWriterLib} from "../../src/CoreWriterLib.sol";
+import {VaultExample} from "../../src/examples/VaultExample.sol";
+import {StakingExample} from "../../src/examples/StakingExample.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 contract CoreSimulatorTest is Test {
