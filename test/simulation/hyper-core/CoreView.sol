@@ -38,6 +38,7 @@ contract CoreView is CoreState {
         return _spotPrice[spotMarketId];
     }
 
+
     function readSpotBalance(address account, uint64 token) public returns (PrecompileLib.SpotBalance memory) {
         if (_initializedSpotBalance[account][token] == false) {
             return RealL1Read.spotBalance(account, token);

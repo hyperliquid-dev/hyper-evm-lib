@@ -191,15 +191,15 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.forceAccountActivation(address(hypeTrading));
         CoreSimulatorLib.forcePerpBalance(address(hypeTrading), 1e18);
 
-        hypeTrading.createLimitOrder(5, true, 1e18, 1e2, false, 1);
+        hypeTrading.createLimitOrder(5, true, 1e18, 1e8, false, 1);
 
         CoreSimulatorLib.nextBlock();
 
         PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), 5);
         assertEq(position.szi, 1e2);
 
-        // short for 1e3
-        hypeTrading.createLimitOrder(5, false, 0, 1e3, false, 2);
+        // short for 1e9
+        hypeTrading.createLimitOrder(5, false, 0, 1e9, false, 2);
 
         // increase price by 20%
         CoreSimulatorLib.setMarkPx(5, 2000, true);
@@ -212,11 +212,6 @@ contract CoreSimulatorTest is Test {
         uint64 w2 = PrecompileLib.withdrawable(address(hypeTrading));
         console.log("withdrawable", w2);
 
-        // long uSOL
-        hypeTrading.createLimitOrder(5, true, 1e18, 1e2, false, 3);
-        hypeTrading.createLimitOrder(5, true, 1e18, 1e5, false, 4);
-
-        CoreSimulatorLib.nextBlock();
     }
 
     function test_perpTrading_profitCalc() public {
@@ -233,17 +228,17 @@ contract CoreSimulatorTest is Test {
         console.log("btc mark px is %e", PrecompileLib.markPx(perp));
         CoreSimulatorLib.setMarkPx(perp, startingPrice);
 
-        hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 100_000, false, 1);
+        hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 1e8, false, 1);
 
         CoreSimulatorLib.nextBlock();
 
         CoreSimulatorLib.setMarkPx(perp, startingPrice * 12 / 10);
 
         PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), perp);
-        assertEq(position.szi, 1 * 100_000);
+        assertEq(position.szi, 1 * 1e5);
 
         // short for same sz
-        hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 2);
+        hypeTrading.createLimitOrder(perp, false, 0, 1e8, false, 2);
 
         CoreSimulatorLib.nextBlock();
 
@@ -259,7 +254,7 @@ contract CoreSimulatorTest is Test {
         console.log("profit percentage: ", profit * 100 / 10_000e6);
     }
 
-    function test_1_BTC_Long_AccountMarginSummaryTest() public {
+    function test_perp_1_BTC_Long_AccountMarginSummaryTest() public {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
@@ -273,7 +268,7 @@ contract CoreSimulatorTest is Test {
         console.log("btc mark px is %e", PrecompileLib.markPx(perp));
         CoreSimulatorLib.setMarkPx(perp, startingPrice);
 
-        hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 100_000, false, 1);
+        hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 1e8, false, 1);
 
         CoreSimulatorLib.nextBlock();
 
@@ -303,7 +298,7 @@ contract CoreSimulatorTest is Test {
         console.log("withdrawable %e", w1);
 
         // short for same sz
-        hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 2);
+        hypeTrading.createLimitOrder(perp, false, 0, 1e8, false, 2);
         CoreSimulatorLib.nextBlock();
 
         PrecompileLib.Position memory position2 = hypeTrading.getPosition(address(hypeTrading), perp);
@@ -325,7 +320,7 @@ contract CoreSimulatorTest is Test {
         console.log("profit percentage: ", profit * 100 / 10_000e6);
     }
 
-    function test_margin_summary() public {
+    function test_perp_margin_summary() public {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
@@ -336,8 +331,8 @@ contract CoreSimulatorTest is Test {
         uint16 perpBTC = 0;
         uint16 perpETH = 1;
 
-        hypeTrading.createLimitOrder(perpBTC, true, 1e18, 0.00025 * 100_000, false, 1);
-        hypeTrading.createLimitOrder(perpETH, false, 1, 0.0044 * 100_00, false, 2);
+        hypeTrading.createLimitOrder(perpBTC, true, 1e18, 0.00025 * 1e8, false, 1);
+        hypeTrading.createLimitOrder(perpETH, false, 1, 0.0044 * 1e8, false, 2);
 
         CoreSimulatorLib.nextBlock();
 
@@ -352,7 +347,7 @@ contract CoreSimulatorTest is Test {
         console.log("withdrawable %e", w1);
     }
 
-    function test_short() public {
+    function test_perp_short() public {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
@@ -368,7 +363,7 @@ contract CoreSimulatorTest is Test {
         console.log("btc mark px is %e", PrecompileLib.markPx(perp));
         CoreSimulatorLib.setMarkPx(perp, startingPrice);
 
-        hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 1);
+        hypeTrading.createLimitOrder(perp, false, 0, 1e8, false, 1);
 
         CoreSimulatorLib.nextBlock();
 
@@ -378,7 +373,7 @@ contract CoreSimulatorTest is Test {
         assertEq(position.szi, -1 * 100_000);
 
         // short for same sz
-        hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 100_000, false, 2);
+        hypeTrading.createLimitOrder(perp, true, 1e18, 1e8, false, 2);
 
         CoreSimulatorLib.nextBlock();
 
@@ -394,7 +389,7 @@ contract CoreSimulatorTest is Test {
         console.log("profit percentage: ", profit * 100 / initialPerpBalance);
     }
 
-    function test_shortThenLong() public {
+    function test_perp_shortThenLong() public {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
@@ -410,7 +405,7 @@ contract CoreSimulatorTest is Test {
         console.log("btc mark px is %e", PrecompileLib.markPx(perp));
         CoreSimulatorLib.setMarkPx(perp, startingPrice);
 
-        hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 1);
+        hypeTrading.createLimitOrder(perp, false, 0, 1e8, false, 1);
 
         CoreSimulatorLib.nextBlock();
 
@@ -420,12 +415,12 @@ contract CoreSimulatorTest is Test {
         assertEq(position.szi, -1 * 100_000);
 
         //
-        hypeTrading.createLimitOrder(perp, true, 1e18, 2 * 100_000, false, 2);
+        hypeTrading.createLimitOrder(perp, true, 1e18, 2e8, false, 2);
 
         CoreSimulatorLib.nextBlock();
         CoreSimulatorLib.setMarkPx(perp, startingPrice);
 
-        hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 3);
+        hypeTrading.createLimitOrder(perp, false, 0, 1e8, false, 3);
 
         CoreSimulatorLib.nextBlock();
 
@@ -441,7 +436,7 @@ contract CoreSimulatorTest is Test {
         console.log("profit percentage: ", profit * 100 / initialPerpBalance);
     }
 
-    function test_loss() public {
+    function test_perp_loss() public {
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
@@ -457,7 +452,7 @@ contract CoreSimulatorTest is Test {
         console.log("btc mark px is %e", PrecompileLib.markPx(perp));
         CoreSimulatorLib.setMarkPx(perp, startingPrice);
 
-        hypeTrading.createLimitOrder(perp, false, 0, 1 * 100_000, false, 1);
+        hypeTrading.createLimitOrder(perp, false, 0, 1e8, false, 1);
 
         CoreSimulatorLib.nextBlock();
 
@@ -471,7 +466,7 @@ contract CoreSimulatorTest is Test {
         // close pos
         position = hypeTrading.getPosition(address(hypeTrading), perp);
         if (position.szi != 0) {
-            hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 100_000, false, 2);
+            hypeTrading.createLimitOrder(perp, true, 1e18, 1e8, false, 2);
         }
 
         CoreSimulatorLib.nextBlock();
@@ -493,7 +488,11 @@ contract CoreSimulatorTest is Test {
         CoreSimulatorLib.forceSpotBalance(address(spotTrader), 0, 1e18);
         CoreSimulatorLib.forceSpotBalance(address(spotTrader), 254, 1e18);
 
-        spotTrader.placeLimitOrder(10000 + 156, true, 1e18, 1e2, false, 1);
+        CoreSimulatorLib.setRevertOnFailure(true);
+
+        uint64 baseAmt = 100e8; // 100 uSOL
+
+        spotTrader.placeLimitOrder(10000 + 156, true, 1e18, baseAmt, false, 1);
 
         // log spot balance of spotTrader
         console.log("spotTrader.spotBalance(254)", PrecompileLib.spotBalance(address(spotTrader), 254).total);
@@ -505,7 +504,7 @@ contract CoreSimulatorTest is Test {
         console.log("spotTrader.spotBalance(0)", PrecompileLib.spotBalance(address(spotTrader), 0).total);
     }
 
-    function test_limitOrder() public {
+    function test_spot_limitOrder() public {
         vm.startPrank(user);
         SpotTrader spotTrader = new SpotTrader();
         CoreSimulatorLib.forceAccountActivation(address(spotTrader));
@@ -515,7 +514,7 @@ contract CoreSimulatorTest is Test {
 
         // Log the current spot price before placing order
         uint32 spotMarketId = 156;
-        uint64 currentSpotPx = PrecompileLib.spotPx(spotMarketId);
+        uint64 currentSpotPx = uint64(PrecompileLib.normalizedSpotPx(spotMarketId));
         console.log("Current spot price for market 156:", currentSpotPx);
 
         // Place a buy order with limit price below current spot price (won't execute immediately)
@@ -523,7 +522,9 @@ contract CoreSimulatorTest is Test {
         console.log("Placing buy order with limit price:", limitPx);
         console.log("Expected executeNow for buy order:", limitPx >= currentSpotPx ? "true" : "false");
 
-        spotTrader.placeLimitOrder(10000 + spotMarketId, true, limitPx, 1e2, false, 1);
+        uint64 baseAmt = 1e8; // 1 uSOL
+
+        spotTrader.placeLimitOrder(10000 + spotMarketId, true, limitPx, baseAmt, false, 1);
 
         // log spot balance of spotTrader before any execution
         console.log(
@@ -560,7 +561,7 @@ contract CoreSimulatorTest is Test {
         );
     }
 
-    function test_limitOrderSell() public {
+    function test_spot_limitOrderSell() public {
         vm.startPrank(user);
         SpotTrader spotTrader = new SpotTrader();
         CoreSimulatorLib.forceAccountActivation(address(spotTrader));
@@ -570,14 +571,15 @@ contract CoreSimulatorTest is Test {
 
         // Log the current spot price before placing order
         uint32 spotMarketId = 156;
-        uint64 currentSpotPx = PrecompileLib.spotPx(spotMarketId);
+        uint64 currentSpotPx = uint64(PrecompileLib.normalizedSpotPx(spotMarketId));
         console.log("Current spot price for market 156:", currentSpotPx);
 
         // Place a sell order with limit price above current spot price (won't execute immediately)
         uint64 limitPx = currentSpotPx * 2; // Set limit price above current price
         console.log("Placing sell order with limit price:", limitPx);
 
-        spotTrader.placeLimitOrderGTC(10000 + spotMarketId, false, limitPx, 1e2, false, 1);
+        uint64 baseAmt = 1e8; // 1 uSOL
+        spotTrader.placeLimitOrderGTC(10000 + spotMarketId, false, limitPx, baseAmt, false, 1);
 
         // log spot balance of spotTrader before any execution
         console.log(
@@ -675,22 +677,20 @@ contract CoreSimulatorTest is Test {
 
         // sell to USDC
         // log the spot price
-        uint64 spotPx = PrecompileLib.spotPx(uint32(spot));
+        uint64 spotPx = uint64(PrecompileLib.normalizedSpotPx(uint32(spot)));
         console.log("spotPx", spotPx);
 
         uint256 usdcBalanceBefore = PrecompileLib.spotBalance(address(user), 0).total;
 
-        uint64 tradeSz = token.weiToSz(token.evmToWei(amountToBridge));
-        assertEq(tradeSz, 10 * 100);
-
-        CoreWriterLib.placeLimitOrder(uint32(spot + 10000), false, 0, tradeSz, true, HLConstants.LIMIT_ORDER_TIF_IOC, 1);
+        uint64 baseAmt = 1e8; // 1 HYPE
+        CoreWriterLib.placeLimitOrder(uint32(spot + 10000), false, 0, baseAmt, true, HLConstants.LIMIT_ORDER_TIF_IOC, 1);
 
         CoreSimulatorLib.nextBlock();
 
         uint256 usdcBalanceAfter = PrecompileLib.spotBalance(address(user), 0).total;
         uint256 hypeBalanceAfter = PrecompileLib.spotBalance(address(user), token).total;
 
-        assertApproxEqAbs(usdcBalanceAfter - usdcBalanceBefore, tradeSz * spotPx, tradeSz * spotPx * 5 / 1000);
+        assertApproxEqAbs(usdcBalanceAfter - usdcBalanceBefore, baseAmt * spotPx / 1e8, baseAmt * spotPx * 5 / 1000 / 1e8);
         assertEq(hypeBalanceAfter, 0);
     }
 

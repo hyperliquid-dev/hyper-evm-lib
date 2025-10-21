@@ -10,7 +10,6 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {PrecompileLib} from "../../../src/PrecompileLib.sol";
 import {CoreWriterLib} from "../../../src/CoreWriterLib.sol";
 import {HLConversions} from "../../../src/common/HLConversions.sol";
-
 import {RealL1Read} from "../../utils/RealL1Read.sol";
 import {CoreView} from "./CoreView.sol";
 
@@ -66,16 +65,20 @@ contract CoreExecution is CoreView {
         bool isolated = position.isIsolated;
 
         uint256 markPx = PrecompileLib.markPx(perpIndex);
+        uint256 normalizedMarkPx = PrecompileLib.normalizedMarkPx(perpIndex) * 100;
+
+        PrecompileLib.PerpAssetInfo memory perpInfo = PrecompileLib.perpAssetInfo(perpIndex);
+        action.sz = scale(action.sz, 8, perpInfo.szDecimals);
 
         if (!isolated) {
             if (action.isBuy) {
-                if (markPx <= action.limitPx) {
+                if (normalizedMarkPx <= action.limitPx) {
                     _updateMarginSummary(sender);
                     _executePerpLong(sender, action, markPx);
                     _updateMarginSummary(sender);
                 }
             } else {
-                if (markPx >= action.limitPx) {
+                if (normalizedMarkPx >= action.limitPx) {
                     _updateMarginSummary(sender);
                     _executePerpShort(sender, action, markPx);
                     _updateMarginSummary(sender);
@@ -255,7 +258,7 @@ contract CoreExecution is CoreView {
 
         PrecompileLib.TokenInfo memory baseToken = _tokens[spotInfo.tokens[0]];
 
-        uint64 spotPx = readSpotPx(uint32(HLConversions.assetToSpotId(action.asset)));
+        uint64 spotPx = readSpotPx(uint32(HLConversions.assetToSpotId(action.asset))) * SafeCast.toUint64(10 ** baseToken.szDecimals);
 
         uint64 fromToken;
         uint64 toToken;
@@ -265,8 +268,9 @@ contract CoreExecution is CoreView {
                 fromToken = spotInfo.tokens[1];
                 toToken = spotInfo.tokens[0];
 
-                uint64 amountIn = action.sz * spotPx;
-                uint64 amountOut = action.sz * (10 ** (baseToken.weiDecimals - baseToken.szDecimals)).toUint64();
+
+                uint64 amountIn = SafeCast.toUint64(uint256(action.sz) * uint256(spotPx) / 1e8);
+                uint64 amountOut = scale(action.sz, 8, baseToken.weiDecimals);
 
                 if (_accounts[sender].spot[fromToken] >= amountIn) {
                     _accounts[sender].spot[fromToken] -= amountIn;
@@ -278,9 +282,8 @@ contract CoreExecution is CoreView {
                 fromToken = spotInfo.tokens[0];
                 toToken = spotInfo.tokens[1];
 
-                uint64 amountIn = action.sz * (10 ** (baseToken.weiDecimals - baseToken.szDecimals)).toUint64();
-
-                uint64 amountOut = action.sz * spotPx;
+                uint64 amountIn = scale(action.sz, 8, baseToken.weiDecimals);
+                uint64 amountOut = SafeCast.toUint64(uint256(action.sz) * uint256(spotPx) / 1e8);
 
                 if (_accounts[sender].spot[fromToken] >= amountIn) {
                     _accounts[sender].spot[fromToken] -= amountIn;
@@ -291,6 +294,18 @@ contract CoreExecution is CoreView {
             }
         } else {
             _pendingOrders.push(PendingOrder({sender: sender, action: action}));
+        }
+    }
+
+    function scale(uint64 amount, uint8 fromDecimals, uint8 toDecimals) internal pure returns (uint64) {
+        if (fromDecimals == toDecimals) {
+            return amount;
+        } else if (fromDecimals < toDecimals) {
+            uint8 diff = toDecimals - fromDecimals;
+            return amount * uint64(10) ** diff;
+        } else {
+            uint8 diff = fromDecimals - toDecimals;
+            return amount / (uint64(10) ** diff);
         }
     }
 
