@@ -46,7 +46,7 @@ Natively, there is no way to derive the token index given a token's contract add
 
 A robust and flexible test engine for HyperCore interactions, enabling local foundry testing of precompile calls, CoreWriter actions, and EVM⇄Core token bridging. This allows developers to test their contracts in a local environment, within seconds, without needing to spend hours deploying and testing on testnet.
 
-For more information on usage and how it works, see the [docs](https://hyper-evm-lib.vercel.app/testing/overview).
+For more information on usage and how it works, see the [docs](https://hyperlib.dev/testing/overview).
 
 ---
 
@@ -64,7 +64,7 @@ echo "@hyper-evm-lib=lib/hyper-evm-lib" >> remappings.txt
 
 See the [examples](./src/examples/) directory for examples of how the libraries can be used in practice.
 
-To see how the testing framework can be used, refer to [`CoreSimulatorTest.t.sol`](./test/CoreSimulatorTest.t.sol) and the testing framework docs at [https://hyper-evm-lib.vercel.app/](https://hyper-evm-lib.vercel.app/).
+To see how the testing framework can be used, refer to [`CoreSimulatorTest.t.sol`](./test/CoreSimulatorTest.t.sol) and the testing framework docs at [https://hyperlib.dev](https://hyperlib.dev/).
 
 ---
 
