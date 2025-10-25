@@ -346,7 +346,7 @@ contract CoreExecution is CoreView {
         } else {
             uint256 transferAmount;
             if (action.token == HYPE_TOKEN_INDEX) {
-                transferAmount = action._wei * 1e10;
+                transferAmount = uint256(action._wei) * 1e10;
                 deal(systemAddress, systemAddress.balance + transferAmount);
                 vm.startPrank(systemAddress);
                 (bool success,) = address(sender).call{value: transferAmount, gas: 30000}("");
