@@ -254,7 +254,13 @@ contract CoreExecution is CoreView {
         public
         initAccountWithSpotMarket(sender, uint32(HLConversions.assetToSpotId(action.asset)))
     {
-        PrecompileLib.SpotInfo memory spotInfo = RealL1Read.spotInfo(uint32(HLConversions.assetToSpotId(action.asset)));
+
+        PrecompileLib.SpotInfo memory spotInfo;
+        if (useRealL1Read) {
+          spotInfo = RealL1Read.spotInfo(uint32(HLConversions.assetToSpotId(action.asset)));
+        } else {
+          spotInfo = PrecompileLib.spotInfo(uint32(HLConversions.assetToSpotId(action.asset)));
+        }
 
         PrecompileLib.TokenInfo memory baseToken = _tokens[spotInfo.tokens[0]];
 
@@ -267,7 +273,6 @@ contract CoreExecution is CoreView {
             if (action.isBuy) {
                 fromToken = spotInfo.tokens[1];
                 toToken = spotInfo.tokens[0];
-
 
                 uint64 amountIn = SafeCast.toUint64(uint256(action.sz) * uint256(spotPx) / 1e8);
                 uint64 amountOut = scale(action.sz, 8, baseToken.weiDecimals);
@@ -355,7 +360,6 @@ contract CoreExecution is CoreView {
                 }
                 return;
             }
-
             address evmContract = _tokens[action.token].evmContract;
             transferAmount = fromWei(action._wei, _tokens[action.token].evmExtraWeiDecimals);
             deal(evmContract, systemAddress, IERC20(evmContract).balanceOf(systemAddress) + transferAmount);
@@ -549,8 +553,10 @@ contract CoreExecution is CoreView {
     function processPendingOrders() public {
         for (uint256 i = _pendingOrders.length; i > 0; i--) {
             PendingOrder memory order = _pendingOrders[i - 1];
-            uint32 spotMarketId = order.action.asset - 1e4;
-            uint64 spotPx = readSpotPx(spotMarketId);
+            uint32 spotMarketId = uint32(HLConversions.assetToSpotId(order.action.asset));
+            PrecompileLib.SpotInfo memory spotInfo = PrecompileLib.spotInfo(spotMarketId);
+            PrecompileLib.TokenInfo memory baseToken = _tokens[spotInfo.tokens[0]];
+            uint64 spotPx = readSpotPx(spotMarketId) * SafeCast.toUint64(10 ** baseToken.szDecimals);
 
             if (isActionExecutable(order.action, spotPx)) {
                 executeSpotLimitOrder(order.sender, order.action);
