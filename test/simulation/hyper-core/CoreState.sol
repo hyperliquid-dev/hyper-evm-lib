@@ -54,6 +54,9 @@ contract CoreState is StdCheats {
         LimitOrderAction action;
     }
 
+    // Whether to use real L1 read or not
+    bool public useRealL1Read;
+
     // registered token info
     mapping(uint64 token => PrecompileLib.TokenInfo) internal _tokens;
 
@@ -129,7 +132,12 @@ contract CoreState is StdCheats {
 
     modifier initAccountWithPerp(address _account, uint16 perp) {
         if (_maxLeverage[perp] == 0) {
-            _maxLeverage[perp] = RealL1Read.position(address(1), perp).leverage;
+            if (useRealL1Read) {
+              _maxLeverage[perp] = RealL1Read.position(address(1), perp).leverage;
+            } else {
+              _maxLeverage[perp] = PrecompileLib.position(address(1), perp).leverage;
+            }
+
         }
 
         if (_initializedPerpPosition[_account][perp] == false) {
@@ -146,6 +154,10 @@ contract CoreState is StdCheats {
         _;
     }
 
+    function setUseRealL1Read(bool _useRealL1Read) public {
+        useRealL1Read = _useRealL1Read;
+    }
+
     function _initializeAccountWithToken(address _account, uint64 token) internal {
         _initializeAccount(_account);
 
@@ -154,17 +166,29 @@ contract CoreState is StdCheats {
         }
 
         _initializedSpotBalance[_account][token] = true;
-        _accounts[_account].spot[token] = RealL1Read.spotBalance(_account, token).total;
+        if (useRealL1Read) {
+          _accounts[_account].spot[token] = RealL1Read.spotBalance(_account, token).total;
+        } else {
+          _accounts[_account].spot[token] = PrecompileLib.spotBalance(_account, token).total;
+        }
     }
 
     function _initializeAccountWithVault(address _account, address _vault) internal {
         _initializedVaults[_account][_vault] = true;
-        _accounts[_account].vaultEquity[_vault] = RealL1Read.userVaultEquity(_account, _vault);
+        if (useRealL1Read) {
+          _accounts[_account].vaultEquity[_vault] = RealL1Read.userVaultEquity(_account, _vault);
+        } else {
+          _accounts[_account].vaultEquity[_vault] = PrecompileLib.userVaultEquity(_account, _vault);
+        }
     }
 
     function _initializeAccountWithPerp(address _account, uint16 perp) internal {
         _initializedPerpPosition[_account][perp] = true;
-        _accounts[_account].positions[perp] = RealL1Read.position(_account, perp);
+        if (useRealL1Read) {
+          _accounts[_account].positions[perp] = RealL1Read.position(_account, perp);
+        } else {
+          _accounts[_account].positions[perp] = PrecompileLib.position(_account, perp);
+        }
     }
 
     function _initializeAccount(address _account) internal {
@@ -181,7 +205,12 @@ contract CoreState is StdCheats {
         AccountData storage account = _accounts[_account];
 
         // check if the acc is created on Core
-        RealL1Read.CoreUserExists memory coreUserExists = RealL1Read.coreUserExists(_account);
+        RealL1Read.CoreUserExists memory coreUserExists;
+        if (useRealL1Read) {
+          coreUserExists = RealL1Read.coreUserExists(_account);
+        } else {
+          coreUserExists.exists = PrecompileLib.coreUserExists(_account);
+        }
         if (!coreUserExists.exists && !force) {
             return;
         }
@@ -190,10 +219,19 @@ contract CoreState is StdCheats {
         account.activated = true;
 
         // setting perp balance
-        account.perpBalance = RealL1Read.withdrawable(_account).withdrawable;
+        if (useRealL1Read) {
+          account.perpBalance = RealL1Read.withdrawable(_account).withdrawable;
+        } else {
+          account.perpBalance = PrecompileLib.withdrawable(_account);
+        }
 
         // setting staking balance
-        PrecompileLib.DelegatorSummary memory summary = RealL1Read.delegatorSummary(_account);
+        PrecompileLib.DelegatorSummary memory summary;
+        if (useRealL1Read) {
+          summary = RealL1Read.delegatorSummary(_account);
+        } else {
+          summary = PrecompileLib.delegatorSummary(_account);
+        }
         account.staking = summary.undelegated;
 
         // assume each pending withdrawal is of equal size
@@ -232,12 +270,21 @@ contract CoreState is StdCheats {
         }
 
         // set delegations
-        PrecompileLib.Delegation[] memory delegations = RealL1Read.delegations(_account);
+        PrecompileLib.Delegation[] memory delegations;
+        if (useRealL1Read) {
+          delegations = RealL1Read.delegations(_account);
+        } else {
+          delegations = PrecompileLib.delegations(_account);
+        }
         for (uint256 i = 0; i < delegations.length; i++) {
             account.delegations[delegations[i].validator] = delegations[i];
         }
 
-        _accounts[_account].marginSummary[0] = RealL1Read.accountMarginSummary(0, _account);
+        if (useRealL1Read) {
+          _accounts[_account].marginSummary[0] = RealL1Read.accountMarginSummary(0, _account);
+        } else {
+          _accounts[_account].marginSummary[0] = PrecompileLib.accountMarginSummary(0, _account);
+        }
     }
 
     modifier whenActivated(address sender) {
@@ -253,7 +300,12 @@ contract CoreState is StdCheats {
             return;
         }
 
-        PrecompileLib.TokenInfo memory tokenInfo = RealL1Read.tokenInfo(uint32(index));
+        PrecompileLib.TokenInfo memory tokenInfo;
+        if (useRealL1Read) {
+          tokenInfo = RealL1Read.tokenInfo(uint32(index));
+        } else {
+          tokenInfo = PrecompileLib.tokenInfo(uint32(index));
+        }
 
         // this means that the precompile call failed
         if (tokenInfo.evmContract == RealL1Read.INVALID_ADDRESS) return;
