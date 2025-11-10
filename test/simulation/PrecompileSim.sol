@@ -71,6 +71,30 @@ contract PrecompileSim {
             return abi.encode(_hyperCore.readMarkPx(perp));
         }
 
+        if (address(this) == ORACLE_PX_PRECOMPILE_ADDRESS) {
+            uint32 perp = abi.decode(data, (uint32));
+            return abi.encode(_hyperCore.readOraclePx(perp));
+        }
+
+        if (address(this) == SPOT_PX_PRECOMPILE_ADDRESS) {
+            uint64 spotIndex = abi.decode(data, (uint64));
+            return abi.encode(_hyperCore.readSpotPx(uint32(spotIndex)));
+        }
+        if (address(this) == PERP_ASSET_INFO_PRECOMPILE_ADDRESS) {
+            uint32 perp = abi.decode(data, (uint32));
+            return abi.encode(_hyperCore.readPerpAssetInfo(perp));
+        }
+
+        if (address(this) == SPOT_INFO_PRECOMPILE_ADDRESS) {
+            uint32 spotMarketId = abi.decode(data, (uint32));
+            return abi.encode(_hyperCore.readSpotInfo(spotMarketId));
+        }
+
+        if (address(this) == TOKEN_INFO_PRECOMPILE_ADDRESS) {
+            uint32 token = abi.decode(data, (uint32));
+            return abi.encode(_hyperCore.readTokenInfo(token));
+        }
+
         if (address(this) == ACCOUNT_MARGIN_SUMMARY_PRECOMPILE_ADDRESS) {
             (uint16 perp_dex_index, address user) = abi.decode(data, (uint16, address));
             return abi.encode(_hyperCore.readAccountMarginSummary(perp_dex_index, user));

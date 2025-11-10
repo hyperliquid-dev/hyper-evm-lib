@@ -2,12 +2,13 @@
 pragma solidity ^0.8.0;
 
 import {Vm} from "forge-std/Vm.sol";
-
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {HyperCore} from "./HyperCore.sol";
 import {CoreWriterSim} from "./CoreWriterSim.sol";
 import {PrecompileSim} from "./PrecompileSim.sol";
 
-import {HLConstants} from "../../src/PrecompileLib.sol";
+import {PrecompileLib, HLConstants} from "../../src/PrecompileLib.sol";
+import {TokenRegistry} from "../../src/registry/TokenRegistry.sol";
 
 Vm constant vm = Vm(address(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D));
 CoreWriterSim constant coreWriter = CoreWriterSim(0x3333333333333333333333333333333333333333);
@@ -36,8 +37,14 @@ library CoreSimulatorLib {
         HyperCore coreImpl = new HyperCore();
 
         vm.etch(address(hyperCore), address(coreImpl).code);
+
+        // Prevent RPC calls for etched addresses
+        //vm.makePersistent(address(hyperCore));
+        
         hyperCore.setStakingYieldIndex(1e18);
+        hyperCore.setUseRealL1Read(true);
         vm.etch(address(coreWriter), type(CoreWriterSim).runtimeCode);
+        //vm.makePersistent(address(coreWriter));
 
         // Initialize precompiles
         for (uint160 i = 0; i < NUM_PRECOMPILES; i++) {
@@ -55,6 +62,11 @@ library CoreSimulatorLib {
 
         vm.allowCheatcodes(address(hyperCore));
         vm.allowCheatcodes(address(coreWriter));
+
+        // if offline mode, deploy the TokenRegistry and register main tokens
+        if (!isForkActive()) {
+            _deployTokenRegistryAndCoreTokens();
+        }
 
         vm.resumeGasMetering();
 
@@ -144,7 +156,7 @@ library CoreSimulatorLib {
     function setMarkPx(uint32 perp, uint64 priceDiffBps, bool isIncrease) internal {
         hyperCore.setMarkPx(perp, priceDiffBps, isIncrease);
     }
-
+    
     function setSpotPx(uint32 spotMarketId, uint64 spotPx) internal {
         hyperCore.setSpotPx(spotMarketId, spotPx);
     }
@@ -159,6 +171,86 @@ library CoreSimulatorLib {
 
     function setStakingYieldIndex(uint64 multiplier) internal {
         hyperCore.setStakingYieldIndex(multiplier);
+    }
+
+    ///// Private Functions /////
+    function _deployTokenRegistryAndCoreTokens() private {
+        TokenRegistry registry = TokenRegistry(0x0b51d1A9098cf8a72C325003F44C194D41d7A85B);
+        vm.etch(address(registry), type(TokenRegistry).runtimeCode);
+
+        // register HYPE in hyperCore
+        uint64[] memory hypeSpots = new uint64[](3);
+        hypeSpots[0] = 107; hypeSpots[1] = 207; hypeSpots[2] = 232;
+        PrecompileLib.TokenInfo memory hypeTokenInfo = PrecompileLib.TokenInfo({
+            name: "HYPE",
+            spots: hypeSpots,
+            deployerTradingFeeShare: 0,
+            deployer: address(0),
+            evmContract: address(0),
+            szDecimals: 2,
+            weiDecimals: 8,
+            evmExtraWeiDecimals: 0
+        });
+        hyperCore.registerTokenInfo(150, hypeTokenInfo);
+
+        // register USDC in hyperCore
+        uint64[] memory usdcSpots = new uint64[](0);
+        PrecompileLib.TokenInfo memory usdcTokenInfo = PrecompileLib.TokenInfo({
+            name: "USDC",
+            spots: usdcSpots,
+            deployerTradingFeeShare: 0,
+            deployer: address(0),
+            evmContract: address(0),
+            szDecimals: 8,
+            weiDecimals: 8,
+            evmExtraWeiDecimals: 0
+        });
+        hyperCore.registerTokenInfo(0, usdcTokenInfo);
+
+
+        // register USDT in hyperCore
+        address usdt0 = 0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb;
+
+        Token usdt0Token = new Token();
+        vm.etch(usdt0, address(usdt0Token).code);
+        
+        uint64[] memory usdt0Spots = new uint64[](1);
+        usdt0Spots[0] = 166;
+        PrecompileLib.TokenInfo memory usdtTokenInfo = PrecompileLib.TokenInfo({
+            name: "USDT0",
+            spots: usdt0Spots,
+            deployerTradingFeeShare: 0,
+            deployer: 0x1a6362AD64ccFF5902D46D875B36e8798267d154,
+            evmContract: usdt0,
+            szDecimals: 2,
+            weiDecimals: 8,
+            evmExtraWeiDecimals: -2
+        });
+        hyperCore.registerTokenInfo(268, usdtTokenInfo);
+        registry.setTokenInfo(268);
+
+        // register spot markets
+        PrecompileLib.SpotInfo memory hypeSpotInfo = PrecompileLib.SpotInfo({
+            name: "@107",
+            tokens: [uint64(150), uint64(0)]
+        });
+        hyperCore.registerSpotInfo(107, hypeSpotInfo);
+
+        PrecompileLib.SpotInfo memory usdt0SpotInfo = PrecompileLib.SpotInfo({
+            name: "@166",
+            tokens: [uint64(268), uint64(0)]
+        });
+        hyperCore.registerSpotInfo(166, usdt0SpotInfo);
+
+        // register HYPE perp info
+        PrecompileLib.PerpAssetInfo memory hypePerpAssetInfo = PrecompileLib.PerpAssetInfo({  
+            coin: "HYPE",
+            marginTableId: 52,
+            szDecimals: 2,
+            maxLeverage: 10,
+            onlyIsolated: false
+        });
+        hyperCore.registerPerpAssetInfo(150, hypePerpAssetInfo);
     }
 
     ///// VIEW AND PURE /////////
@@ -176,7 +268,12 @@ library CoreSimulatorLib {
         if (addrInt >= baseAddr && addrInt < baseAddr + 10000) {
             uint64 tokenIndex = uint64(addrInt - baseAddr);
 
-            return tokenExists(tokenIndex);
+            if (tokenExists(tokenIndex)) {
+                return true;
+            }
+            else {
+                revert("Bridging failed: Corresponding token not found on HyperCore");
+            }
         }
 
         return false;
@@ -186,6 +283,9 @@ library CoreSimulatorLib {
         if (systemAddr == address(0x2222222222222222222222222222222222222222)) {
             return 150; // HYPE token index
         }
+        
+        if (uint160(systemAddr) < uint160(0x2000000000000000000000000000000000000000)) return type(uint64).max;
+
         return uint64(uint160(systemAddr) - uint160(0x2000000000000000000000000000000000000000));
     }
 
@@ -193,4 +293,24 @@ library CoreSimulatorLib {
         (bool success,) = HLConstants.TOKEN_INFO_PRECOMPILE_ADDRESS.staticcall(abi.encode(token));
         return success;
     }
+
+    /// @dev Make an address persistent to prevent RPC storage calls
+    /// Call this for any test addresses you create/etch to prevent RPC calls
+    function makeAddressPersistent(address addr) internal {
+        vm.makePersistent(addr);
+        vm.deal(addr, 1 wei); // Ensure it "exists" in the fork
+    }
+
+    function isForkActive() internal view returns (bool) {
+        try vm.activeFork() returns (uint256) {
+            return true;  // Fork is active
+        } catch {
+            return false; // No fork active
+        }
+    }
+}
+
+
+contract Token is ERC20 {
+    constructor() ERC20("USDT0", "USDT0") {}
 }

@@ -3,98 +3,13 @@ pragma solidity ^0.8.0;
 
 import {Vm} from "forge-std/Vm.sol";
 import {PrecompileLib} from "../../src/PrecompileLib.sol";
+import {HyperCore} from "../simulation/HyperCore.sol";
+
+HyperCore constant hyperCore = HyperCore(payable(0x9999999999999999999999999999999999999999));
 
 // Makes RPC calls to get real precompile data (independent of the test environment)
+// During offline mode, this will call the local precompile to return local data
 library RealL1Read {
-    struct Position {
-        int64 szi;
-        uint64 entryNtl;
-        int64 isolatedRawUsd;
-        uint32 leverage;
-        bool isIsolated;
-    }
-
-    struct SpotBalance {
-        uint64 total;
-        uint64 hold;
-        uint64 entryNtl;
-    }
-
-    struct UserVaultEquity {
-        uint64 equity;
-        uint64 lockedUntilTimestamp;
-    }
-
-    struct Withdrawable {
-        uint64 withdrawable;
-    }
-
-    struct Delegation {
-        address validator;
-        uint64 amount;
-        uint64 lockedUntilTimestamp;
-    }
-
-    struct DelegatorSummary {
-        uint64 delegated;
-        uint64 undelegated;
-        uint64 totalPendingWithdrawal;
-        uint64 nPendingWithdrawals;
-    }
-
-    struct PerpAssetInfo {
-        string coin;
-        uint32 marginTableId;
-        uint8 szDecimals;
-        uint8 maxLeverage;
-        bool onlyIsolated;
-    }
-
-    struct SpotInfo {
-        string name;
-        uint64[2] tokens;
-    }
-
-    struct TokenInfo {
-        string name;
-        uint64[] spots;
-        uint64 deployerTradingFeeShare;
-        address deployer;
-        address evmContract;
-        uint8 szDecimals;
-        uint8 weiDecimals;
-        int8 evmExtraWeiDecimals;
-    }
-
-    struct UserBalance {
-        address user;
-        uint64 balance;
-    }
-
-    struct TokenSupply {
-        uint64 maxSupply;
-        uint64 totalSupply;
-        uint64 circulatingSupply;
-        uint64 futureEmissions;
-        UserBalance[] nonCirculatingUserBalances;
-    }
-
-    struct Bbo {
-        uint64 bid;
-        uint64 ask;
-    }
-
-    struct AccountMarginSummary {
-        int64 accountValue;
-        uint64 marginUsed;
-        uint64 ntlPos;
-        int64 rawUsd;
-    }
-
-    struct CoreUserExists {
-        bool exists;
-    }
-
     Vm constant vm = Vm(address(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D));
 
     address constant POSITION_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000800;
@@ -166,7 +81,24 @@ library RealL1Read {
         revert();
     }
 
+    function isOfflineMode() internal view returns (bool) {
+        return !isForkActive() && !hyperCore.useRealL1Read();
+    }
+
+    function isForkActive() internal view returns (bool) {
+        try vm.activeFork() returns (uint256) {
+            return true;  // Fork is active
+        } catch {
+            return false; // No fork active
+        }
+    }
+
     function position(address user, uint16 perp) internal returns (PrecompileLib.Position memory) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.position(user, perp);
+        }
+
         bytes memory result = _makeRpcCall(POSITION_PRECOMPILE_ADDRESS, abi.encode(user, perp));
 
         if (result.length == 0) {
@@ -176,6 +108,11 @@ library RealL1Read {
     }
 
     function spotBalance(address user, uint64 token) internal returns (PrecompileLib.SpotBalance memory) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.spotBalance(user, token);
+        }
+
         bytes memory result = _makeRpcCall(SPOT_BALANCE_PRECOMPILE_ADDRESS, abi.encode(user, token));
         if (result.length == 0) {
             return PrecompileLib.SpotBalance({total: 0, hold: 0, entryNtl: 0});
@@ -184,6 +121,11 @@ library RealL1Read {
     }
 
     function userVaultEquity(address user, address vault) internal returns (PrecompileLib.UserVaultEquity memory) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.userVaultEquity(user, vault);
+        }
+
         bytes memory result = _makeRpcCall(VAULT_EQUITY_PRECOMPILE_ADDRESS, abi.encode(user, vault));
         if (result.length == 0) {
             return PrecompileLib.UserVaultEquity({equity: 0, lockedUntilTimestamp: 0});
@@ -191,15 +133,25 @@ library RealL1Read {
         return abi.decode(result, (PrecompileLib.UserVaultEquity));
     }
 
-    function withdrawable(address user) internal returns (PrecompileLib.Withdrawable memory) {
+    function withdrawable(address user) internal returns (uint64) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.withdrawable(user);
+        }
+
         bytes memory result = _makeRpcCall(WITHDRAWABLE_PRECOMPILE_ADDRESS, abi.encode(user));
         if (result.length == 0) {
-            return PrecompileLib.Withdrawable({withdrawable: 45});
+            return 0;
         }
-        return abi.decode(result, (PrecompileLib.Withdrawable));
+        return abi.decode(result, (PrecompileLib.Withdrawable)).withdrawable;
     }
 
     function delegations(address user) internal returns (PrecompileLib.Delegation[] memory) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.delegations(user);
+        }
+
         bytes memory result = _makeRpcCall(DELEGATIONS_PRECOMPILE_ADDRESS, abi.encode(user));
         if (result.length == 0) {
             return new PrecompileLib.Delegation[](0);
@@ -208,41 +160,81 @@ library RealL1Read {
     }
 
     function delegatorSummary(address user) internal returns (PrecompileLib.DelegatorSummary memory) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.delegatorSummary(user);
+        }
+
         bytes memory result = _makeRpcCall(DELEGATOR_SUMMARY_PRECOMPILE_ADDRESS, abi.encode(user));
         return abi.decode(result, (PrecompileLib.DelegatorSummary));
     }
 
     function markPx(uint32 index) internal returns (uint64) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.markPx(index);
+        }
+
         bytes memory result = _makeRpcCall(MARK_PX_PRECOMPILE_ADDRESS, abi.encode(index));
         return abi.decode(result, (uint64));
     }
 
     function oraclePx(uint32 index) internal returns (uint64) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.oraclePx(index);
+        }
+
         bytes memory result = _makeRpcCall(ORACLE_PX_PRECOMPILE_ADDRESS, abi.encode(index));
         return abi.decode(result, (uint64));
     }
 
     function spotPx(uint32 index) internal returns (uint64) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.spotPx(index);
+        }
+
         bytes memory result = _makeRpcCall(SPOT_PX_PRECOMPILE_ADDRESS, abi.encode(index));
         return abi.decode(result, (uint64));
     }
 
     function l1BlockNumber() internal returns (uint64) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.l1BlockNumber();
+        }
+
         bytes memory result = _makeRpcCall(L1_BLOCK_NUMBER_PRECOMPILE_ADDRESS, abi.encode());
         return abi.decode(result, (uint64));
     }
 
-    function perpAssetInfo(uint32 perp) internal returns (PerpAssetInfo memory) {
+    function perpAssetInfo(uint32 perp) internal returns (PrecompileLib.PerpAssetInfo memory) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.perpAssetInfo(perp);
+        }
+
         bytes memory result = _makeRpcCall(PERP_ASSET_INFO_PRECOMPILE_ADDRESS, abi.encode(perp));
-        return abi.decode(result, (PerpAssetInfo));
+        return abi.decode(result, (PrecompileLib.PerpAssetInfo));
     }
 
     function spotInfo(uint32 spot) internal returns (PrecompileLib.SpotInfo memory) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.spotInfo(spot);
+        }
+
         bytes memory result = _makeRpcCall(SPOT_INFO_PRECOMPILE_ADDRESS, abi.encode(spot));
         return abi.decode(result, (PrecompileLib.SpotInfo));
     }
 
     function tokenInfo(uint32 token) internal returns (PrecompileLib.TokenInfo memory) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.tokenInfo(token);
+        }
+
         bytes memory result = _makeRpcCall(TOKEN_INFO_PRECOMPILE_ADDRESS, abi.encode(token));
         if (result.length == 0) {
             return PrecompileLib.TokenInfo({
@@ -259,26 +251,46 @@ library RealL1Read {
         return abi.decode(result, (PrecompileLib.TokenInfo));
     }
 
-    function tokenSupply(uint32 token) internal returns (TokenSupply memory) {
+    function tokenSupply(uint32 token) internal returns (PrecompileLib.TokenSupply memory) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.tokenSupply(token);
+        }
+
         bytes memory result = _makeRpcCall(TOKEN_SUPPLY_PRECOMPILE_ADDRESS, abi.encode(token));
-        return abi.decode(result, (TokenSupply));
+        return abi.decode(result, (PrecompileLib.TokenSupply));
     }
 
-    function bbo(uint32 asset) internal returns (Bbo memory) {
+    function bbo(uint32 asset) internal returns (PrecompileLib.Bbo memory) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.bbo(asset);
+        }
+
         bytes memory result = _makeRpcCall(BBO_PRECOMPILE_ADDRESS, abi.encode(asset));
-        return abi.decode(result, (Bbo));
+        return abi.decode(result, (PrecompileLib.Bbo));
     }
 
     function accountMarginSummary(uint32 perp_dex_index, address user)
         internal
         returns (PrecompileLib.AccountMarginSummary memory)
     {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.accountMarginSummary(perp_dex_index, user);
+        }
+
         bytes memory result = _makeRpcCall(ACCOUNT_MARGIN_SUMMARY_PRECOMPILE_ADDRESS, abi.encode(perp_dex_index, user));
         return abi.decode(result, (PrecompileLib.AccountMarginSummary));
     }
 
-    function coreUserExists(address user) internal returns (CoreUserExists memory) {
+    function coreUserExists(address user) internal returns (bool) {
+
+        if (isOfflineMode()) {
+            return PrecompileLib.coreUserExists(user);
+        }
+
         bytes memory result = _makeRpcCall(CORE_USER_EXISTS_PRECOMPILE_ADDRESS, abi.encode(user));
-        return abi.decode(result, (CoreUserExists));
+        return abi.decode(result, (bool));
     }
 }

@@ -5,7 +5,6 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-
 import {PrecompileLib} from "../../../src/PrecompileLib.sol";
 import {RealL1Read} from "../../utils/RealL1Read.sol";
 import {CoreState} from "./CoreState.sol";
@@ -22,25 +21,57 @@ contract CoreView is CoreState {
         return bytes(_tokens[token].name).length > 0;
     }
 
+    function readTokenInfo(uint32 token) public returns (PrecompileLib.TokenInfo memory) {
+        bool notStoredToken = _tokens[token].szDecimals == 0 &&_tokens[token].deployer == address(0);
+
+        if (notStoredToken && useRealL1Read) {
+            return RealL1Read.tokenInfo(token);
+        }
+        return _tokens[token];
+    }
+
+    function readSpotInfo(uint32 spotMarketId) public returns (PrecompileLib.SpotInfo memory) {
+        if (bytes(_spotInfo[spotMarketId].name).length == 0 && useRealL1Read) {
+            return RealL1Read.spotInfo(spotMarketId);
+        }
+        return _spotInfo[spotMarketId];
+    }
+
+    function readPerpAssetInfo(uint32 perp) public returns (PrecompileLib.PerpAssetInfo memory) {
+        if (bytes(_perpAssetInfo[perp].coin).length == 0 && useRealL1Read) {
+            return RealL1Read.perpAssetInfo(perp);
+        }
+        return _perpAssetInfo[perp];
+    }
+
     function readMarkPx(uint32 perp) public returns (uint64) {
-        if (_perpMarkPrice[perp] == 0) {
+        if (_perpMarkPrice[perp] == 0 && useRealL1Read) {
             return RealL1Read.markPx(perp);
         }
 
         return _perpMarkPrice[perp];
     }
 
-    function readSpotPx(uint32 spotMarketId) public view returns (uint64) {
-        if (_spotPrice[spotMarketId] == 0) {
-            return PrecompileLib.spotPx(spotMarketId);
+    function readOraclePx(uint32 perp) public returns (uint64) {
+        if (_perpOraclePrice[perp] == 0 && useRealL1Read) {
+            return RealL1Read.oraclePx(perp);
+        }
+
+        return _perpOraclePrice[perp];
+    }
+
+    function readSpotPx(uint32 spotMarketId) public returns (uint64) {
+        if (_spotPrice[spotMarketId] == 0 && useRealL1Read) {
+            return RealL1Read.spotPx(spotMarketId);
         }
 
         return _spotPrice[spotMarketId];
     }
+    
 
 
     function readSpotBalance(address account, uint64 token) public returns (PrecompileLib.SpotBalance memory) {
-        if (_initializedSpotBalance[account][token] == false) {
+        if (_initializedSpotBalance[account][token] == false && useRealL1Read) {
             return RealL1Read.spotBalance(account, token);
         }
 
@@ -49,8 +80,8 @@ contract CoreView is CoreState {
 
     // Even if the HyperCore account is not created, the precompile returns 0 (it does not revert)
     function readWithdrawable(address account) public returns (PrecompileLib.Withdrawable memory) {
-        if (_accounts[account].activated == false) {
-            return RealL1Read.withdrawable(account);
+        if (_accounts[account].activated == false && useRealL1Read) {
+            return PrecompileLib.Withdrawable({withdrawable: RealL1Read.withdrawable(account)});
         }
 
         return _previewWithdrawable(account);
@@ -79,7 +110,7 @@ contract CoreView is CoreState {
     }
 
     function readDelegations(address user) public returns (PrecompileLib.Delegation[] memory userDelegations) {
-        if (_accounts[user].activated == false) {
+        if (_accounts[user].activated == false && useRealL1Read) {
             return RealL1Read.delegations(user);
         }
 
@@ -94,7 +125,7 @@ contract CoreView is CoreState {
     }
 
     function readDelegatorSummary(address user) public returns (PrecompileLib.DelegatorSummary memory summary) {
-        if (_accounts[user].activated == false) {
+        if (_accounts[user].activated == false && useRealL1Read) {
             return RealL1Read.delegatorSummary(user);
         }
 
@@ -115,7 +146,7 @@ contract CoreView is CoreState {
     }
 
     function readPosition(address user, uint16 perp) public returns (PrecompileLib.Position memory) {
-        if (_accounts[user].activated == false) {
+        if (_accounts[user].activated == false && useRealL1Read) {
             return RealL1Read.position(user, perp);
         }
 
@@ -123,8 +154,8 @@ contract CoreView is CoreState {
     }
 
     function coreUserExists(address account) public returns (bool) {
-        if (_accounts[account].activated == false) {
-            return RealL1Read.coreUserExists(account).exists;
+        if (_accounts[account].activated == false && useRealL1Read) {
+            return RealL1Read.coreUserExists(account);
         }
 
         return _accounts[account].activated;
@@ -221,5 +252,15 @@ contract CoreView is CoreState {
 
     function max(uint64 a, uint64 b) internal pure returns (uint64) {
         return a > b ? a : b;
+    }
+
+    function getTokenIndexFromSystemAddress(address systemAddr) internal pure returns (uint64) {
+        if (systemAddr == address(0x2222222222222222222222222222222222222222)) {
+            return 150; // HYPE token index
+        }
+        
+        if (uint160(systemAddr) < uint160(0x2000000000000000000000000000000000000000)) return type(uint64).max;
+
+        return uint64(uint160(systemAddr) - uint160(0x2000000000000000000000000000000000000000));
     }
 }
