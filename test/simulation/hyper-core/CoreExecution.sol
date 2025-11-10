@@ -24,9 +24,6 @@ contract CoreExecution is CoreView {
 
     using EnumerableSet for EnumerableSet.UintSet;
 
-    uint16 constant MAX_PERP_INDEX = 256; // Adjust based on expected number of perp markets
-    uint64 constant MM_BPS = 125; // 1.25% maintenance margin fraction (adjust as needed, e.g., for 40x max leverage)
-
     function _getKey(address user, uint16 perpIndex) internal pure returns (bytes32) {
         return bytes32((uint256(uint160(user)) << 16) | uint256(perpIndex));
     }
@@ -256,15 +253,16 @@ contract CoreExecution is CoreView {
     {
 
         PrecompileLib.SpotInfo memory spotInfo;
-        if (useRealL1Read) {
-          spotInfo = RealL1Read.spotInfo(uint32(HLConversions.assetToSpotId(action.asset)));
-        } else {
-          spotInfo = PrecompileLib.spotInfo(uint32(HLConversions.assetToSpotId(action.asset)));
-        }
+        spotInfo = RealL1Read.spotInfo(uint32(HLConversions.assetToSpotId(action.asset)));
 
         PrecompileLib.TokenInfo memory baseToken = _tokens[spotInfo.tokens[0]];
 
         uint64 spotPx = readSpotPx(uint32(HLConversions.assetToSpotId(action.asset))) * SafeCast.toUint64(10 ** baseToken.szDecimals);
+
+        if (spotPx == 0 && !useRealL1Read) {
+            // in offline mode, if price is not set, we revert
+            revert("Offline mode: spot price has not been set. Use CoreSimulatorLib.setSpotPx()");
+        }
 
         uint64 fromToken;
         uint64 toToken;
@@ -324,9 +322,10 @@ contract CoreExecution is CoreView {
             revert("insufficient balance");
         }
 
-        // handle account activation case
-        if (_accounts[action.destination].activated == false) {
+        // handle account activation case, skip activation for system addresses
+        if (_accounts[action.destination].activated == false && getTokenIndexFromSystemAddress(action.destination) > 10000) {
             _chargeUSDCFee(sender);
+
 
             _accounts[action.destination].activated = true;
 
@@ -612,7 +611,7 @@ contract CoreExecution is CoreView {
     }
 
     function _getMaxLeverage(uint16 perpIndex) public view returns (uint32) {
-        return _maxLeverage[perpIndex];
+        return _perpAssetInfo[perpIndex].maxLeverage;
     }
 
     // simplified liquidation, nukes all positions and resets the perp balance
