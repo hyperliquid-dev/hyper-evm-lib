@@ -27,7 +27,7 @@ contract CoreWriterSim {
 
     /////// testing config
     /////////////////////////
-    bool revertOnFailure;
+    bool public revertOnFailure;
 
     function setRevertOnFailure(bool _revertOnFailure) public {
         revertOnFailure = _revertOnFailure;

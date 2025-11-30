@@ -54,8 +54,13 @@ contract CoreState is StdCheats {
         LimitOrderAction action;
     }
 
+    // Whether to use real L1 read or not
+    bool public useRealL1Read;
+
     // registered token info
     mapping(uint64 token => PrecompileLib.TokenInfo) internal _tokens;
+    mapping(uint32 perp => PrecompileLib.PerpAssetInfo) internal _perpAssetInfo;
+    mapping(uint32 spot => PrecompileLib.SpotInfo) internal _spotInfo;
 
     mapping(address account => AccountData) internal _accounts;
 
@@ -64,11 +69,11 @@ contract CoreState is StdCheats {
     mapping(address account => mapping(address vault => bool initialized)) internal _initializedVaults;
 
     mapping(address account => mapping(uint32 perpIndex => bool initialized)) internal _initializedPerpPosition;
-    mapping(uint16 perpIndex => uint32 maxLeverage) internal _maxLeverage;
 
     mapping(address account => mapping(uint64 token => uint64 latentBalance)) internal _latentSpotBalance;
 
     mapping(uint32 perpIndex => uint64 markPrice) internal _perpMarkPrice;
+    mapping(uint32 perpIndex => uint64 oraclePrice) internal _perpOraclePrice;
     mapping(uint32 spotMarketId => uint64 spotPrice) internal _spotPrice;
 
     mapping(address vault => uint64) internal _vaultEquity;
@@ -128,8 +133,8 @@ contract CoreState is StdCheats {
     }
 
     modifier initAccountWithPerp(address _account, uint16 perp) {
-        if (_maxLeverage[perp] == 0) {
-            _maxLeverage[perp] = RealL1Read.position(address(1), perp).leverage;
+        if (_perpAssetInfo[perp].maxLeverage == 0) {
+            registerPerpAssetInfo(perp, RealL1Read.perpAssetInfo(perp));
         }
 
         if (_initializedPerpPosition[_account][perp] == false) {
@@ -144,6 +149,10 @@ contract CoreState is StdCheats {
             _initializeAccount(_account);
         }
         _;
+    }
+
+    function setUseRealL1Read(bool _useRealL1Read) public {
+        useRealL1Read = _useRealL1Read;
     }
 
     function _initializeAccountWithToken(address _account, uint64 token) internal {
@@ -181,8 +190,8 @@ contract CoreState is StdCheats {
         AccountData storage account = _accounts[_account];
 
         // check if the acc is created on Core
-        RealL1Read.CoreUserExists memory coreUserExists = RealL1Read.coreUserExists(_account);
-        if (!coreUserExists.exists && !force) {
+        bool coreUserExists = RealL1Read.coreUserExists(_account);
+        if (!coreUserExists && !force) {
             return;
         }
 
@@ -190,10 +199,11 @@ contract CoreState is StdCheats {
         account.activated = true;
 
         // setting perp balance
-        account.perpBalance = RealL1Read.withdrawable(_account).withdrawable;
+        account.perpBalance = RealL1Read.withdrawable(_account);
 
         // setting staking balance
-        PrecompileLib.DelegatorSummary memory summary = RealL1Read.delegatorSummary(_account);
+        PrecompileLib.DelegatorSummary memory summary;
+        summary = RealL1Read.delegatorSummary(_account);
         account.staking = summary.undelegated;
 
         // assume each pending withdrawal is of equal size
@@ -232,7 +242,8 @@ contract CoreState is StdCheats {
         }
 
         // set delegations
-        PrecompileLib.Delegation[] memory delegations = RealL1Read.delegations(_account);
+        PrecompileLib.Delegation[] memory delegations;
+        delegations = RealL1Read.delegations(_account);
         for (uint256 i = 0; i < delegations.length; i++) {
             account.delegations[delegations[i].validator] = delegations[i];
         }
@@ -253,11 +264,23 @@ contract CoreState is StdCheats {
             return;
         }
 
-        PrecompileLib.TokenInfo memory tokenInfo = RealL1Read.tokenInfo(uint32(index));
+        PrecompileLib.TokenInfo memory tokenInfo;
+        tokenInfo = RealL1Read.tokenInfo(uint32(index));
 
         // this means that the precompile call failed
         if (tokenInfo.evmContract == RealL1Read.INVALID_ADDRESS) return;
         _tokens[index] = tokenInfo;
+    }
+
+    function registerTokenInfo(uint64 index, PrecompileLib.TokenInfo memory tokenInfo) public {
+        _tokens[index] = tokenInfo;
+    }
+    function registerSpotInfo(uint32 spotIndex, PrecompileLib.SpotInfo memory spotInfo) public {
+        _spotInfo[spotIndex] = spotInfo;
+    }
+
+    function registerPerpAssetInfo(uint16 perpIndex, PrecompileLib.PerpAssetInfo memory perpAssetInfo) public {
+        _perpAssetInfo[perpIndex] = perpAssetInfo;
     }
 
     // @dev if this set has len > 0, only validators within the set can be delegated to

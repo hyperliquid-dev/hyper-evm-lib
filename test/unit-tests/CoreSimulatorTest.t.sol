@@ -16,6 +16,9 @@ import {VaultExample} from "../../src/examples/VaultExample.sol";
 import {StakingExample} from "../../src/examples/StakingExample.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+using Math for uint64;
+
 contract CoreSimulatorTest is Test {
     using PrecompileLib for address;
     using HLConversions for *;
@@ -546,8 +549,7 @@ contract CoreSimulatorTest is Test {
         );
 
         // Now update the price to match the order's limit price
-        console.log("Updating spot price to:", limitPx);
-        CoreSimulatorLib.setSpotPx(spotMarketId, limitPx);
+        CoreSimulatorLib.setSpotPx(spotMarketId, limitPx/100);
 
         CoreSimulatorLib.nextBlock();
 
@@ -601,8 +603,7 @@ contract CoreSimulatorTest is Test {
         );
 
         // Now update the price to match the order's limit price
-        console.log("Updating spot price to:", limitPx);
-        CoreSimulatorLib.setSpotPx(spotMarketId, limitPx);
+        CoreSimulatorLib.setSpotPx(spotMarketId, limitPx/100);
 
         CoreSimulatorLib.nextBlock();
 
@@ -682,15 +683,17 @@ contract CoreSimulatorTest is Test {
 
         uint256 usdcBalanceBefore = PrecompileLib.spotBalance(address(user), 0).total;
 
-        uint64 baseAmt = 1e8; // 1 HYPE
+        uint64 baseAmt = 10e8; // 10 HYPE
+        console.log("spot + 10000", spot + 10000);
         CoreWriterLib.placeLimitOrder(uint32(spot + 10000), false, 0, baseAmt, true, HLConstants.LIMIT_ORDER_TIF_IOC, 1);
 
         CoreSimulatorLib.nextBlock();
 
         uint256 usdcBalanceAfter = PrecompileLib.spotBalance(address(user), 0).total;
         uint256 hypeBalanceAfter = PrecompileLib.spotBalance(address(user), token).total;
-
-        assertApproxEqAbs(usdcBalanceAfter - usdcBalanceBefore, baseAmt * spotPx / 1e8, baseAmt * spotPx * 5 / 1000 / 1e8);
+        console.log("usdcBalanceAfter", usdcBalanceAfter);
+        console.log("usdcBalanceBefore", usdcBalanceBefore);
+        assertApproxEqAbs(usdcBalanceAfter - usdcBalanceBefore, baseAmt.mulDiv(spotPx, 1e8), (usdcBalanceAfter - usdcBalanceBefore) * 5 / 1000);
         assertEq(hypeBalanceAfter, 0);
     }
 
