@@ -22,7 +22,7 @@ contract CoreView is CoreState {
     }
 
     function readTokenInfo(uint32 token) public returns (PrecompileLib.TokenInfo memory) {
-        bool notStoredToken = _tokens[token].szDecimals == 0 &&_tokens[token].deployer == address(0);
+        bool notStoredToken = _tokens[token].szDecimals == 0 && _tokens[token].deployer == address(0);
 
         if (notStoredToken && useRealL1Read) {
             return RealL1Read.tokenInfo(token);
@@ -67,8 +67,6 @@ contract CoreView is CoreState {
 
         return _spotPrice[spotMarketId];
     }
-    
-
 
     function readSpotBalance(address account, uint64 token) public returns (PrecompileLib.SpotBalance memory) {
         if (_initializedSpotBalance[account][token] == false && useRealL1Read) {
@@ -85,6 +83,14 @@ contract CoreView is CoreState {
         }
 
         return _previewWithdrawable(account);
+    }
+
+    function readPerpBalance(address account) public returns (uint64) {
+        if (_accounts[account].activated == false && useRealL1Read) {
+            return RealL1Read.withdrawable(account);
+        }
+
+        return _accounts[account].perpBalance;
     }
 
     function readUserVaultEquity(address user, address vault)
@@ -170,10 +176,7 @@ contract CoreView is CoreState {
         return _previewAccountMarginSummary(user);
     }
 
-    function _previewAccountMarginSummary(address sender)
-        internal
-        returns (PrecompileLib.AccountMarginSummary memory)
-    {
+    function _previewAccountMarginSummary(address sender) internal returns (PrecompileLib.AccountMarginSummary memory) {
         uint64 totalNtlPos = 0;
         uint64 totalMarginUsed = 0;
 
@@ -213,10 +216,7 @@ contract CoreView is CoreState {
         int64 totalRawUsd = totalAccountValue - int64(totalLongNtlPos) + int64(totalShortNtlPos);
 
         return PrecompileLib.AccountMarginSummary({
-            accountValue: totalAccountValue,
-            marginUsed: totalMarginUsed,
-            ntlPos: totalNtlPos,
-            rawUsd: totalRawUsd
+            accountValue: totalAccountValue, marginUsed: totalMarginUsed, ntlPos: totalNtlPos, rawUsd: totalRawUsd
         });
     }
 
@@ -258,7 +258,7 @@ contract CoreView is CoreState {
         if (systemAddr == address(0x2222222222222222222222222222222222222222)) {
             return 150; // HYPE token index
         }
-        
+
         if (uint160(systemAddr) < uint160(0x2000000000000000000000000000000000000000)) return type(uint64).max;
 
         return uint64(uint160(systemAddr) - uint160(0x2000000000000000000000000000000000000000));
