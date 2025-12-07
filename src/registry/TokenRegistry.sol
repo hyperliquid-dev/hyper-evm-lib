@@ -34,21 +34,10 @@ contract TokenRegistry {
      * @notice Register a token by passing in its index
      * @param tokenIndex The index of the token to register
      * @dev Calls the token info precompile and stores the mapping
-     * @dev For USDC (tokenIndex 0), we manually set the evmContract to USDC_EVM_CONTRACT_ADDRESS
-     *      because the tokenInfo.evmContract from the precompile stores the coreDepositWallet address instead
      */
     function setTokenInfo(uint32 tokenIndex) public {
-        address evmContract;
-        
-        // Special handling for USDC (token index 0)
-        // For USDC, the tokenInfo.evmContract from the precompile stores the coreDepositWallet address,
-        // not the actual USDC EVM contract address. Therefore, we manually set it to the correct address.
-        if (tokenIndex == 0) {
-            evmContract = USDC_EVM_CONTRACT_ADDRESS;
-        } else {
-            // call the precompile for other tokens
-            evmContract = getTokenAddress(tokenIndex);
-        }
+        // call the precompile
+        address evmContract = getTokenAddress(tokenIndex);
 
         if (evmContract == address(0)) {
             revert NoEvmContract(tokenIndex);
@@ -85,8 +74,17 @@ contract TokenRegistry {
      * @notice Get the evm contract address of a token by passing in the index
      * @param index The index of the token
      * @return evmContract The evm contract address of the token
+     * @dev For USDC (index 0), we manually return USDC_EVM_CONTRACT_ADDRESS because the tokenInfo.evmContract
+     *      from the precompile stores the coreDepositWallet address instead of the actual USDC EVM contract address
      */
     function getTokenAddress(uint32 index) public view returns (address) {
+        // Special handling for USDC (token index 0)
+        // For USDC, the tokenInfo.evmContract from the precompile stores the coreDepositWallet address,
+        // not the actual USDC EVM contract address. Therefore, we manually return the correct address.
+        if (index == 0) {
+            return USDC_EVM_CONTRACT_ADDRESS;
+        }
+        
         (bool success, bytes memory result) = TOKEN_INFO_PRECOMPILE_ADDRESS.staticcall(abi.encode(index));
         if (!success) revert PrecompileCallFailed();
         TokenInfo memory info = abi.decode(result, (TokenInfo));
