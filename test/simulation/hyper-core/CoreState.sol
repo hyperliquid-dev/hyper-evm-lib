@@ -101,6 +101,8 @@ contract CoreState is StdCheats {
     // Maps user address to a set of perp indices they have active positions in
     mapping(address => EnumerableSet.UintSet) internal _userPerpPositions;
 
+    mapping(uint64 token => bool isQuoteToken) internal _isQuoteToken;
+
     /////////////////////////
     /// STATE INITIALIZERS///
     /////////////////////////
@@ -286,6 +288,11 @@ contract CoreState is StdCheats {
         // this means that the precompile call failed
         if (tokenInfo.evmContract == RealL1Read.INVALID_ADDRESS) return;
         _tokens[index] = tokenInfo;
+
+        // quote token status for USDC, USDT0, USDH respectively
+        if (index == 0 || index == 268 || index == 360) {
+            _isQuoteToken[index] = true;
+        }
     }
 
     function registerTokenInfo(uint64 index, PrecompileLib.TokenInfo memory tokenInfo) public {
