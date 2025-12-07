@@ -35,7 +35,6 @@ contract FeeSimulationTest is Test {
         uint64 hypeBefore = PrecompileLib.spotBalance(user, HYPE).total;
         CoreSimulatorLib.setSpotPx(HYPE_SPOT, PrecompileLib.spotPx(HYPE_SPOT));
 
-
         uint32 assetId = HLConversions.spotToAssetId(HYPE_SPOT);
         uint64 limitPx = uint64(PrecompileLib.normalizedSpotPx(HYPE_SPOT));
 
@@ -96,7 +95,6 @@ contract FeeSimulationTest is Test {
         uint64 perpBalanceBefore = hyperCore.readPerpBalance(user);
 
         CoreSimulatorLib.setMarkPx(HYPE_PERP, PrecompileLib.markPx(HYPE_PERP));
-
 
         uint256 startingPrice = PrecompileLib.markPx(HYPE_PERP);
 

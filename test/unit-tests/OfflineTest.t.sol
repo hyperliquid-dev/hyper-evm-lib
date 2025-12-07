@@ -30,7 +30,6 @@ contract OfflineTest is Test {
     L1Read l1Read;
 
     function setUp() public {
-
         // set up the HyperCore simulation
         hyperCore = CoreSimulatorLib.init();
 
@@ -43,7 +42,6 @@ contract OfflineTest is Test {
 
         assertEq(PrecompileLib.coreUserExists(user), true);
         assertEq(PrecompileLib.coreUserExists(address(bridgingExample)), true);
-
 
         l1Read = new L1Read();
     }
@@ -64,7 +62,6 @@ contract OfflineTest is Test {
             abi.decode(abi.encode(PrecompileLib.spotBalance(address(bridgingExample), 150)), (uint64, uint64, uint64));
         assertEq(total, 1e8);
     }
-
 
     function test_offline_bridgeToCoreAndSend() public {
         deal(address(user), 10000e18);
@@ -110,7 +107,7 @@ contract OfflineTest is Test {
         // Store balances BEFORE order
         uint256 balanceAsset150Before = PrecompileLib.spotBalance(address(spotTrader), 150).total;
         uint256 balanceAsset0Before = PrecompileLib.spotBalance(address(spotTrader), 0).total;
-        
+
         console.log("=== BEFORE ORDER ===");
         console.log("Asset 150 balance:", balanceAsset150Before);
         console.log("Asset 0 balance:", balanceAsset0Before);
@@ -123,15 +120,15 @@ contract OfflineTest is Test {
         // Store balances AFTER order execution
         uint256 balanceAsset150After = PrecompileLib.spotBalance(address(spotTrader), 150).total;
         uint256 balanceAsset0After = PrecompileLib.spotBalance(address(spotTrader), 0).total;
-        
+
         console.log("\n=== AFTER ORDER ===");
         console.log("Asset 150 balance:", balanceAsset150After);
         console.log("Asset 0 balance:", balanceAsset0After);
-        
+
         console.log("\n=== CHANGES ===");
         console.log("Asset 150 change:", int256(balanceAsset150After) - int256(balanceAsset150Before));
         console.log("Asset 0 change:", int256(balanceAsset0After) - int256(balanceAsset0Before));
-        
+
         // Verify the swap occurred as expected
         // For a BUY order: asset 0 (quote) should decrease, asset 150 (base) should increase
         assertLt(balanceAsset0After, balanceAsset0Before, "Quote asset should decrease");
@@ -152,7 +149,6 @@ contract OfflineTest is Test {
         uint32 spotMarketId = 107;
         uint64 currentSpotPx = uint64(PrecompileLib.normalizedSpotPx(spotMarketId));
 
-
         console.log("currentSpotPx", currentSpotPx);
         console.log("=== INITIAL STATE ===");
         console.log("Current spot price for market 107:", currentSpotPx);
@@ -160,7 +156,7 @@ contract OfflineTest is Test {
         // Place a buy order with limit price below current spot price (won't execute immediately)
         uint64 limitPx = currentSpotPx / 2; // Set limit price below current price
         uint64 baseAmt = 1e8; // 1 HYPE
-        
+
         console.log("Placing buy order:");
         console.log("  Limit price:", limitPx);
         console.log("  Base amount:", baseAmt);
@@ -169,7 +165,7 @@ contract OfflineTest is Test {
         // Store balances BEFORE order placement
         uint256 balanceAsset150Before = PrecompileLib.spotBalance(address(spotTrader), 150).total;
         uint256 balanceAsset0Before = PrecompileLib.spotBalance(address(spotTrader), 0).total;
-        
+
         console.log("\n=== BEFORE ORDER PLACEMENT ===");
         console.log("Asset 150 balance:", balanceAsset150Before);
         console.log("Asset 0 balance:", balanceAsset0Before);
@@ -181,7 +177,7 @@ contract OfflineTest is Test {
         // Store balances AFTER first block (order pending)
         uint256 balanceAsset150AfterBlock1 = PrecompileLib.spotBalance(address(spotTrader), 150).total;
         uint256 balanceAsset0AfterBlock1 = PrecompileLib.spotBalance(address(spotTrader), 0).total;
-        
+
         console.log("\n=== AFTER FIRST BLOCK (Order Pending) ===");
         console.log("Asset 150 balance:", balanceAsset150AfterBlock1);
         console.log("Asset 0 balance:", balanceAsset0AfterBlock1);
@@ -190,25 +186,29 @@ contract OfflineTest is Test {
 
         // Now update the price to match the order's limit price
         console.log("\n=== UPDATING PRICE ===");
-        console.log("Setting spot price to:", limitPx/100);
-        CoreSimulatorLib.setSpotPx(spotMarketId, limitPx/100);
+        console.log("Setting spot price to:", limitPx / 100);
+        CoreSimulatorLib.setSpotPx(spotMarketId, limitPx / 100);
 
         CoreSimulatorLib.nextBlock();
 
         // Store balances AFTER price update (order executed)
         uint256 balanceAsset150AfterExecution = PrecompileLib.spotBalance(address(spotTrader), 150).total;
         uint256 balanceAsset0AfterExecution = PrecompileLib.spotBalance(address(spotTrader), 0).total;
-        
+
         console.log("\n=== AFTER PRICE UPDATE (Order Executed) ===");
         console.log("Asset 150 balance:", balanceAsset150AfterExecution);
         console.log("Asset 0 balance:", balanceAsset0AfterExecution);
-        console.log("Asset 150 change from pending:", int256(balanceAsset150AfterExecution) - int256(balanceAsset150AfterBlock1));
-        console.log("Asset 0 change from pending:", int256(balanceAsset0AfterExecution) - int256(balanceAsset0AfterBlock1));
-        
+        console.log(
+            "Asset 150 change from pending:", int256(balanceAsset150AfterExecution) - int256(balanceAsset150AfterBlock1)
+        );
+        console.log(
+            "Asset 0 change from pending:", int256(balanceAsset0AfterExecution) - int256(balanceAsset0AfterBlock1)
+        );
+
         console.log("\n=== TOTAL CHANGES (from start) ===");
         console.log("Asset 150 total change:", int256(balanceAsset150AfterExecution) - int256(balanceAsset150Before));
         console.log("Asset 0 total change:", int256(balanceAsset0AfterExecution) - int256(balanceAsset0Before));
-        
+
         // Verify the limit order executed after price update
         // For a BUY order: asset 0 (quote) should decrease, asset 150 (base) should increase
         assertLt(balanceAsset0AfterExecution, balanceAsset0Before, "Quote asset should decrease after execution");

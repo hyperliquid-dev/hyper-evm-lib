@@ -84,7 +84,7 @@ contract TokenRegistry {
         if (index == 0) {
             return USDC_EVM_CONTRACT_ADDRESS;
         }
-        
+
         (bool success, bytes memory result) = TOKEN_INFO_PRECOMPILE_ADDRESS.staticcall(abi.encode(index));
         if (!success) revert PrecompileCallFailed();
         TokenInfo memory info = abi.decode(result, (TokenInfo));
