@@ -7,7 +7,7 @@ import {CoreSimulatorLib} from "../simulation/CoreSimulatorLib.sol";
 
 contract StakingBalanceTest is Test {
     function setUp() public {
-        vm.createSelectFork("https://rpc.hyperliquid.xyz/evm");
+        vm.createSelectFork(vm.envString("ALCHEMY_RPC"));
         CoreSimulatorLib.init();
     }
 

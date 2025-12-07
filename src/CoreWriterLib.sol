@@ -9,9 +9,10 @@ import {HLConstants} from "./common/HLConstants.sol";
 import {HLConversions} from "./common/HLConversions.sol";
 
 import {ICoreWriter} from "./interfaces/ICoreWriter.sol";
+import {ICoreDepositWallet} from "./interfaces/ICoreDepositWallet.sol";
 
 /**
- * @title CoreWriterLib v1.0
+ * @title CoreWriterLib v1.1
  * @author Obsidian (https://x.com/ObsidianAudits)
  * @notice A library for interacting with HyperEVM's CoreWriter
  *
@@ -40,12 +41,20 @@ library CoreWriterLib {
         bridgeToCore(tokenIndex, evmAmount);
     }
 
+    /**
+    * @dev All tokens (including USDC) will be bridged to the spot dex
+    */
     function bridgeToCore(uint64 token, uint256 evmAmount) internal {
+        ICoreDepositWallet coreDepositWallet = ICoreDepositWallet(HLConstants.coreDepositWallet());
+        
         // Check if amount would be 0 after conversion to prevent token loss
         uint64 coreAmount = HLConversions.evmToWei(token, evmAmount);
         if (coreAmount == 0) revert CoreWriterLib__EvmAmountTooSmall(evmAmount);
         address systemAddress = getSystemAddress(token);
-        if (isHype(token)) {
+        if (HLConstants.isUsdc(token)) {
+            IERC20(HLConstants.usdc()).approve(address(coreDepositWallet), evmAmount);
+            coreDepositWallet.deposit(evmAmount, uint32(type(uint32).max));
+        } else if (isHype(token)) {
             (bool success,) = systemAddress.call{value: evmAmount}("");
             if (!success) revert CoreWriterLib__HypeTransferFailed();
         } else {
@@ -53,6 +62,23 @@ library CoreWriterLib {
             address tokenAddress = info.evmContract;
             IERC20(tokenAddress).safeTransfer(systemAddress, evmAmount);
         }
+    }
+
+    /**
+     * @notice Bridges USDC from EVM to Core to a specific recipient
+     * @param recipient The address that will receive the USDC on Core
+     * @param evmAmount The amount of USDC to bridge (in EVM decimals)
+     * @param destinationDex The dex to send the USDC to on Core (type(uint32).max for spot, 0 for default perp dex)
+     */
+    function bridgeUsdcToCoreFor(address recipient, uint256 evmAmount, uint32 destinationDex) internal {
+        ICoreDepositWallet coreDepositWallet = ICoreDepositWallet(HLConstants.coreDepositWallet());
+
+        // Check if amount would be 0 after conversion to prevent token loss
+        uint64 coreAmount = HLConversions.evmToWei(HLConstants.USDC_TOKEN_INDEX, evmAmount);
+        if (coreAmount == 0) revert CoreWriterLib__EvmAmountTooSmall(evmAmount);
+
+        IERC20(HLConstants.usdc()).approve(address(coreDepositWallet), evmAmount);
+        coreDepositWallet.depositFor(recipient, evmAmount, destinationDex);
     }
 
     function bridgeToEvm(address tokenAddress, uint256 evmAmount) internal {
@@ -128,9 +154,11 @@ library CoreWriterLib {
     function _canWithdrawFromVault(address vault) internal view returns (bool, uint64) {
         PrecompileLib.UserVaultEquity memory vaultEquity = PrecompileLib.userVaultEquity(address(this), vault);
 
-        return (
-            toMilliseconds(uint64(block.timestamp)) > vaultEquity.lockedUntilTimestamp, vaultEquity.lockedUntilTimestamp
-        );
+        return
+            (
+                toMilliseconds(uint64(block.timestamp)) > vaultEquity.lockedUntilTimestamp,
+                vaultEquity.lockedUntilTimestamp
+            );
     }
 
     function vaultTransfer(address vault, bool isDeposit, uint64 usdAmount) internal {

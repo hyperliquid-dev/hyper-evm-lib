@@ -214,7 +214,6 @@ contract CoreSimulatorTest is Test {
 
         uint64 w2 = PrecompileLib.withdrawable(address(hypeTrading));
         console.log("withdrawable", w2);
-
     }
 
     function test_perpTrading_profitCalc() public {
@@ -444,7 +443,6 @@ contract CoreSimulatorTest is Test {
     }
 
     function test_perp_loss() public {
-
         CoreSimulatorLib.setPerpMakerFee(0);
 
         CoreSimulatorLib.setRevertOnFailure(true);
@@ -556,7 +554,7 @@ contract CoreSimulatorTest is Test {
         );
 
         // Now update the price to match the order's limit price
-        CoreSimulatorLib.setSpotPx(spotMarketId, limitPx/100);
+        CoreSimulatorLib.setSpotPx(spotMarketId, limitPx / 100);
 
         CoreSimulatorLib.nextBlock();
 
@@ -610,7 +608,7 @@ contract CoreSimulatorTest is Test {
         );
 
         // Now update the price to match the order's limit price
-        CoreSimulatorLib.setSpotPx(spotMarketId, limitPx/100);
+        CoreSimulatorLib.setSpotPx(spotMarketId, limitPx / 100);
 
         CoreSimulatorLib.nextBlock();
 
@@ -700,7 +698,11 @@ contract CoreSimulatorTest is Test {
         uint256 hypeBalanceAfter = PrecompileLib.spotBalance(address(user), token).total;
         console.log("usdcBalanceAfter", usdcBalanceAfter);
         console.log("usdcBalanceBefore", usdcBalanceBefore);
-        assertApproxEqAbs(usdcBalanceAfter - usdcBalanceBefore, baseAmt.mulDiv(spotPx, 1e8), (usdcBalanceAfter - usdcBalanceBefore) * 5 / 1000);
+        assertApproxEqAbs(
+            usdcBalanceAfter - usdcBalanceBefore,
+            baseAmt.mulDiv(spotPx, 1e8),
+            (usdcBalanceAfter - usdcBalanceBefore) * 5 / 1000
+        );
         assertEq(hypeBalanceAfter, 0);
     }
 

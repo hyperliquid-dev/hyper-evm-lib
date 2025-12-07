@@ -14,7 +14,7 @@ library PrecompileLib {
     ITokenRegistry constant REGISTRY = ITokenRegistry(0x0b51d1A9098cf8a72C325003F44C194D41d7A85B);
 
     /*//////////////////////////////////////////////////////////////
-                  Custom Utility Functions 
+                  Custom Utility Functions
         (Overloads accepting token address instead of index)
     //////////////////////////////////////////////////////////////*/
 
@@ -61,6 +61,9 @@ library PrecompileLib {
      * @notice Gets the index of a token from its address. Reverts if token is not linked to HyperCore.
      */
     function getTokenIndex(address tokenAddress) internal view returns (uint64) {
+        if (tokenAddress == HLConstants.usdc()) {
+            return HLConstants.USDC_TOKEN_INDEX;
+        }
         return REGISTRY.getTokenIndex(tokenAddress);
     }
 
@@ -263,8 +266,8 @@ library PrecompileLib {
         view
         returns (AccountMarginSummary memory)
     {
-        (bool success, bytes memory result) =
-            HLConstants.ACCOUNT_MARGIN_SUMMARY_PRECOMPILE_ADDRESS.staticcall(abi.encode(perpDexIndex, user));
+        (bool success, bytes memory result) = HLConstants.ACCOUNT_MARGIN_SUMMARY_PRECOMPILE_ADDRESS
+            .staticcall(abi.encode(perpDexIndex, user));
         if (!success) revert PrecompileLib__AccountMarginSummaryPrecompileFailed();
         return abi.decode(result, (AccountMarginSummary));
     }

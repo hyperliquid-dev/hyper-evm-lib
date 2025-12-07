@@ -87,14 +87,13 @@ library RealL1Read {
 
     function isForkActive() internal view returns (bool) {
         try vm.activeFork() returns (uint256) {
-            return true;  // Fork is active
+            return true; // Fork is active
         } catch {
             return false; // No fork active
         }
     }
 
     function position(address user, uint16 perp) internal returns (PrecompileLib.Position memory) {
-
         if (isOfflineMode()) {
             return PrecompileLib.position(user, perp);
         }
@@ -108,7 +107,6 @@ library RealL1Read {
     }
 
     function spotBalance(address user, uint64 token) internal returns (PrecompileLib.SpotBalance memory) {
-
         if (isOfflineMode()) {
             return PrecompileLib.spotBalance(user, token);
         }
@@ -121,7 +119,6 @@ library RealL1Read {
     }
 
     function userVaultEquity(address user, address vault) internal returns (PrecompileLib.UserVaultEquity memory) {
-
         if (isOfflineMode()) {
             return PrecompileLib.userVaultEquity(user, vault);
         }
@@ -134,7 +131,6 @@ library RealL1Read {
     }
 
     function withdrawable(address user) internal returns (uint64) {
-
         if (isOfflineMode()) {
             return PrecompileLib.withdrawable(user);
         }
@@ -147,7 +143,6 @@ library RealL1Read {
     }
 
     function delegations(address user) internal returns (PrecompileLib.Delegation[] memory) {
-
         if (isOfflineMode()) {
             return PrecompileLib.delegations(user);
         }
@@ -160,7 +155,6 @@ library RealL1Read {
     }
 
     function delegatorSummary(address user) internal returns (PrecompileLib.DelegatorSummary memory) {
-
         if (isOfflineMode()) {
             return PrecompileLib.delegatorSummary(user);
         }
@@ -170,7 +164,6 @@ library RealL1Read {
     }
 
     function markPx(uint32 index) internal returns (uint64) {
-
         if (isOfflineMode()) {
             return PrecompileLib.markPx(index);
         }
@@ -180,7 +173,6 @@ library RealL1Read {
     }
 
     function oraclePx(uint32 index) internal returns (uint64) {
-
         if (isOfflineMode()) {
             return PrecompileLib.oraclePx(index);
         }
@@ -190,7 +182,6 @@ library RealL1Read {
     }
 
     function spotPx(uint32 index) internal returns (uint64) {
-
         if (isOfflineMode()) {
             return PrecompileLib.spotPx(index);
         }
@@ -200,7 +191,6 @@ library RealL1Read {
     }
 
     function l1BlockNumber() internal returns (uint64) {
-
         if (isOfflineMode()) {
             return PrecompileLib.l1BlockNumber();
         }
@@ -210,7 +200,6 @@ library RealL1Read {
     }
 
     function perpAssetInfo(uint32 perp) internal returns (PrecompileLib.PerpAssetInfo memory) {
-
         if (isOfflineMode()) {
             return PrecompileLib.perpAssetInfo(perp);
         }
@@ -220,7 +209,6 @@ library RealL1Read {
     }
 
     function spotInfo(uint32 spot) internal returns (PrecompileLib.SpotInfo memory) {
-
         if (isOfflineMode()) {
             return PrecompileLib.spotInfo(spot);
         }
@@ -230,7 +218,6 @@ library RealL1Read {
     }
 
     function tokenInfo(uint32 token) internal returns (PrecompileLib.TokenInfo memory) {
-
         if (isOfflineMode()) {
             return PrecompileLib.tokenInfo(token);
         }
@@ -252,7 +239,6 @@ library RealL1Read {
     }
 
     function tokenSupply(uint32 token) internal returns (PrecompileLib.TokenSupply memory) {
-
         if (isOfflineMode()) {
             return PrecompileLib.tokenSupply(token);
         }
@@ -262,7 +248,6 @@ library RealL1Read {
     }
 
     function bbo(uint32 asset) internal returns (PrecompileLib.Bbo memory) {
-
         if (isOfflineMode()) {
             return PrecompileLib.bbo(asset);
         }
@@ -275,7 +260,6 @@ library RealL1Read {
         internal
         returns (PrecompileLib.AccountMarginSummary memory)
     {
-
         if (isOfflineMode()) {
             return PrecompileLib.accountMarginSummary(perp_dex_index, user);
         }
@@ -285,7 +269,6 @@ library RealL1Read {
     }
 
     function coreUserExists(address user) internal returns (bool) {
-
         if (isOfflineMode()) {
             return PrecompileLib.coreUserExists(user);
         }

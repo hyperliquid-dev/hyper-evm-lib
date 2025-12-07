@@ -8,7 +8,7 @@ import {Heap} from "@openzeppelin/contracts/utils/structs/Heap.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {PrecompileLib} from "../../../src/PrecompileLib.sol";
-import {CoreWriterLib} from "../../../src/CoreWriterLib.sol";
+import {CoreWriterLib, HLConstants} from "../../../src/CoreWriterLib.sol";
 import {HLConversions} from "../../../src/common/HLConversions.sol";
 import {RealL1Read} from "../../utils/RealL1Read.sol";
 import {CoreView} from "./CoreView.sol";
@@ -35,8 +35,23 @@ contract CoreExecution is CoreView {
     {
         if (_accounts[from].activated) {
             _accounts[from].spot[token] += toWei(value, _tokens[token].evmExtraWeiDecimals);
-        } else {
-            _latentSpotBalance[from][token] += toWei(value, _tokens[token].evmExtraWeiDecimals);
+        } 
+        else {
+            if (_isQuoteToken[token]) {
+                uint64 amount = toWei(value, _tokens[token].evmExtraWeiDecimals);
+                uint64 activationFee = 1e8;
+                if (amount < activationFee) {
+                    revert("insufficient amount bridged for activation fee");
+                }
+                else {
+                    _accounts[from].spot[token] += (amount - activationFee);
+                    _accounts[from].activated = true;
+                    _initializedSpotBalance[from][token] = true;
+                }
+            }
+            else {
+                _latentSpotBalance[from][token] += toWei(value, _tokens[token].evmExtraWeiDecimals);
+            }
         }
     }
 
@@ -399,7 +414,7 @@ contract CoreExecution is CoreView {
             _accounts[action.destination].spot[action.token] += action._wei;
         } else {
             uint256 transferAmount;
-            if (action.token == HYPE_TOKEN_INDEX) {
+            if (action.token == HLConstants.hypeTokenIndex()) {
                 transferAmount = uint256(action._wei) * 1e10;
                 deal(systemAddress, systemAddress.balance + transferAmount);
                 vm.startPrank(systemAddress);
@@ -411,7 +426,11 @@ contract CoreExecution is CoreView {
             }
             address evmContract = _tokens[action.token].evmContract;
             transferAmount = fromWei(action._wei, _tokens[action.token].evmExtraWeiDecimals);
-            deal(evmContract, systemAddress, IERC20(evmContract).balanceOf(systemAddress) + transferAmount);
+            
+            if (evmContract != address(HLConstants.coreDepositWallet())) {
+                deal(evmContract, systemAddress, IERC20(evmContract).balanceOf(systemAddress) + transferAmount);
+            }
+
             vm.startPrank(systemAddress);
             IERC20(evmContract).safeTransfer(sender, transferAmount);
         }
