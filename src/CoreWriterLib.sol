@@ -12,7 +12,7 @@ import {ICoreWriter} from "./interfaces/ICoreWriter.sol";
 import {ICoreDepositWallet} from "./interfaces/ICoreDepositWallet.sol";
 
 /**
- * @title CoreWriterLib v1.0
+ * @title CoreWriterLib v1.1
  * @author Obsidian (https://x.com/ObsidianAudits)
  * @notice A library for interacting with HyperEVM's CoreWriter
  *
@@ -65,7 +65,7 @@ library CoreWriterLib {
      * @param recipient The address that will receive the USDC on Core
      * @param evmAmount The amount of USDC to bridge (in EVM decimals)
      */
-    function bridgeUsdcToCoreTo(address recipient, uint256 evmAmount) internal {
+    function bridgeUsdcToCoreFor(address recipient, uint256 evmAmount) internal {
         // Check if amount would be 0 after conversion to prevent token loss
         uint64 coreAmount = HLConversions.evmToWei(HLConstants.USDC_TOKEN_INDEX, evmAmount);
         if (coreAmount == 0) revert CoreWriterLib__EvmAmountTooSmall(evmAmount);

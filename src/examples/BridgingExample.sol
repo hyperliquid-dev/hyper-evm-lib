@@ -38,9 +38,9 @@ contract BridgingExample {
      * @param recipient The address that will receive the USDC on Core
      * @param evmAmount The amount of USDC to bridge (in EVM decimals)
      */
-    function bridgeUsdcToCoreTo(address recipient, uint256 evmAmount) external payable {
+    function bridgeUsdcToCoreFor(address recipient, uint256 evmAmount) external payable {
         // Bridge USDC to core for a specific recipient
-        CoreWriterLib.bridgeUsdcToCoreTo(recipient, evmAmount);
+        CoreWriterLib.bridgeUsdcToCoreFor(recipient, evmAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
