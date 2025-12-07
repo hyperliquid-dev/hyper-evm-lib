@@ -9,6 +9,7 @@ pragma solidity ^0.8.0;
  */
 contract TokenRegistry {
     address constant TOKEN_INFO_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000080C;
+    address constant USDC_EVM_CONTRACT_ADDRESS = 0xb88339CB7199b77E23DB6E890353E22632Ba630f;
 
     /// @notice Maps evm contract addresses to their HyperCore token index
     mapping(address => TokenData) internal addressToIndex;
@@ -33,10 +34,21 @@ contract TokenRegistry {
      * @notice Register a token by passing in its index
      * @param tokenIndex The index of the token to register
      * @dev Calls the token info precompile and stores the mapping
+     * @dev For USDC (tokenIndex 0), we manually set the evmContract to USDC_EVM_CONTRACT_ADDRESS
+     *      because the tokenInfo.evmContract from the precompile stores the coreDepositWallet address instead
      */
     function setTokenInfo(uint32 tokenIndex) public {
-        // call the precompile
-        address evmContract = getTokenAddress(tokenIndex);
+        address evmContract;
+        
+        // Special handling for USDC (token index 0)
+        // For USDC, the tokenInfo.evmContract from the precompile stores the coreDepositWallet address,
+        // not the actual USDC EVM contract address. Therefore, we manually set it to the correct address.
+        if (tokenIndex == 0) {
+            evmContract = USDC_EVM_CONTRACT_ADDRESS;
+        } else {
+            // call the precompile for other tokens
+            evmContract = getTokenAddress(tokenIndex);
+        }
 
         if (evmContract == address(0)) {
             revert NoEvmContract(tokenIndex);
