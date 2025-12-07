@@ -25,7 +25,6 @@ library CoreWriterLib {
     using SafeERC20 for IERC20;
 
     ICoreWriter constant coreWriter = ICoreWriter(0x3333333333333333333333333333333333333333);
-    ICoreDepositWallet constant coreDepositWallet = ICoreDepositWallet(0x6B9E773128f453f5c2C60935Ee2DE2CBc5390A24);
 
     error CoreWriterLib__StillLockedUntilTimestamp(uint64 lockedUntilTimestamp);
     error CoreWriterLib__CannotSelfTransfer();
@@ -43,12 +42,14 @@ library CoreWriterLib {
     }
 
     function bridgeToCore(uint64 token, uint256 evmAmount) internal {
+        ICoreDepositWallet coreDepositWallet = ICoreDepositWallet(HLConstants.coreDepositWallet());
+        
         // Check if amount would be 0 after conversion to prevent token loss
         uint64 coreAmount = HLConversions.evmToWei(token, evmAmount);
         if (coreAmount == 0) revert CoreWriterLib__EvmAmountTooSmall(evmAmount);
         address systemAddress = getSystemAddress(token);
         if (HLConstants.isUsdc(token)) {
-            IERC20(HLConstants.USDC_EVM_CONTRACT_ADDRESS).approve(address(coreDepositWallet), evmAmount);
+            IERC20(HLConstants.usdc()).approve(address(coreDepositWallet), evmAmount);
             coreDepositWallet.deposit(evmAmount, uint32(type(uint32).max));
         } else if (isHype(token)) {
             (bool success,) = systemAddress.call{value: evmAmount}("");
@@ -66,11 +67,13 @@ library CoreWriterLib {
      * @param evmAmount The amount of USDC to bridge (in EVM decimals)
      */
     function bridgeUsdcToCoreFor(address recipient, uint256 evmAmount) internal {
+        ICoreDepositWallet coreDepositWallet = ICoreDepositWallet(HLConstants.coreDepositWallet());
+        
         // Check if amount would be 0 after conversion to prevent token loss
         uint64 coreAmount = HLConversions.evmToWei(HLConstants.USDC_TOKEN_INDEX, evmAmount);
         if (coreAmount == 0) revert CoreWriterLib__EvmAmountTooSmall(evmAmount);
 
-        IERC20(HLConstants.USDC_EVM_CONTRACT_ADDRESS).approve(address(coreDepositWallet), evmAmount);
+        IERC20(HLConstants.usdc()).approve(address(coreDepositWallet), evmAmount);
         coreDepositWallet.depositFor(recipient, evmAmount, uint32(type(uint32).max));
     }
 

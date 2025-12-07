@@ -29,13 +29,19 @@ library HLConstants {
     uint160 constant BASE_SYSTEM_ADDRESS = uint160(0x2000000000000000000000000000000000000000);
     address constant HYPE_SYSTEM_ADDRESS = 0x2222222222222222222222222222222222222222;
 
-    address constant USDC_EVM_CONTRACT_ADDRESS = 0xb88339CB7199b77E23DB6E890353E22632Ba630f;
+    address constant USDC_EVM_CONTRACT = 0xb88339CB7199b77E23DB6E890353E22632Ba630f;
+    address constant TESTNET_USDC_CONTRACT = 0x2B3370eE501B4a559b57D449569354196457D8Ab;
+
     uint64 constant USDC_TOKEN_INDEX = 0;
+
+
+    address constant CORE_DEPOSIT_WALLET = 0x6B9E773128f453f5c2C60935Ee2DE2CBc5390A24;
+    address constant TESTNET_CORE_DEPOSIT_WALLET = 0x0B80659a4076E9E93C7DbE0f10675A16a3e5C206;
 
     uint8 constant HYPE_EVM_EXTRA_DECIMALS = 10;
 
     /*//////////////////////////////////////////////////////////////
-                        HYPE Token Index
+                        HYPE Utils
     //////////////////////////////////////////////////////////////*/
     function hypeTokenIndex() internal view returns (uint64) {
         return block.chainid == 998 ? 1105 : 150;
@@ -46,10 +52,18 @@ library HLConstants {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        USDC Token Index
+                        USDC Utils
     //////////////////////////////////////////////////////////////*/
     function isUsdc(uint64 index) internal pure returns (bool) {
         return index == USDC_TOKEN_INDEX;
+    }
+
+    function usdc() internal view returns (address) {
+        return block.chainid == 998 ? TESTNET_USDC_CONTRACT : USDC_EVM_CONTRACT;
+    }
+
+    function coreDepositWallet() internal view returns (address) {
+        return block.chainid == 998 ? TESTNET_CORE_DEPOSIT_WALLET : CORE_DEPOSIT_WALLET;
     }
 
     /*//////////////////////////////////////////////////////////////

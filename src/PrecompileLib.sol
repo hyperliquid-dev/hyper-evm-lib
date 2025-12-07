@@ -61,7 +61,7 @@ library PrecompileLib {
      * @notice Gets the index of a token from its address. Reverts if token is not linked to HyperCore.
      */
     function getTokenIndex(address tokenAddress) internal view returns (uint64) {
-        if (tokenAddress == HLConstants.USDC_EVM_CONTRACT_ADDRESS) {
+        if (tokenAddress == HLConstants.usdc()) {
             return HLConstants.USDC_TOKEN_INDEX;
         }
         return REGISTRY.getTokenIndex(tokenAddress);
