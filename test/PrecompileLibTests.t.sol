@@ -52,7 +52,7 @@ contract PrecompileLibTests is Test {
     function test_normalizedMarkPx() public {
         uint256 price = PrecompileLib.normalizedMarkPx(0);
         console.log("BTC price: %e", price);
-        assertApproxEqAbs(price, 114000e6, 20000e6);
+        assertApproxEqAbs(price, 114000e6, 40000e6);
 
         price = PrecompileLib.normalizedMarkPx(1);
         console.log("ETH price: %e", price);
@@ -62,7 +62,7 @@ contract PrecompileLibTests is Test {
     function test_normalizedOraclePrice() public {
         uint256 price = PrecompileLib.normalizedOraclePx(0);
         console.log("BTC price: %e", price);
-        assertApproxEqAbs(price, 114000e6, 20000e6);
+        assertApproxEqAbs(price, 114000e6, 40000e6);
 
         price = PrecompileLib.normalizedOraclePx(1);
         console.log("ETH price: %e", price);

@@ -25,6 +25,11 @@ contract CoreState is StdCheats {
 
     uint64 public immutable HYPE_TOKEN_INDEX;
     uint64 public constant USDC_TOKEN_INDEX = 0;
+    uint256 public constant FEE_DENOMINATOR = 1e6;
+
+    // Default taker fees for simulator-controlled spot/perp trades (100% = 1e6)
+    uint16 public spotMakerFee;
+    uint16 public perpMakerFee;
 
     constructor() {
         HYPE_TOKEN_INDEX = HLConstants.hypeTokenIndex();
@@ -87,7 +92,8 @@ contract CoreState is StdCheats {
     mapping(address user => mapping(address vault => uint256 userVaultMultiplier)) internal _userVaultMultiplier;
     mapping(address vault => uint256 multiplier) internal _vaultMultiplier;
 
-    mapping(address user => mapping(address validator => uint256 userStakingYieldIndex)) internal _userStakingYieldIndex;
+    mapping(address user => mapping(address validator => uint256 userStakingYieldIndex)) internal
+        _userStakingYieldIndex;
     uint256 internal _stakingYieldIndex; // assumes same yield for all validators TODO: account for differences due to commissions
 
     EnumerableSet.Bytes32Set internal _openPerpPositions;
@@ -153,6 +159,16 @@ contract CoreState is StdCheats {
 
     function setUseRealL1Read(bool _useRealL1Read) public {
         useRealL1Read = _useRealL1Read;
+    }
+
+    function setSpotMakerFee(uint16 bps) public {
+        require(bps <= FEE_DENOMINATOR, "fee too high");
+        spotMakerFee = bps;
+    }
+
+    function setPerpMakerFee(uint16 bps) public {
+        require(bps <= FEE_DENOMINATOR, "fee too high");
+        perpMakerFee = bps;
     }
 
     function _initializeAccountWithToken(address _account, uint64 token) internal {
@@ -275,6 +291,7 @@ contract CoreState is StdCheats {
     function registerTokenInfo(uint64 index, PrecompileLib.TokenInfo memory tokenInfo) public {
         _tokens[index] = tokenInfo;
     }
+
     function registerSpotInfo(uint32 spotIndex, PrecompileLib.SpotInfo memory spotInfo) public {
         _spotInfo[spotIndex] = spotInfo;
     }
@@ -319,6 +336,17 @@ contract CoreState is StdCheats {
         _accounts[account].perpBalance = usd;
     }
 
+    function forcePerpPositionLeverage(address account, uint16 perp, uint32 leverage) public payable {
+        if (_accounts[account].activated == false) {
+            forceAccountActivation(account);
+        }
+        if (_initializedPerpPosition[account][perp] == false) {
+            _initializeAccountWithPerp(account, perp);
+        }
+
+        _accounts[account].positions[perp].leverage = leverage;
+    }
+
     function forceStakingBalance(address account, uint64 _wei) public payable {
         forceAccountActivation(account);
         _accounts[account].staking = _wei;
@@ -326,8 +354,9 @@ contract CoreState is StdCheats {
 
     function forceDelegation(address account, address validator, uint64 amount, uint64 lockedUntilTimestamp) public {
         forceAccountActivation(account);
-        _accounts[account].delegations[validator] =
-            PrecompileLib.Delegation({validator: validator, amount: amount, lockedUntilTimestamp: lockedUntilTimestamp});
+        _accounts[account].delegations[validator] = PrecompileLib.Delegation({
+            validator: validator, amount: amount, lockedUntilTimestamp: lockedUntilTimestamp
+        });
     }
 
     function forceVaultEquity(address account, address vault, uint64 usd, uint64 lockedUntilTimestamp) public payable {
@@ -356,7 +385,9 @@ contract CoreState is StdCheats {
     function fromWei(uint64 _wei, int8 evmExtraWeiDecimals) internal pure returns (uint256) {
         return evmExtraWeiDecimals == 0
             ? _wei
-            : evmExtraWeiDecimals > 0 ? _wei * 10 ** uint8(evmExtraWeiDecimals) : _wei / 10 ** uint8(-evmExtraWeiDecimals);
+            : evmExtraWeiDecimals > 0
+                ? _wei * 10 ** uint8(evmExtraWeiDecimals)
+                : _wei / 10 ** uint8(-evmExtraWeiDecimals);
     }
 
     function fromPerp(uint64 usd) internal pure returns (uint64) {
@@ -371,11 +402,7 @@ contract CoreState is StdCheats {
         );
     }
 
-    function deserializeWithdrawRequest(bytes32 data)
-        internal
-        pure
-        returns (CoreState.WithdrawRequest memory request)
-    {
+    function deserializeWithdrawRequest(bytes32 data) internal pure returns (CoreState.WithdrawRequest memory request) {
         request.account = address(uint160(uint256(data) >> 96));
         request.amount = uint64(uint256(data) >> 32);
         request.lockedUntilTimestamp = uint32(uint256(data));
