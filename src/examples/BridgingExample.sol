@@ -40,7 +40,7 @@ contract BridgingExample {
      */
     function bridgeUsdcToCoreFor(address recipient, uint256 evmAmount) external payable {
         // Bridge USDC to core for a specific recipient
-        CoreWriterLib.bridgeUsdcToCoreFor(recipient, evmAmount);
+        CoreWriterLib.bridgeUsdcToCoreFor(recipient, evmAmount, HLConstants.SPOT_DEX);
     }
 
     /*//////////////////////////////////////////////////////////////

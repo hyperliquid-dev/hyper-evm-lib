@@ -41,6 +41,9 @@ library CoreWriterLib {
         bridgeToCore(tokenIndex, evmAmount);
     }
 
+    /**
+    * @dev All tokens (including USDC) will be bridged to the spot dex
+    */
     function bridgeToCore(uint64 token, uint256 evmAmount) internal {
         ICoreDepositWallet coreDepositWallet = ICoreDepositWallet(HLConstants.coreDepositWallet());
         
@@ -65,16 +68,17 @@ library CoreWriterLib {
      * @notice Bridges USDC from EVM to Core to a specific recipient
      * @param recipient The address that will receive the USDC on Core
      * @param evmAmount The amount of USDC to bridge (in EVM decimals)
+     * @param destinationDex The dex to send the USDC to on Core (type(uint32).max for spot, 0 for default perp dex)
      */
-    function bridgeUsdcToCoreFor(address recipient, uint256 evmAmount) internal {
+    function bridgeUsdcToCoreFor(address recipient, uint256 evmAmount, uint32 destinationDex) internal {
         ICoreDepositWallet coreDepositWallet = ICoreDepositWallet(HLConstants.coreDepositWallet());
-        
+
         // Check if amount would be 0 after conversion to prevent token loss
         uint64 coreAmount = HLConversions.evmToWei(HLConstants.USDC_TOKEN_INDEX, evmAmount);
         if (coreAmount == 0) revert CoreWriterLib__EvmAmountTooSmall(evmAmount);
 
         IERC20(HLConstants.usdc()).approve(address(coreDepositWallet), evmAmount);
-        coreDepositWallet.depositFor(recipient, evmAmount, uint32(type(uint32).max));
+        coreDepositWallet.depositFor(recipient, evmAmount, destinationDex);
     }
 
     function bridgeToEvm(address tokenAddress, uint256 evmAmount) internal {

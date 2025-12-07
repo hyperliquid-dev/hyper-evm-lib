@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {PrecompileLib} from "../../src/PrecompileLib.sol";
 import {CoreSimulatorLib} from "../simulation/CoreSimulatorLib.sol";
 
-import {CoreWriterLib, HLConversions} from "../../src/CoreWriterLib.sol";
+import {CoreWriterLib, HLConversions, HLConstants} from "../../src/CoreWriterLib.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 contract BridgingTest is Test {
     function setUp() public {
@@ -29,13 +29,14 @@ contract BridgingTest is Test {
         assertEq(PrecompileLib.spotBalance(address(user), 0).total, HLConversions.evmToWei(0, 1000e6) - activationFee);
     }
 
+    // TODO: To be able to bridge to perp dexes directly, SendAsset action needs to be implemented. Requires refactor of CoreState to support multiple perp dexes (HIP-3)
     function test_bridgeUSDCToCoreForRecipient() public {
         IERC20 USDC = IERC20(0xb88339CB7199b77E23DB6E890353E22632Ba630f);
         address recipient = makeAddr("recipient");
         address user = makeAddr("user");
         deal(address(USDC), user, 1000e6);
         vm.startPrank(user);
-        CoreWriterLib.bridgeUsdcToCoreFor(recipient, 1000e6);
+        CoreWriterLib.bridgeUsdcToCoreFor(recipient, 1000e6, HLConstants.SPOT_DEX);
         vm.stopPrank();
 
         uint64 activationFee = !PrecompileLib.coreUserExists(recipient) ? 1e8 : 0;
