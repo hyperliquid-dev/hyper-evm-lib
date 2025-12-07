@@ -61,7 +61,7 @@ contract CoreExecution is CoreView {
 
         bool isolated = position.isIsolated;
 
-        uint256 markPx = PrecompileLib.markPx(perpIndex);
+        uint256 markPx = readMarkPx(perpIndex);
         uint256 normalizedMarkPx = PrecompileLib.normalizedMarkPx(perpIndex) * 100;
 
         PrecompileLib.PerpAssetInfo memory perpInfo = PrecompileLib.perpAssetInfo(perpIndex);
@@ -95,6 +95,14 @@ contract CoreExecution is CoreView {
         require(leverage > 0, "Invalid leverage");
         require(action.sz > 0, "Invalid size");
         require(markPx > 0, "Invalid price");
+
+        if (perpMakerFee > 0) {
+            uint256 notional = uint256(action.sz) * uint256(_markPx);
+            uint64 fee = SafeCast.toUint64((notional * uint256(perpMakerFee)) / FEE_DENOMINATOR);
+            require(_accounts[sender].perpBalance >= fee, "insufficient perp balance for fee");
+            _accounts[sender].perpBalance -= fee;
+        }
+
         int64 newSzi = szi + int64(action.sz);
 
         if (szi >= 0) {
@@ -113,16 +121,18 @@ contract CoreExecution is CoreView {
                 uint64 closedMargin =
                     (uint64(action.sz) * _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi)) / leverage;
 
-                _accounts[sender].perpBalance =
-                    pnl > 0 ? _accounts[sender].perpBalance + uint64(pnl) : _accounts[sender].perpBalance - uint64(-pnl);
+                _accounts[sender].perpBalance = pnl > 0
+                    ? _accounts[sender].perpBalance + uint64(pnl)
+                    : _accounts[sender].perpBalance - uint64(-pnl);
 
                 _accounts[sender].positions[perpIndex].szi = newSzi;
                 _accounts[sender].positions[perpIndex].entryNtl = uint64(-newSzi) * avgEntryPrice;
             } else {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi);
                 int64 pnl = int64(-szi) * (int64(avgEntryPrice) - int64(_markPx));
-                _accounts[sender].perpBalance =
-                    pnl > 0 ? _accounts[sender].perpBalance + uint64(pnl) : _accounts[sender].perpBalance - uint64(-pnl);
+                _accounts[sender].perpBalance = pnl > 0
+                    ? _accounts[sender].perpBalance + uint64(pnl)
+                    : _accounts[sender].perpBalance - uint64(-pnl);
 
                 uint64 newLongSize = uint64(newSzi);
                 uint64 newMargin = newLongSize * _markPx / leverage;
@@ -153,6 +163,14 @@ contract CoreExecution is CoreView {
         require(leverage > 0, "Invalid leverage");
         require(action.sz > 0, "Invalid size");
         require(markPx > 0, "Invalid price");
+
+        if (perpMakerFee > 0) {
+            uint256 notional = uint256(action.sz) * uint256(_markPx);
+            uint64 fee = SafeCast.toUint64((notional * uint256(perpMakerFee)) / FEE_DENOMINATOR);
+            require(_accounts[sender].perpBalance >= fee, "insufficient perp balance for fee");
+            _accounts[sender].perpBalance -= fee;
+        }
+
         int64 newSzi = szi - int64(action.sz);
 
         if (szi <= 0) {
@@ -170,16 +188,18 @@ contract CoreExecution is CoreView {
                 uint64 closedMargin =
                     (uint64(action.sz) * _accounts[sender].positions[perpIndex].entryNtl / uint64(szi)) / leverage;
 
-                _accounts[sender].perpBalance =
-                    pnl > 0 ? _accounts[sender].perpBalance + uint64(pnl) : _accounts[sender].perpBalance - uint64(-pnl);
+                _accounts[sender].perpBalance = pnl > 0
+                    ? _accounts[sender].perpBalance + uint64(pnl)
+                    : _accounts[sender].perpBalance - uint64(-pnl);
 
                 _accounts[sender].positions[perpIndex].szi = newSzi;
                 _accounts[sender].positions[perpIndex].entryNtl = uint64(newSzi) * avgEntryPrice;
             } else {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(szi);
                 int64 pnl = int64(szi) * (int64(_markPx) - int64(avgEntryPrice));
-                _accounts[sender].perpBalance =
-                    pnl > 0 ? _accounts[sender].perpBalance + uint64(pnl) : _accounts[sender].perpBalance - uint64(-pnl);
+                _accounts[sender].perpBalance = pnl > 0
+                    ? _accounts[sender].perpBalance + uint64(pnl)
+                    : _accounts[sender].perpBalance - uint64(-pnl);
 
                 uint64 newShortSize = uint64(-newSzi);
                 uint64 newMargin = newShortSize * _markPx / leverage;
@@ -239,10 +259,7 @@ contract CoreExecution is CoreView {
         int64 totalRawUsd = totalAccountValue - int64(totalLongNtlPos) + int64(totalShortNtlPos);
 
         _accounts[sender].marginSummary[0] = PrecompileLib.AccountMarginSummary({
-            accountValue: totalAccountValue,
-            marginUsed: totalMarginUsed,
-            ntlPos: totalNtlPos,
-            rawUsd: totalRawUsd
+            accountValue: totalAccountValue, marginUsed: totalMarginUsed, ntlPos: totalNtlPos, rawUsd: totalRawUsd
         });
     }
 
@@ -251,53 +268,84 @@ contract CoreExecution is CoreView {
         public
         initAccountWithSpotMarket(sender, uint32(HLConversions.assetToSpotId(action.asset)))
     {
+        uint32 spotMarketId = uint32(HLConversions.assetToSpotId(action.asset));
 
-        PrecompileLib.SpotInfo memory spotInfo;
-        spotInfo = RealL1Read.spotInfo(uint32(HLConversions.assetToSpotId(action.asset)));
+        PrecompileLib.SpotInfo memory spotInfo = RealL1Read.spotInfo(spotMarketId);
+        uint64 baseToken = spotInfo.tokens[0];
+        uint64 quoteToken = spotInfo.tokens[1];
 
-        PrecompileLib.TokenInfo memory baseToken = _tokens[spotInfo.tokens[0]];
+        uint8 baseSzDecimals = _tokens[baseToken].szDecimals;
+        uint8 baseWeiDecimals = _tokens[baseToken].weiDecimals;
 
-        uint64 spotPx = readSpotPx(uint32(HLConversions.assetToSpotId(action.asset))) * SafeCast.toUint64(10 ** baseToken.szDecimals);
+        uint64 spotPx = readSpotPx(spotMarketId) * SafeCast.toUint64(10 ** baseSzDecimals);
 
         if (spotPx == 0 && !useRealL1Read) {
             // in offline mode, if price is not set, we revert
             revert("Offline mode: spot price has not been set. Use CoreSimulatorLib.setSpotPx()");
         }
 
-        uint64 fromToken;
-        uint64 toToken;
-
         if (isActionExecutable(action, spotPx)) {
+            uint64 orderSz = action.sz;
             if (action.isBuy) {
-                fromToken = spotInfo.tokens[1];
-                toToken = spotInfo.tokens[0];
-
-                uint64 amountIn = SafeCast.toUint64(uint256(action.sz) * uint256(spotPx) / 1e8);
-                uint64 amountOut = scale(action.sz, 8, baseToken.weiDecimals);
-
-                if (_accounts[sender].spot[fromToken] >= amountIn) {
-                    _accounts[sender].spot[fromToken] -= amountIn;
-                    _accounts[sender].spot[toToken] += amountOut;
-                } else {
-                    revert("insufficient balance");
-                }
+                _executeSpotBuy(sender, baseToken, quoteToken, baseWeiDecimals, spotPx, orderSz);
             } else {
-                fromToken = spotInfo.tokens[0];
-                toToken = spotInfo.tokens[1];
-
-                uint64 amountIn = scale(action.sz, 8, baseToken.weiDecimals);
-                uint64 amountOut = SafeCast.toUint64(uint256(action.sz) * uint256(spotPx) / 1e8);
-
-                if (_accounts[sender].spot[fromToken] >= amountIn) {
-                    _accounts[sender].spot[fromToken] -= amountIn;
-                    _accounts[sender].spot[toToken] += amountOut;
-                } else {
-                    revert("insufficient balance");
-                }
+                _executeSpotSell(sender, baseToken, quoteToken, baseWeiDecimals, spotPx, orderSz);
             }
         } else {
             _pendingOrders.push(PendingOrder({sender: sender, action: action}));
         }
+    }
+
+    function _executeSpotBuy(
+        address sender,
+        uint64 baseToken,
+        uint64 quoteToken,
+        uint8 baseWeiDecimals,
+        uint64 spotPx,
+        uint64 orderSz
+    ) internal {
+        uint64 amountIn = SafeCast.toUint64(uint256(orderSz) * uint256(spotPx) / 1e8);
+        uint64 amountOut = scale(orderSz, 8, baseWeiDecimals);
+
+        uint64 totalDebit = amountIn;
+        if (spotMakerFee > 0) {
+            totalDebit =
+                SafeCast.toUint64(uint256(amountIn) + ((uint256(amountIn) * uint256(spotMakerFee)) / FEE_DENOMINATOR));
+        }
+
+        if (_accounts[sender].spot[quoteToken] < totalDebit) {
+            revert("insufficient balance");
+        }
+
+        _accounts[sender].spot[quoteToken] -= totalDebit;
+        _accounts[sender].spot[baseToken] += amountOut;
+    }
+
+    function _executeSpotSell(
+        address sender,
+        uint64 baseToken,
+        uint64 quoteToken,
+        uint8 baseWeiDecimals,
+        uint64 spotPx,
+        uint64 orderSz
+    ) internal {
+        uint64 amountIn = scale(orderSz, 8, baseWeiDecimals);
+        uint64 amountOut = SafeCast.toUint64(uint256(orderSz) * uint256(spotPx) / 1e8);
+
+        if (_accounts[sender].spot[baseToken] < amountIn) {
+            revert("insufficient balance");
+        }
+
+        uint64 netProceeds = amountOut;
+        if (spotMakerFee > 0) {
+            uint64 fee = SafeCast.toUint64((uint256(amountOut) * uint256(spotMakerFee)) / FEE_DENOMINATOR);
+
+            require(netProceeds > fee, "fee exceeds proceeds");
+            netProceeds -= fee;
+        }
+
+        _accounts[sender].spot[baseToken] -= amountIn;
+        _accounts[sender].spot[quoteToken] += netProceeds;
     }
 
     function scale(uint64 amount, uint8 fromDecimals, uint8 toDecimals) internal pure returns (uint64) {
@@ -323,9 +371,11 @@ contract CoreExecution is CoreView {
         }
 
         // handle account activation case, skip activation for system addresses
-        if (_accounts[action.destination].activated == false && getTokenIndexFromSystemAddress(action.destination) > 10000) {
+        if (
+            _accounts[action.destination].activated == false
+                && getTokenIndexFromSystemAddress(action.destination) > 10000
+        ) {
             _chargeUSDCFee(sender);
-
 
             _accounts[action.destination].activated = true;
 
@@ -461,9 +511,7 @@ contract CoreExecution is CoreView {
             _accounts[sender].staking -= action._wei;
 
             WithdrawRequest memory withrawRequest = WithdrawRequest({
-                account: sender,
-                amount: action._wei,
-                lockedUntilTimestamp: uint32(block.timestamp + 7 days)
+                account: sender, amount: action._wei, lockedUntilTimestamp: uint32(block.timestamp + 7 days)
             });
 
             _withdrawQueue.pushBack(serializeWithdrawRequest(withrawRequest));

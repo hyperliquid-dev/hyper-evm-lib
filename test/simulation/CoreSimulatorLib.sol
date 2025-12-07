@@ -38,13 +38,13 @@ library CoreSimulatorLib {
 
         vm.etch(address(hyperCore), address(coreImpl).code);
 
-        // Prevent RPC calls for etched addresses
-        //vm.makePersistent(address(hyperCore));
-        
+        // Setting storage variables at the etched address
         hyperCore.setStakingYieldIndex(1e18);
         hyperCore.setUseRealL1Read(true);
+        hyperCore.setSpotMakerFee(400);
+        hyperCore.setPerpMakerFee(150);
+
         vm.etch(address(coreWriter), type(CoreWriterSim).runtimeCode);
-        //vm.makePersistent(address(coreWriter));
 
         // Initialize precompiles
         for (uint160 i = 0; i < NUM_PRECOMPILES; i++) {
@@ -156,7 +156,7 @@ library CoreSimulatorLib {
     function setMarkPx(uint32 perp, uint64 priceDiffBps, bool isIncrease) internal {
         hyperCore.setMarkPx(perp, priceDiffBps, isIncrease);
     }
-    
+
     function setSpotPx(uint32 spotMarketId, uint64 spotPx) internal {
         hyperCore.setSpotPx(spotMarketId, spotPx);
     }
@@ -173,6 +173,18 @@ library CoreSimulatorLib {
         hyperCore.setStakingYieldIndex(multiplier);
     }
 
+    function setSpotMakerFee(uint16 bps) internal {
+        hyperCore.setSpotMakerFee(bps);
+    }
+
+    function setPerpMakerFee(uint16 bps) internal {
+        hyperCore.setPerpMakerFee(bps);
+    }
+
+    function forcePerpLeverage(address account, uint16 perp, uint32 leverage) internal {
+        hyperCore.forcePerpPositionLeverage(account, perp, leverage);
+    }
+
     ///// Private Functions /////
     function _deployTokenRegistryAndCoreTokens() private {
         TokenRegistry registry = TokenRegistry(0x0b51d1A9098cf8a72C325003F44C194D41d7A85B);
@@ -180,7 +192,9 @@ library CoreSimulatorLib {
 
         // register HYPE in hyperCore
         uint64[] memory hypeSpots = new uint64[](3);
-        hypeSpots[0] = 107; hypeSpots[1] = 207; hypeSpots[2] = 232;
+        hypeSpots[0] = 107;
+        hypeSpots[1] = 207;
+        hypeSpots[2] = 232;
         PrecompileLib.TokenInfo memory hypeTokenInfo = PrecompileLib.TokenInfo({
             name: "HYPE",
             spots: hypeSpots,
@@ -207,13 +221,12 @@ library CoreSimulatorLib {
         });
         hyperCore.registerTokenInfo(0, usdcTokenInfo);
 
-
         // register USDT in hyperCore
         address usdt0 = 0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb;
 
         Token usdt0Token = new Token();
         vm.etch(usdt0, address(usdt0Token).code);
-        
+
         uint64[] memory usdt0Spots = new uint64[](1);
         usdt0Spots[0] = 166;
         PrecompileLib.TokenInfo memory usdtTokenInfo = PrecompileLib.TokenInfo({
@@ -230,25 +243,17 @@ library CoreSimulatorLib {
         registry.setTokenInfo(268);
 
         // register spot markets
-        PrecompileLib.SpotInfo memory hypeSpotInfo = PrecompileLib.SpotInfo({
-            name: "@107",
-            tokens: [uint64(150), uint64(0)]
-        });
+        PrecompileLib.SpotInfo memory hypeSpotInfo =
+            PrecompileLib.SpotInfo({name: "@107", tokens: [uint64(150), uint64(0)]});
         hyperCore.registerSpotInfo(107, hypeSpotInfo);
 
-        PrecompileLib.SpotInfo memory usdt0SpotInfo = PrecompileLib.SpotInfo({
-            name: "@166",
-            tokens: [uint64(268), uint64(0)]
-        });
+        PrecompileLib.SpotInfo memory usdt0SpotInfo =
+            PrecompileLib.SpotInfo({name: "@166", tokens: [uint64(268), uint64(0)]});
         hyperCore.registerSpotInfo(166, usdt0SpotInfo);
 
         // register HYPE perp info
-        PrecompileLib.PerpAssetInfo memory hypePerpAssetInfo = PrecompileLib.PerpAssetInfo({  
-            coin: "HYPE",
-            marginTableId: 52,
-            szDecimals: 2,
-            maxLeverage: 10,
-            onlyIsolated: false
+        PrecompileLib.PerpAssetInfo memory hypePerpAssetInfo = PrecompileLib.PerpAssetInfo({
+            coin: "HYPE", marginTableId: 52, szDecimals: 2, maxLeverage: 10, onlyIsolated: false
         });
         hyperCore.registerPerpAssetInfo(150, hypePerpAssetInfo);
     }
@@ -270,8 +275,7 @@ library CoreSimulatorLib {
 
             if (tokenExists(tokenIndex)) {
                 return true;
-            }
-            else {
+            } else {
                 revert("Bridging failed: Corresponding token not found on HyperCore");
             }
         }
@@ -283,7 +287,7 @@ library CoreSimulatorLib {
         if (systemAddr == address(0x2222222222222222222222222222222222222222)) {
             return 150; // HYPE token index
         }
-        
+
         if (uint160(systemAddr) < uint160(0x2000000000000000000000000000000000000000)) return type(uint64).max;
 
         return uint64(uint160(systemAddr) - uint160(0x2000000000000000000000000000000000000000));
@@ -303,13 +307,12 @@ library CoreSimulatorLib {
 
     function isForkActive() internal view returns (bool) {
         try vm.activeFork() returns (uint256) {
-            return true;  // Fork is active
+            return true; // Fork is active
         } catch {
             return false; // No fork active
         }
     }
 }
-
 
 contract Token is ERC20 {
     constructor() ERC20("USDT0", "USDT0") {}
