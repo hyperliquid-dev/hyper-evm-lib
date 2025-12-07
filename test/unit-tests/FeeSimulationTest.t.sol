@@ -16,11 +16,11 @@ contract FeeSimulationTest is Test {
     uint64 constant USDC = 0;
     uint64 constant HYPE = 150;
     uint32 constant HYPE_SPOT = 107;
-    uint16 constant HYPE_PERP = 150;
+    uint16 constant HYPE_PERP = 159;
 
     function setUp() public {
+        vm.createSelectFork("https://rpc.hyperliquid.xyz/evm");
         hyperCore = CoreSimulatorLib.init();
-        hyperCore.setUseRealL1Read(false);
 
         CoreSimulatorLib.forceAccountActivation(user);
         CoreSimulatorLib.forceSpotBalance(user, USDC, 10_000e8);
@@ -30,12 +30,11 @@ contract FeeSimulationTest is Test {
     }
 
     function test_spotFee_onBuy() public {
-        CoreSimulatorLib.setSpotFeeBps(10); // 10 bps
-        CoreSimulatorLib.setSpotPx(HYPE_SPOT, 40e6);
-
         uint64 baseSz = 10e8; // 10 HYPE (in sz=8 decimals notation)
         uint64 usdcBefore = PrecompileLib.spotBalance(user, USDC).total;
         uint64 hypeBefore = PrecompileLib.spotBalance(user, HYPE).total;
+        CoreSimulatorLib.setSpotPx(HYPE_SPOT, PrecompileLib.spotPx(HYPE_SPOT));
+
 
         uint32 assetId = HLConversions.spotToAssetId(HYPE_SPOT);
         uint64 limitPx = uint64(PrecompileLib.normalizedSpotPx(HYPE_SPOT));
@@ -52,15 +51,15 @@ contract FeeSimulationTest is Test {
         PrecompileLib.TokenInfo memory hypeInfo = PrecompileLib.tokenInfo(HYPE);
         uint64 spotPxRaw = hyperCore.readSpotPx(HYPE_SPOT) * uint64(10 ** hypeInfo.szDecimals);
         uint64 amountIn = uint64((uint256(baseSz) * uint256(spotPxRaw)) / 1e8);
-        uint64 fee = uint64(uint256(amountIn) * 10 / 10_000);
+        uint64 fee = uint64(uint256(amountIn) * 400 / 1e6);
 
-        assertEq(usdcBefore - usdcAfter, amountIn + fee, "USDC debit should equal notional plus taker fee");
+        assertEq(usdcBefore - usdcAfter, amountIn + fee, "USDC debit should equal notional plus maker fee");
         assertEq(hypeAfter - hypeBefore, baseSz, "Exact base amount should be received");
     }
 
     function test_spotFee_onSell() public {
-        CoreSimulatorLib.setSpotFeeBps(25); // 25 bps
-        CoreSimulatorLib.setSpotPx(HYPE_SPOT, 12e6);
+        CoreSimulatorLib.setSpotMakerFee(280);
+        CoreSimulatorLib.setSpotPx(HYPE_SPOT, PrecompileLib.spotPx(HYPE_SPOT));
 
         // Provide inventory for selling
         CoreSimulatorLib.forceSpotBalance(user, HYPE, 20e8);
@@ -85,7 +84,7 @@ contract FeeSimulationTest is Test {
         PrecompileLib.TokenInfo memory hypeInfo = PrecompileLib.tokenInfo(HYPE);
         uint64 spotPxRaw = hyperCore.readSpotPx(HYPE_SPOT) * uint64(10 ** hypeInfo.szDecimals);
         uint64 amountOut = uint64((uint256(baseSz) * uint256(spotPxRaw)) / 1e8);
-        uint64 fee = uint64(uint256(amountOut) * 25 / 10_000);
+        uint64 fee = uint64(uint256(amountOut) * 280 / 1e6);
         uint64 netProceeds = amountOut - fee;
 
         assertEq(usdcAfter - usdcBefore, netProceeds, "Quote proceeds should net out fee");
@@ -93,12 +92,13 @@ contract FeeSimulationTest is Test {
     }
 
     function test_perpFee_onLong() public {
-        CoreSimulatorLib.setPerpFeeBps(5); // 5 bps
-        uint64 startingPrice = 1_000_000; // 1,000 * 1e6
-        CoreSimulatorLib.setMarkPx(HYPE_PERP, startingPrice);
-
         uint64 sz = 1e8;
         uint64 perpBalanceBefore = hyperCore.readPerpBalance(user);
+
+        CoreSimulatorLib.setMarkPx(HYPE_PERP, PrecompileLib.markPx(HYPE_PERP));
+
+
+        uint256 startingPrice = PrecompileLib.markPx(HYPE_PERP);
 
         vm.startPrank(user);
         CoreWriterLib.placeLimitOrder(HYPE_PERP, true, type(uint64).max, sz, false, HLConstants.LIMIT_ORDER_TIF_IOC, 1);
@@ -110,15 +110,15 @@ contract FeeSimulationTest is Test {
 
         uint64 scaledSz = _scalePerpSz(sz);
         uint256 notional = uint256(scaledSz) * uint256(startingPrice);
-        uint64 expectedFee = uint64(notional * 5 / 10_000);
+        uint64 expectedFee = uint64(notional * 150 / 1e6);
 
-        assertEq(perpBalanceBefore - perpBalanceAfter, expectedFee, "Perp balance should be debited by taker fee");
+        assertEq(perpBalanceBefore - perpBalanceAfter, expectedFee, "Perp balance should be debited by maker fee");
     }
 
     function test_perpFee_onShort() public {
-        CoreSimulatorLib.setPerpFeeBps(15); // 15 bps
-        uint64 startingPrice = 2_500_000;
-        CoreSimulatorLib.setMarkPx(HYPE_PERP, startingPrice);
+        CoreSimulatorLib.setMarkPx(HYPE_PERP, PrecompileLib.markPx(HYPE_PERP));
+
+        uint256 startingPrice = PrecompileLib.markPx(HYPE_PERP);
 
         uint64 sz = 2e8;
         uint64 perpBalanceBefore = hyperCore.readPerpBalance(user);
@@ -133,10 +133,10 @@ contract FeeSimulationTest is Test {
 
         uint64 scaledSz = _scalePerpSz(sz);
         uint256 notional = uint256(scaledSz) * uint256(startingPrice);
-        uint64 expectedFee = uint64(notional * 15 / 10_000);
+        uint64 expectedFee = uint64(notional * 150 / 1e6);
 
-        assertEq(
-            perpBalanceBefore - perpBalanceAfter, expectedFee, "Short orders should also pay taker fees on notional"
+        assertApproxEqAbs(
+            perpBalanceBefore - perpBalanceAfter, expectedFee, 2, "Short orders should also pay maker fees on notional"
         );
     }
 

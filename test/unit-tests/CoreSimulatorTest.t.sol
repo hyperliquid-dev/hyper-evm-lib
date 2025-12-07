@@ -351,6 +351,8 @@ contract CoreSimulatorTest is Test {
     }
 
     function test_perp_short() public {
+        CoreSimulatorLib.setPerpMakerFee(0);
+
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
@@ -393,6 +395,8 @@ contract CoreSimulatorTest is Test {
     }
 
     function test_perp_shortThenLong() public {
+        CoreSimulatorLib.setPerpMakerFee(0);
+
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
@@ -440,6 +444,9 @@ contract CoreSimulatorTest is Test {
     }
 
     function test_perp_loss() public {
+
+        CoreSimulatorLib.setPerpMakerFee(0);
+
         CoreSimulatorLib.setRevertOnFailure(true);
         vm.startPrank(user);
         HypeTradingContract hypeTrading = new HypeTradingContract(address(user));

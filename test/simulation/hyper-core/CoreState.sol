@@ -25,17 +25,14 @@ contract CoreState is StdCheats {
 
     uint64 public immutable HYPE_TOKEN_INDEX;
     uint64 public constant USDC_TOKEN_INDEX = 0;
+    uint256 public constant FEE_DENOMINATOR = 1e6;
 
-    // Default taker fees for simulator-controlled spot/perp trades (in basis points)
-    uint16 public spotTakerFeeBps;
-    uint16 public perpTakerFeeBps;
+    // Default taker fees for simulator-controlled spot/perp trades (100% = 1e6)
+    uint16 public spotMakerFee;
+    uint16 public perpMakerFee;
 
     constructor() {
         HYPE_TOKEN_INDEX = HLConstants.hypeTokenIndex();
-
-        // Start with zero fees so legacy tests keep the previous behaviour
-        spotTakerFeeBps = 0;
-        perpTakerFeeBps = 0;
     }
 
     struct WithdrawRequest {
@@ -164,14 +161,14 @@ contract CoreState is StdCheats {
         useRealL1Read = _useRealL1Read;
     }
 
-    function setSpotTakerFeeBps(uint16 bps) public {
-        require(bps <= 10_000, "fee too high");
-        spotTakerFeeBps = bps;
+    function setSpotMakerFee(uint16 bps) public {
+        require(bps <= FEE_DENOMINATOR, "fee too high");
+        spotMakerFee = bps;
     }
 
-    function setPerpTakerFeeBps(uint16 bps) public {
-        require(bps <= 10_000, "fee too high");
-        perpTakerFeeBps = bps;
+    function setPerpMakerFee(uint16 bps) public {
+        require(bps <= FEE_DENOMINATOR, "fee too high");
+        perpMakerFee = bps;
     }
 
     function _initializeAccountWithToken(address _account, uint64 token) internal {

@@ -38,13 +38,13 @@ library CoreSimulatorLib {
 
         vm.etch(address(hyperCore), address(coreImpl).code);
 
-        // Prevent RPC calls for etched addresses
-        //vm.makePersistent(address(hyperCore));
-
+        // Setting storage variables at the etched address
         hyperCore.setStakingYieldIndex(1e18);
         hyperCore.setUseRealL1Read(true);
+        hyperCore.setSpotMakerFee(400);
+        hyperCore.setPerpMakerFee(150);
+
         vm.etch(address(coreWriter), type(CoreWriterSim).runtimeCode);
-        //vm.makePersistent(address(coreWriter));
 
         // Initialize precompiles
         for (uint160 i = 0; i < NUM_PRECOMPILES; i++) {
@@ -173,12 +173,12 @@ library CoreSimulatorLib {
         hyperCore.setStakingYieldIndex(multiplier);
     }
 
-    function setSpotFeeBps(uint16 bps) internal {
-        hyperCore.setSpotTakerFeeBps(bps);
+    function setSpotMakerFee(uint16 bps) internal {
+        hyperCore.setSpotMakerFee(bps);
     }
 
-    function setPerpFeeBps(uint16 bps) internal {
-        hyperCore.setPerpTakerFeeBps(bps);
+    function setPerpMakerFee(uint16 bps) internal {
+        hyperCore.setPerpMakerFee(bps);
     }
 
     function forcePerpLeverage(address account, uint16 perp, uint32 leverage) internal {

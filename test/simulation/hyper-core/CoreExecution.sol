@@ -61,7 +61,7 @@ contract CoreExecution is CoreView {
 
         bool isolated = position.isIsolated;
 
-        uint256 markPx = PrecompileLib.markPx(perpIndex);
+        uint256 markPx = readMarkPx(perpIndex);
         uint256 normalizedMarkPx = PrecompileLib.normalizedMarkPx(perpIndex) * 100;
 
         PrecompileLib.PerpAssetInfo memory perpInfo = PrecompileLib.perpAssetInfo(perpIndex);
@@ -96,9 +96,9 @@ contract CoreExecution is CoreView {
         require(action.sz > 0, "Invalid size");
         require(markPx > 0, "Invalid price");
 
-        if (perpTakerFeeBps > 0) {
+        if (perpMakerFee > 0) {
             uint256 notional = uint256(action.sz) * uint256(_markPx);
-            uint64 fee = SafeCast.toUint64((notional * uint256(perpTakerFeeBps)) / 10_000);
+            uint64 fee = SafeCast.toUint64((notional * uint256(perpMakerFee)) / FEE_DENOMINATOR);
             require(_accounts[sender].perpBalance >= fee, "insufficient perp balance for fee");
             _accounts[sender].perpBalance -= fee;
         }
@@ -164,9 +164,9 @@ contract CoreExecution is CoreView {
         require(action.sz > 0, "Invalid size");
         require(markPx > 0, "Invalid price");
 
-        if (perpTakerFeeBps > 0) {
+        if (perpMakerFee > 0) {
             uint256 notional = uint256(action.sz) * uint256(_markPx);
-            uint64 fee = SafeCast.toUint64((notional * uint256(perpTakerFeeBps)) / 10_000);
+            uint64 fee = SafeCast.toUint64((notional * uint256(perpMakerFee)) / FEE_DENOMINATOR);
             require(_accounts[sender].perpBalance >= fee, "insufficient perp balance for fee");
             _accounts[sender].perpBalance -= fee;
         }
@@ -308,9 +308,9 @@ contract CoreExecution is CoreView {
         uint64 amountOut = scale(orderSz, 8, baseWeiDecimals);
 
         uint64 totalDebit = amountIn;
-        if (spotTakerFeeBps > 0) {
+        if (spotMakerFee > 0) {
             totalDebit =
-                SafeCast.toUint64(uint256(amountIn) + ((uint256(amountIn) * uint256(spotTakerFeeBps)) / 10_000));
+                SafeCast.toUint64(uint256(amountIn) + ((uint256(amountIn) * uint256(spotMakerFee)) / FEE_DENOMINATOR));
         }
 
         if (_accounts[sender].spot[quoteToken] < totalDebit) {
@@ -337,8 +337,9 @@ contract CoreExecution is CoreView {
         }
 
         uint64 netProceeds = amountOut;
-        if (spotTakerFeeBps > 0) {
-            uint64 fee = SafeCast.toUint64((uint256(amountOut) * uint256(spotTakerFeeBps)) / 10_000);
+        if (spotMakerFee > 0) {
+            uint64 fee = SafeCast.toUint64((uint256(amountOut) * uint256(spotMakerFee)) / FEE_DENOMINATOR);
+
             require(netProceeds > fee, "fee exceeds proceeds");
             netProceeds -= fee;
         }
