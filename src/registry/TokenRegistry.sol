@@ -9,7 +9,6 @@ pragma solidity ^0.8.0;
  */
 contract TokenRegistry {
     address constant TOKEN_INFO_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000080C;
-    address constant USDC_EVM_CONTRACT_ADDRESS = 0xb88339CB7199b77E23DB6E890353E22632Ba630f;
 
     /// @notice Maps evm contract addresses to their HyperCore token index
     mapping(address => TokenData) internal addressToIndex;
@@ -74,17 +73,8 @@ contract TokenRegistry {
      * @notice Get the evm contract address of a token by passing in the index
      * @param index The index of the token
      * @return evmContract The evm contract address of the token
-     * @dev For USDC (index 0), we manually return USDC_EVM_CONTRACT_ADDRESS because the tokenInfo.evmContract
-     *      from the precompile stores the coreDepositWallet address instead of the actual USDC EVM contract address
      */
     function getTokenAddress(uint32 index) public view returns (address) {
-        // Special handling for USDC (token index 0)
-        // For USDC, the tokenInfo.evmContract from the precompile stores the coreDepositWallet address,
-        // not the actual USDC EVM contract address. Therefore, we manually return the correct address.
-        if (index == 0) {
-            return USDC_EVM_CONTRACT_ADDRESS;
-        }
-
         (bool success, bytes memory result) = TOKEN_INFO_PRECOMPILE_ADDRESS.staticcall(abi.encode(index));
         if (!success) revert PrecompileCallFailed();
         TokenInfo memory info = abi.decode(result, (TokenInfo));
