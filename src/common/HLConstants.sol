@@ -29,6 +29,9 @@ library HLConstants {
     uint160 constant BASE_SYSTEM_ADDRESS = uint160(0x2000000000000000000000000000000000000000);
     address constant HYPE_SYSTEM_ADDRESS = 0x2222222222222222222222222222222222222222;
 
+    address constant USDC_EVM_CONTRACT_ADDRESS = 0xb88339CB7199b77E23DB6E890353E22632Ba630f;
+    uint64 constant USDC_TOKEN_INDEX = 0;
+
     uint8 constant HYPE_EVM_EXTRA_DECIMALS = 10;
 
     /*//////////////////////////////////////////////////////////////
@@ -40,6 +43,13 @@ library HLConstants {
 
     function isHype(uint64 index) internal view returns (bool) {
         return index == hypeTokenIndex();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        USDC Token Index
+    //////////////////////////////////////////////////////////////*/
+    function isUsdc(uint64 index) internal pure returns (bool) {
+        return index == USDC_TOKEN_INDEX;
     }
 
     /*//////////////////////////////////////////////////////////////
