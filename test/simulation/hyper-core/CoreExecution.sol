@@ -546,7 +546,7 @@ contract CoreExecution is CoreView {
             require(_validators.contains(action.validator));
         }
 
-        // first update their delegation amount based on staking multiplier
+        // first update their delegation amount based on staking yield
         PrecompileLib.Delegation storage delegation = _accounts[sender].delegations[action.validator];
         delegation.amount = _getDelegationAmount(sender, action.validator);
         _userStakingYieldIndex[sender][action.validator] = _stakingYieldIndex;

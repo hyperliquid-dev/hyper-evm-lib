@@ -45,7 +45,7 @@ contract CoreState is StdCheats {
         bool activated;
         mapping(uint64 token => uint64 balance) spot;
         mapping(address vault => PrecompileLib.UserVaultEquity) vaultEquity;
-        uint64 staking;
+        uint64 staking; // undelegated staking balance
         EnumerableSet.AddressSet delegatedValidators;
         mapping(address validator => PrecompileLib.Delegation) delegations;
         uint64 perpBalance;
@@ -264,6 +264,7 @@ contract CoreState is StdCheats {
         delegations = RealL1Read.delegations(_account);
         for (uint256 i = 0; i < delegations.length; i++) {
             account.delegations[delegations[i].validator] = delegations[i];
+            account.delegatedValidators.add(delegations[i].validator);
         }
 
         _accounts[_account].marginSummary[0] = RealL1Read.accountMarginSummary(0, _account);
