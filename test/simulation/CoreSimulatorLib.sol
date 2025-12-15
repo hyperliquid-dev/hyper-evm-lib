@@ -129,6 +129,11 @@ library CoreSimulatorLib {
         hyperCore.forceAccountActivation(account);
     }
 
+    function setOfflineMode(bool isOffline) internal {
+        hyperCore.setUseRealL1Read(!isOffline);
+        vm.warp(vm.unixTime() / 1e3);
+    }
+
     function forceSpotBalance(address account, uint64 token, uint64 _wei) internal {
         hyperCore.forceSpotBalance(account, token, _wei);
     }
