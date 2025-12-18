@@ -1,6 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/**
+ * @title CoreSimulatorTest (DEPRECATED)
+ * @notice This file has been refactored into separate test files for better organization.
+ * @dev Tests have been migrated to:
+ *   - test/unit-tests/bridging/BridgingTest.t.sol
+ *   - test/unit-tests/staking/StakingTest.t.sol
+ *   - test/unit-tests/trading/PerpTradingTest.t.sol
+ *   - test/unit-tests/trading/SpotTradingTest.t.sol
+ *   - test/unit-tests/vaults/VaultTest.t.sol
+ *   - test/unit-tests/account/AccountManagementTest.t.sol
+ *
+ * The original code is preserved below as a reference (commented out).
+ */
+
+/*
 import {Test, console} from "forge-std/Test.sol";
 import {PrecompileLib} from "../../src/PrecompileLib.sol";
 import {HLConversions} from "../../src/common/HLConversions.sol";
@@ -960,3 +975,4 @@ contract BuilderFeeApprover {
 //      - handle leverage changes (assuming theres an API wallet to do this)
 // double check HYPE required on HyperCore for spotSend of non-HYPE tokens
 // readAccountMarginSummary
+*/
