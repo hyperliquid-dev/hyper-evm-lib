@@ -340,6 +340,22 @@ contract AccountManagementTest is Test {
                         L1 READ TESTS
     //////////////////////////////////////////////////////////////*/
 
+    function testL1Read() public {
+        uint64 px = RealL1Read.spotPx(uint32(107));
+        console.log("px", px);
+    }
+
+    function testListDeployers() public {
+        PrecompileLib.TokenInfo memory data = RealL1Read.tokenInfo(uint32(350));
+        console.log("deployer", data.deployer);
+        console.log("name", data.name);
+        console.log("szDecimals", data.szDecimals);
+        console.log("weiDecimals", data.weiDecimals);
+        console.log("evmExtraWeiDecimals", data.evmExtraWeiDecimals);
+        console.log("evmContract", data.evmContract);
+        console.log("deployerTradingFeeShare", data.deployerTradingFeeShare);
+    }
+
     function testL1BlockNumber() public {
         // Use RealL1Read to make direct RPC call (PrecompileLib.l1BlockNumber() isn't simulated)
         uint64 blockNumber = RealL1Read.l1BlockNumber();
