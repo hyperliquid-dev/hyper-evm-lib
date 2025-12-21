@@ -87,12 +87,12 @@ library CoreSimulatorLib {
                 address to = address(uint160(uint256(entry.topics[2])));
                 uint256 amount = abi.decode(entry.data, (uint256));
 
-                // Check if destination is a system address
-                if (isSystemAddress(to)) {
+
+                // Check if destination is the token's system address
+                if (isSystemAddress(entry.emitter, to)) {
                     uint64 tokenIndex = getTokenIndexFromSystemAddress(to);
 
-                    // Call tokenTransferCallback on HyperCoreWrite
-                    hyperCore.executeTokenTransfer(address(0), tokenIndex, from, amount);
+                    if (tokenIndex != 150) hyperCore.executeTokenTransfer(address(0), tokenIndex, from, amount);
                 }
             }
         }
@@ -265,11 +265,7 @@ library CoreSimulatorLib {
 
     ///// VIEW AND PURE /////////
 
-    function isSystemAddress(address addr) internal view returns (bool) {
-        // Check if it's the HYPE system address
-        if (addr == address(0x2222222222222222222222222222222222222222)) {
-            return true;
-        }
+    function isSystemAddress(address emitter, address addr) internal view returns (bool) {
 
         // Check if it's a token system address (0x2000...0000 + index)
         uint160 baseAddr = uint160(0x2000000000000000000000000000000000000000);
@@ -278,11 +274,8 @@ library CoreSimulatorLib {
         if (addrInt >= baseAddr && addrInt < baseAddr + 10000) {
             uint64 tokenIndex = uint64(addrInt - baseAddr);
 
-            if (tokenExists(tokenIndex)) {
-                return true;
-            } else {
-                revert("Bridging failed: Corresponding token not found on HyperCore");
-            }
+            PrecompileLib.TokenInfo memory tokenInfo = PrecompileLib.tokenInfo(tokenIndex);
+            if (addr != tokenInfo.evmContract) return false;
         }
 
         return false;
