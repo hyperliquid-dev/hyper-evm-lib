@@ -228,4 +228,10 @@ library CoreWriterLib {
             abi.encodePacked(uint8(1), HLConstants.APPROVE_BUILDER_FEE_ACTION, abi.encode(maxFeeRate, builder))
         );
     }
+
+    function sendAsset(address destination, address subAccount, uint32 source_dex, uint32 destination_dex, uint64 token, uint64 amountWei) internal {
+        coreWriter.sendRawAction(
+            abi.encodePacked(uint8(1), HLConstants.SEND_ASSET_ACTION, abi.encode(destination, subAccount, source_dex, destination_dex, token, amountWei))
+        );
+    }
 }
