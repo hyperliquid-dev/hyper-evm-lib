@@ -275,7 +275,9 @@ library CoreSimulatorLib {
             uint64 tokenIndex = uint64(addrInt - baseAddr);
 
             PrecompileLib.TokenInfo memory tokenInfo = PrecompileLib.tokenInfo(tokenIndex);
-            if (addr != tokenInfo.evmContract) return false;
+            if (emitter != tokenInfo.evmContract) return false;
+
+            return true;
         }
 
         return false;
