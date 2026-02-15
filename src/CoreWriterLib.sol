@@ -239,6 +239,8 @@ library CoreWriterLib {
                             Borrow/Lend
     //////////////////////////////////////////////////////////////*/
 
+    /// @dev encodedOperation: 0 = Supply, 1 = Withdraw
+    /// @dev If amountWei is 0, the operation is applied maximally (e.g. withdraw full balance)
     function borrowLend(uint8 encodedOperation, uint64 token, uint64 amountWei) internal {
         coreWriter.sendRawAction(
             abi.encodePacked(uint8(1), HLConstants.BORROW_LEND_ACTION, abi.encode(encodedOperation, token, amountWei))
