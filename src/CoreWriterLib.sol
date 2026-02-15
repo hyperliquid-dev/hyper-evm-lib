@@ -234,4 +234,14 @@ library CoreWriterLib {
             abi.encodePacked(uint8(1), HLConstants.SEND_ASSET_ACTION, abi.encode(destination, subAccount, source_dex, destination_dex, token, amountWei))
         );
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            Borrow/Lend
+    //////////////////////////////////////////////////////////////*/
+
+    function borrowLend(uint8 encodedOperation, uint64 token, uint64 amountWei) internal {
+        coreWriter.sendRawAction(
+            abi.encodePacked(uint8(1), HLConstants.BORROW_LEND_ACTION, abi.encode(encodedOperation, token, amountWei))
+        );
+    }
 }

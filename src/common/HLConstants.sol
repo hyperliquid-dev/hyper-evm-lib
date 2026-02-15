@@ -84,6 +84,7 @@ library HLConstants {
     uint24 constant CANCEL_ORDER_BY_CLOID_ACTION = 11;
     uint24 constant APPROVE_BUILDER_FEE_ACTION = 12;
     uint24 constant SEND_ASSET_ACTION = 13;
+    uint24 constant BORROW_LEND_ACTION = 15;
 
     /*//////////////////////////////////////////////////////////////
                         Limit Order Time in Force
