@@ -94,6 +94,13 @@ library HLConstants {
     uint8 public constant LIMIT_ORDER_TIF_GTC = 2;
     uint8 public constant LIMIT_ORDER_TIF_IOC = 3;
 
+    /*//////////////////////////////////////////////////////////////
+                        Miscellaneous
+    //////////////////////////////////////////////////////////////*/
+
+    // `encodedOperation` for `borrowLend` CoreWriter action
+    uint8 public constant BLP_SUPPLY = 0;
+    uint8 public constant BLP_WITHDRAW = 1;
 
     /*//////////////////////////////////////////////////////////////
                         Dex Constants
