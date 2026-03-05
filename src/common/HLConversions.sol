@@ -16,7 +16,10 @@ library HLConversions {
         PrecompileLib.TokenInfo memory info = PrecompileLib.tokenInfo(uint32(token));
 
         if (info.evmContract != address(0)) {
-            if (info.evmExtraWeiDecimals > 0) {
+            if (info.evmExtraWeiDecimals == 0) {
+                return SafeCast.toUint64(evmAmount);
+            }
+            else if (info.evmExtraWeiDecimals > 0) {
                 uint256 amount = evmAmount / (10 ** uint8(info.evmExtraWeiDecimals));
                 return SafeCast.toUint64(amount);
             } else if (info.evmExtraWeiDecimals < 0) {
@@ -37,7 +40,10 @@ library HLConversions {
     function weiToEvm(uint64 token, uint64 amountWei) internal view returns (uint256) {
         PrecompileLib.TokenInfo memory info = PrecompileLib.tokenInfo(uint32(token));
         if (info.evmContract != address(0)) {
-            if (info.evmExtraWeiDecimals > 0) {
+            if (info.evmExtraWeiDecimals == 0) {
+                return SafeCast.toUint64(amountWei);
+            }
+            else if (info.evmExtraWeiDecimals > 0) {
                 return (uint256(amountWei) * (10 ** uint8(info.evmExtraWeiDecimals)));
             } else if (info.evmExtraWeiDecimals < 0) {
                 return amountWei / (10 ** uint8(-info.evmExtraWeiDecimals));
