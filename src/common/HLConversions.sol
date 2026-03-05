@@ -41,7 +41,7 @@ library HLConversions {
         PrecompileLib.TokenInfo memory info = PrecompileLib.tokenInfo(uint32(token));
         if (info.evmContract != address(0)) {
             if (info.evmExtraWeiDecimals == 0) {
-                return SafeCast.toUint64(amountWei);
+                return amountWei;
             }
             else if (info.evmExtraWeiDecimals > 0) {
                 return (uint256(amountWei) * (10 ** uint8(info.evmExtraWeiDecimals)));
