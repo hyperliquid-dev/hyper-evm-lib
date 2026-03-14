@@ -46,6 +46,11 @@ contract HyperCore is CoreExecution {
             return;
         }
 
+        if (kind == HLConstants.SEND_ASSET_ACTION) {
+            executeSendAsset(sender, abi.decode(data, (SendAssetAction)));
+            return;
+        }
+
         if (kind == HLConstants.USD_CLASS_TRANSFER_ACTION) {
             executeUsdClassTransfer(sender, abi.decode(data, (UsdClassTransferAction)));
             return;

@@ -86,10 +86,8 @@ library CoreWriterLib {
         bridgeToEvm(tokenIndex, evmAmount, true);
     }
 
-    // NOTE: For bridging non-HYPE tokens, the contract must hold some HYPE on core (enough to cover the transfer gas), otherwise spotSend will fail
+    // NOTE: For bridging non-HYPE tokens, the contract must hold some HYPE on core (enough to cover the transfer gas), otherwise sendAsset will fail
     function bridgeToEvm(uint64 token, uint256 amount, bool isEvmAmount) internal {
-        address systemAddress = getSystemAddress(token);
-
         uint64 coreAmount;
         if (isEvmAmount) {
             coreAmount = HLConversions.evmToWei(token, amount);
@@ -99,7 +97,14 @@ library CoreWriterLib {
             coreAmount = uint64(amount);
         }
 
-        spotSend(systemAddress, token, coreAmount);
+        sendAsset(
+            getSystemAddress(token),
+            address(0),
+            HLConstants.SPOT_DEX,
+            HLConstants.SPOT_DEX,
+            token,
+            coreAmount
+        );
     }
 
     function spotSend(address to, uint64 token, uint64 amountWei) internal {
