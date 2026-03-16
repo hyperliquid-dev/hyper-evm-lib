@@ -452,6 +452,15 @@ contract CoreState is StdCheats {
         uint64 _wei;
     }
 
+    struct SendAssetAction {
+        address destination;
+        address subAccount;
+        uint32 source_dex;
+        uint32 destination_dex;
+        uint64 token;
+        uint64 amountWei;
+    }
+
     struct UsdClassTransferAction {
         uint64 ntl;
         bool toPerp;

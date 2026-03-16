@@ -446,6 +446,21 @@ contract CoreExecution is CoreView {
         }
     }
 
+    function executeSendAsset(address sender, SendAssetAction memory action) public {
+        require(
+            action.source_dex == HLConstants.SPOT_DEX && action.destination_dex == HLConstants.SPOT_DEX,
+            "only SPOT_DEX supported in simulator"
+        );
+
+        // When destination is BASE_SYSTEM_ADDRESS, map to token-specific system address for EVM bridging
+        address destination = action.destination;
+        if (destination == address(HLConstants.BASE_SYSTEM_ADDRESS)) {
+            destination = CoreWriterLib.getSystemAddress(action.token);
+        }
+
+        executeSpotSend(sender, SpotSendAction(destination, action.token, action.amountWei));
+    }
+
     function executeUsdClassTransfer(address sender, UsdClassTransferAction memory action)
         public
         initAccountWithToken(sender, USDC_TOKEN_INDEX)
