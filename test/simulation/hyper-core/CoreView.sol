@@ -167,7 +167,7 @@ contract CoreView is CoreState {
         return _accounts[account].activated;
     }
 
-    function readAccountMarginSummary(uint16 perp_dex_index, address user)
+    function readAccountMarginSummary(address user)
         public
         returns (PrecompileLib.AccountMarginSummary memory)
     {

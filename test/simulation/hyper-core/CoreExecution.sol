@@ -133,9 +133,6 @@ contract CoreExecution is CoreView {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi);
                 int64 pnl = int64(action.sz) * (int64(avgEntryPrice) - int64(_markPx));
 
-                uint64 closedMargin =
-                    (uint64(action.sz) * _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi)) / leverage;
-
                 _accounts[sender].perpBalance = pnl > 0
                     ? _accounts[sender].perpBalance + uint64(pnl)
                     : _accounts[sender].perpBalance - uint64(-pnl);
@@ -150,7 +147,6 @@ contract CoreExecution is CoreView {
                     : _accounts[sender].perpBalance - uint64(-pnl);
 
                 uint64 newLongSize = uint64(newSzi);
-                uint64 newMargin = newLongSize * _markPx / leverage;
 
                 _accounts[sender].positions[perpIndex].szi = newSzi;
                 _accounts[sender].positions[perpIndex].entryNtl = newLongSize * _markPx;
@@ -200,8 +196,6 @@ contract CoreExecution is CoreView {
             if (newSzi >= 0) {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(szi);
                 int64 pnl = int64(action.sz) * (int64(_markPx) - int64(avgEntryPrice));
-                uint64 closedMargin =
-                    (uint64(action.sz) * _accounts[sender].positions[perpIndex].entryNtl / uint64(szi)) / leverage;
 
                 _accounts[sender].perpBalance = pnl > 0
                     ? _accounts[sender].perpBalance + uint64(pnl)
@@ -217,7 +211,6 @@ contract CoreExecution is CoreView {
                     : _accounts[sender].perpBalance - uint64(-pnl);
 
                 uint64 newShortSize = uint64(-newSzi);
-                uint64 newMargin = newShortSize * _markPx / leverage;
 
                 _accounts[sender].positions[perpIndex].szi = newSzi;
                 _accounts[sender].positions[perpIndex].entryNtl = newShortSize * _markPx;
