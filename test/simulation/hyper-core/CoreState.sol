@@ -49,9 +49,9 @@ contract CoreState is StdCheats {
         EnumerableSet.AddressSet delegatedValidators;
         mapping(address validator => PrecompileLib.Delegation) delegations;
         uint64 perpBalance;
-        mapping(uint16 perpIndex => PrecompileLib.Position) positions;
-        mapping(uint16 perpIndex => uint64 margin) margin;
-        mapping(uint16 perpIndex => PrecompileLib.AccountMarginSummary) marginSummary;
+        mapping(uint32 perpIndex => PrecompileLib.Position) positions;
+        mapping(uint32 perpIndex => uint64 margin) margin;
+        mapping(uint32 perpIndex => PrecompileLib.AccountMarginSummary) marginSummary;
     }
 
     struct PendingOrder {
@@ -140,7 +140,7 @@ contract CoreState is StdCheats {
         _;
     }
 
-    modifier initAccountWithPerp(address _account, uint16 perp) {
+    modifier initAccountWithPerp(address _account, uint32 perp) {
         if (_perpAssetInfo[perp].maxLeverage == 0) {
             registerPerpAssetInfo(perp, RealL1Read.perpAssetInfo(perp));
         }
@@ -189,7 +189,7 @@ contract CoreState is StdCheats {
         _accounts[_account].vaultEquity[_vault] = RealL1Read.userVaultEquity(_account, _vault);
     }
 
-    function _initializeAccountWithPerp(address _account, uint16 perp) internal {
+    function _initializeAccountWithPerp(address _account, uint32 perp) internal {
         _initializedPerpPosition[_account][perp] = true;
         _accounts[_account].positions[perp] = RealL1Read.position(_account, perp);
     }
@@ -304,7 +304,7 @@ contract CoreState is StdCheats {
         _spotInfo[spotIndex] = spotInfo;
     }
 
-    function registerPerpAssetInfo(uint16 perpIndex, PrecompileLib.PerpAssetInfo memory perpAssetInfo) public {
+    function registerPerpAssetInfo(uint32 perpIndex, PrecompileLib.PerpAssetInfo memory perpAssetInfo) public {
         _perpAssetInfo[perpIndex] = perpAssetInfo;
     }
 
@@ -344,7 +344,7 @@ contract CoreState is StdCheats {
         _accounts[account].perpBalance = usd;
     }
 
-    function forcePerpPositionLeverage(address account, uint16 perp, uint32 leverage) public payable {
+    function forcePerpPositionLeverage(address account, uint32 perp, uint32 leverage) public payable {
         if (_accounts[account].activated == false) {
             forceAccountActivation(account);
         }

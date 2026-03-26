@@ -24,7 +24,7 @@ contract HypeSystemContract {
  * @dev A library used to simulate HyperCore functionality in foundry tests
  */
 library CoreSimulatorLib {
-    uint256 constant NUM_PRECOMPILES = 17;
+    uint256 constant NUM_PRECOMPILES = 20;
 
     HyperCore constant hyperCore = HyperCore(payable(0x9999999999999999999999999999999999999999));
 
@@ -186,7 +186,7 @@ library CoreSimulatorLib {
         hyperCore.setPerpMakerFee(bps);
     }
 
-    function forcePerpLeverage(address account, uint16 perp, uint32 leverage) internal {
+    function forcePerpLeverage(address account, uint32 perp, uint32 leverage) internal {
         hyperCore.forcePerpPositionLeverage(account, perp, leverage);
     }
 

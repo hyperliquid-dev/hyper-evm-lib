@@ -72,7 +72,7 @@ contract PerpTradingTest is Test {
 
         uint64 startingPrice = 1000000;
 
-        uint16 perp = BTC_PERP;
+        uint32 perp = BTC_PERP;
         CoreSimulatorLib.setMarkPx(perp, startingPrice);
 
         hypeTrading.createLimitOrder(perp, true, 1e18, 1 * 1e8, false, 1);

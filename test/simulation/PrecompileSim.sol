@@ -27,6 +27,9 @@ contract PrecompileSim {
     address constant BBO_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000080e;
     address constant ACCOUNT_MARGIN_SUMMARY_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000080F;
     address constant CORE_USER_EXISTS_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000810;
+    address constant BORROW_LEND_USER_STATE_PRECOMPILE_ADDRESS    = 0x0000000000000000000000000000000000000811;
+    address constant BORROW_LEND_RESERVE_STATE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000812;
+    address constant POSITION2_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000813;
 
     receive() external payable {}
 
@@ -58,6 +61,11 @@ contract PrecompileSim {
 
         if (address(this) == POSITION_PRECOMPILE_ADDRESS) {
             (address user, uint16 perp) = abi.decode(data, (address, uint16));
+            return abi.encode(_hyperCore.readPosition(user, perp));
+        }
+
+        if (address(this) == POSITION2_PRECOMPILE_ADDRESS) {
+            (address user, uint32 perp) = abi.decode(data, (address, uint32));
             return abi.encode(_hyperCore.readPosition(user, perp));
         }
 
@@ -96,7 +104,7 @@ contract PrecompileSim {
         }
 
         if (address(this) == ACCOUNT_MARGIN_SUMMARY_PRECOMPILE_ADDRESS) {
-            (uint16 perp_dex_index, address user) = abi.decode(data, (uint16, address));
+            (uint32 perp_dex_index, address user) = abi.decode(data, (uint32, address));
             return abi.encode(_hyperCore.readAccountMarginSummary(perp_dex_index, user));
         }
 

@@ -24,7 +24,7 @@ contract CoreExecution is CoreView {
 
     using EnumerableSet for EnumerableSet.UintSet;
 
-    function _getKey(address user, uint16 perpIndex) internal pure returns (bytes32) {
+    function _getKey(address user, uint32 perpIndex) internal pure returns (bytes32) {
         return bytes32((uint256(uint160(user)) << 16) | uint256(perpIndex));
     }
 
@@ -69,9 +69,9 @@ contract CoreExecution is CoreView {
 
     function executePerpLimitOrder(address sender, LimitOrderAction memory action)
         public
-        initAccountWithPerp(sender, uint16(action.asset))
+        initAccountWithPerp(sender, uint32(action.asset))
     {
-        uint16 perpIndex = uint16(action.asset);
+        uint32 perpIndex = uint32(action.asset);
         PrecompileLib.Position memory position = _accounts[sender].positions[perpIndex];
 
         bool isolated = position.isIsolated;
@@ -100,7 +100,7 @@ contract CoreExecution is CoreView {
     }
 
     function _executePerpLong(address sender, LimitOrderAction memory action, uint256 markPx) internal {
-        uint16 perpIndex = uint16(action.asset);
+        uint32 perpIndex = uint32(action.asset);
         int64 szi = _accounts[sender].positions[perpIndex].szi;
         uint32 leverage = _accounts[sender].positions[perpIndex].leverage;
 
@@ -168,7 +168,7 @@ contract CoreExecution is CoreView {
     }
 
     function _executePerpShort(address sender, LimitOrderAction memory action, uint256 markPx) internal {
-        uint16 perpIndex = uint16(action.asset);
+        uint32 perpIndex = uint32(action.asset);
         int64 szi = _accounts[sender].positions[perpIndex].szi;
         uint32 leverage = _accounts[sender].positions[perpIndex].leverage;
 
@@ -244,7 +244,7 @@ contract CoreExecution is CoreView {
         uint64 totalShortNtlPos = 0;
 
         for (uint256 i = 0; i < _userPerpPositions[sender].length(); i++) {
-            uint16 perpIndex = uint16(_userPerpPositions[sender].at(i));
+            uint32 perpIndex = uint32(_userPerpPositions[sender].at(i));
 
             PrecompileLib.Position memory position = _accounts[sender].positions[perpIndex];
 
@@ -659,7 +659,7 @@ contract CoreExecution is CoreView {
         uint256 len = _userPerpPositions[user].length();
 
         for (uint256 i = len; i > 0; i--) {
-            uint16 perpIndex = uint16(_userPerpPositions[user].at(i - 1));
+            uint32 perpIndex = uint32(_userPerpPositions[user].at(i - 1));
             PrecompileLib.Position memory pos = _accounts[user].positions[perpIndex];
             if (pos.szi != 0) {
                 uint64 markPx = readMarkPx(perpIndex);
@@ -692,7 +692,7 @@ contract CoreExecution is CoreView {
         return value > 0 ? uint64(value) : uint64(-value);
     }
 
-    function _getMaxLeverage(uint16 perpIndex) public view returns (uint32) {
+    function _getMaxLeverage(uint32 perpIndex) public view returns (uint32) {
         return _perpAssetInfo[perpIndex].maxLeverage;
     }
 
@@ -701,7 +701,7 @@ contract CoreExecution is CoreView {
     function _liquidateUser(address user) public {
         uint256 len = _userPerpPositions[user].length();
         for (uint256 i = len; i > 0; i--) {
-            uint16 perpIndex = uint16(_userPerpPositions[user].at(i - 1));
+            uint32 perpIndex = uint32(_userPerpPositions[user].at(i - 1));
 
             bytes32 key = _getKey(user, perpIndex);
             _openPerpPositions.remove(key);

@@ -151,13 +151,14 @@ contract CoreView is CoreState {
         }
     }
 
-    function readPosition(address user, uint16 perp) public returns (PrecompileLib.Position memory) {
+    function readPosition(address user, uint32 perp) public returns (PrecompileLib.Position memory) {
         if (_accounts[user].activated == false && useRealL1Read) {
             return RealL1Read.position(user, perp);
         }
 
         return _accounts[user].positions[perp];
     }
+
 
     function coreUserExists(address account) public returns (bool) {
         if (_accounts[account].activated == false && useRealL1Read) {
@@ -167,7 +168,7 @@ contract CoreView is CoreState {
         return _accounts[account].activated;
     }
 
-    function readAccountMarginSummary(uint16 perp_dex_index, address user)
+    function readAccountMarginSummary(uint32 perp_dex_index, address user)
         public
         returns (PrecompileLib.AccountMarginSummary memory)
     {
@@ -186,7 +187,7 @@ contract CoreView is CoreState {
         uint64 totalShortNtlPos = 0;
 
         for (uint256 i = 0; i < _userPerpPositions[sender].length(); i++) {
-            uint16 perpIndex = uint16(_userPerpPositions[sender].at(i));
+            uint32 perpIndex = uint32(_userPerpPositions[sender].at(i));
 
             PrecompileLib.Position memory position = _accounts[sender].positions[perpIndex];
 
@@ -226,7 +227,7 @@ contract CoreView is CoreState {
         uint64 transferMarginRequirement = 0;
 
         for (uint256 i = 0; i < _userPerpPositions[account].length(); i++) {
-            uint16 perpIndex = uint16(_userPerpPositions[account].at(i));
+            uint32 perpIndex = uint32(_userPerpPositions[account].at(i));
             PrecompileLib.Position memory position = _accounts[account].positions[perpIndex];
             uint64 markPx = readMarkPx(perpIndex);
 
