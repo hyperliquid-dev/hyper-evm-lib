@@ -48,10 +48,10 @@ contract CoreState is StdCheats {
         uint64 staking; // undelegated staking balance
         EnumerableSet.AddressSet delegatedValidators;
         mapping(address validator => PrecompileLib.Delegation) delegations;
-        uint64 perpBalance;
-        mapping(uint16 perpIndex => PrecompileLib.Position) positions;
-        mapping(uint16 perpIndex => uint64 margin) margin;
-        mapping(uint16 perpIndex => PrecompileLib.AccountMarginSummary) marginSummary;
+        mapping(uint32 dex => uint64) perpBalance;
+        mapping(uint32 perpIndex => PrecompileLib.Position) positions;
+        mapping(uint32 dex => mapping(uint32 perpIndex => uint64)) margin;
+        mapping(uint32 dex => PrecompileLib.AccountMarginSummary) marginSummary;
     }
 
     struct PendingOrder {
@@ -96,12 +96,14 @@ contract CoreState is StdCheats {
         _userStakingYieldIndex;
     uint256 internal _stakingYieldIndex; // assumes same yield for all validators TODO: account for differences due to commissions
 
-    EnumerableSet.Bytes32Set internal _openPerpPositions;
+    mapping(uint32 dex => EnumerableSet.Bytes32Set) internal _openPerpPositions;
 
-    // Maps user address to a set of perp indices they have active positions in
-    mapping(address => EnumerableSet.UintSet) internal _userPerpPositions;
+    // Maps user address to a set of perp indices they have active positions in (per-dex)
+    mapping(uint32 dex => mapping(address => EnumerableSet.UintSet)) internal _userPerpPositions;
 
     mapping(uint64 token => bool isQuoteToken) internal _isQuoteToken;
+
+
 
     /////////////////////////
     /// STATE INITIALIZERS///
@@ -140,7 +142,7 @@ contract CoreState is StdCheats {
         _;
     }
 
-    modifier initAccountWithPerp(address _account, uint16 perp) {
+    modifier initAccountWithPerp(address _account, uint32 perp) {
         if (_perpAssetInfo[perp].maxLeverage == 0) {
             registerPerpAssetInfo(perp, RealL1Read.perpAssetInfo(perp));
         }
@@ -189,7 +191,7 @@ contract CoreState is StdCheats {
         _accounts[_account].vaultEquity[_vault] = RealL1Read.userVaultEquity(_account, _vault);
     }
 
-    function _initializeAccountWithPerp(address _account, uint16 perp) internal {
+    function _initializeAccountWithPerp(address _account, uint32 perp) internal {
         _initializedPerpPosition[_account][perp] = true;
         _accounts[_account].positions[perp] = RealL1Read.position(_account, perp);
     }
@@ -216,8 +218,18 @@ contract CoreState is StdCheats {
         _initializedAccounts[_account] = true;
         account.activated = true;
 
-        // setting perp balance
-        account.perpBalance = RealL1Read.withdrawable(_account);
+        // setting perp balance for default dex (uses withdrawable precompile)
+        account.perpBalance[HLConstants.DEFAULT_PERP_DEX] = RealL1Read.withdrawable(_account);
+
+        // seed HIP-3 dex balances from margin summaries
+        uint32[7] memory hipDexes = [uint32(1), uint32(2), uint32(3), uint32(4), uint32(5), uint32(6), uint32(7)];
+        for (uint256 i = 0; i < hipDexes.length; i++) {
+            PrecompileLib.AccountMarginSummary memory ms = RealL1Read.accountMarginSummary(hipDexes[i], _account);
+            if (ms.accountValue > 0) {
+                account.perpBalance[hipDexes[i]] = uint64(ms.accountValue);
+                account.marginSummary[hipDexes[i]] = ms;
+            }
+        }
 
         // setting staking balance
         PrecompileLib.DelegatorSummary memory summary;
@@ -267,7 +279,7 @@ contract CoreState is StdCheats {
             account.delegatedValidators.add(delegations[i].validator);
         }
 
-        _accounts[_account].marginSummary[0] = RealL1Read.accountMarginSummary(0, _account);
+        account.marginSummary[0] = RealL1Read.accountMarginSummary(0, _account);
     }
 
     modifier whenActivated(address sender) {
@@ -304,8 +316,22 @@ contract CoreState is StdCheats {
         _spotInfo[spotIndex] = spotInfo;
     }
 
-    function registerPerpAssetInfo(uint16 perpIndex, PrecompileLib.PerpAssetInfo memory perpAssetInfo) public {
+    function registerPerpAssetInfo(uint32 perpIndex, PrecompileLib.PerpAssetInfo memory perpAssetInfo) public {
         _perpAssetInfo[perpIndex] = perpAssetInfo;
+    }
+
+    function perpDex(uint32 perpIndex) internal pure returns (uint32) {
+        return perpIndex / 10000;
+    }
+
+    /// @dev Converts an asset ID to a perp index for precompile calls
+    /// Native perps: asset ID == perp index (e.g. BTC = 0)
+    /// HIP-3 perps: asset ID = 100000 + dex * 10000 + index, perp index = dex * 10000 + index
+    function assetToPerpIndex(uint32 asset) internal pure returns (uint32) {
+        if (asset >= 100000) {
+            return asset - 100000;
+        }
+        return asset;
     }
 
     // @dev if this set has len > 0, only validators within the set can be delegated to
@@ -334,6 +360,10 @@ contract CoreState is StdCheats {
     }
 
     function forcePerpBalance(address account, uint64 usd) public payable {
+        forcePerpBalance(account, HLConstants.DEFAULT_PERP_DEX, usd);
+    }
+
+    function forcePerpBalance(address account, uint32 dex, uint64 usd) public payable {
         if (_accounts[account].activated == false) {
             forceAccountActivation(account);
         }
@@ -341,10 +371,10 @@ contract CoreState is StdCheats {
             _initializeAccount(account);
         }
 
-        _accounts[account].perpBalance = usd;
+        _accounts[account].perpBalance[dex] = usd;
     }
 
-    function forcePerpPositionLeverage(address account, uint16 perp, uint32 leverage) public payable {
+    function forcePerpPositionLeverage(address account, uint32 perp, uint32 leverage) public payable {
         if (_accounts[account].activated == false) {
             forceAccountActivation(account);
         }
@@ -400,6 +430,14 @@ contract CoreState is StdCheats {
 
     function fromPerp(uint64 usd) internal pure returns (uint64) {
         return usd * 1e2;
+    }
+
+    function dexCollateralToken(uint32 dex) internal pure returns (uint64) {
+        if (dex == 0 || dex == 1 || dex == 6) return 0;   // USDC
+        if (dex == 2 || dex == 3 || dex == 5) return 360;  // USDH
+        if (dex == 4) return 235;                           // USDE
+        if (dex == 7) return 268;                           // USDT0
+        revert("unknown dex");
     }
 
     // converting a withdraw request into a bytes32

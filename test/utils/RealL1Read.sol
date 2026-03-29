@@ -29,6 +29,9 @@ library RealL1Read {
     address constant BBO_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000080e;
     address constant ACCOUNT_MARGIN_SUMMARY_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000080F;
     address constant CORE_USER_EXISTS_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000810;
+    address constant BORROW_LEND_USER_STATE_PRECOMPILE_ADDRESS    = 0x0000000000000000000000000000000000000811;
+    address constant BORROW_LEND_RESERVE_STATE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000812;
+    address constant POSITION2_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000813;
 
     address constant INVALID_ADDRESS = address(1);
 
@@ -93,12 +96,12 @@ library RealL1Read {
         }
     }
 
-    function position(address user, uint16 perp) internal returns (PrecompileLib.Position memory) {
+    function position(address user, uint32 perp) internal returns (PrecompileLib.Position memory) {
         if (isOfflineMode()) {
             return PrecompileLib.position(user, perp);
         }
 
-        bytes memory result = _makeRpcCall(POSITION_PRECOMPILE_ADDRESS, abi.encode(user, perp));
+        bytes memory result = _makeRpcCall(POSITION2_PRECOMPILE_ADDRESS, abi.encode(user, perp));
 
         if (result.length == 0) {
             return PrecompileLib.Position({szi: 0, entryNtl: 0, isolatedRawUsd: 0, leverage: 0, isIsolated: false});

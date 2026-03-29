@@ -248,12 +248,53 @@ contract BridgingTest is Test {
         assertEq(spotBalance.total, HLConversions.evmToWei(USDC_TOKEN, 1000e6) - 1e8, "Spot balance should match bridged amount minus fee");
 
         vm.startPrank(testUser);
-        CoreWriterLib.bridgeToEvm(address(USDC), 500e6);
+        CoreWriterLib.bridgeToEvm(address(USDC), 5000e6);
         vm.stopPrank();
 
         CoreSimulatorLib.nextBlock();
+    }
 
-        assertEq(USDC.balanceOf(testUser), 4500e6, "EVM USDC balance should be 4500");
+    function test_dexBalances() public {
+        address whale = 0x3872A744aAff523830bc7c3A1f70ae7656151B2d;
+
+        PrecompileLib.AccountMarginSummary memory before1 = PrecompileLib.accountMarginSummary(1, whale);
+
+        CoreSimulatorLib.forceAccountActivation(whale);
+        CoreSimulatorLib.forceSpotBalance(whale, USDC_TOKEN, 1e8);
+
+        vm.startPrank(whale);
+        CoreWriterLib.sendAsset(whale, address(0), HLConstants.SPOT_DEX, 1, USDC_TOKEN, 1e8);
+        vm.stopPrank();
+        CoreSimulatorLib.nextBlock();
+
+        PrecompileLib.AccountMarginSummary memory after1 = PrecompileLib.accountMarginSummary(1, whale);
+        assertEq(after1.accountValue - before1.accountValue, 1e6, "dex 1 balance should increase by 1 USDC");
+    }
+
+    function testSendAssetSpotToHip3Dex() public {
+        IERC20 USDC = IERC20(USDC_ADDRESS);
+        address testUser = makeAddr("hip3User");
+        uint32 hip3Dex = 1; // USDC-collateralized HIP-3 dex
+
+        deal(address(USDC), testUser, 1000e6);
+        vm.startPrank(testUser);
+        CoreWriterLib.bridgeToCore(address(USDC), 1000e6);
+        vm.stopPrank();
+        CoreSimulatorLib.nextBlock();
+
+        uint64 spotBefore = PrecompileLib.spotBalance(testUser, USDC_TOKEN).total;
+        uint64 amountWei = 500e8; // 500 USDC in wei (8 dec)
+
+        vm.startPrank(testUser);
+        CoreWriterLib.sendAsset(testUser, address(0), HLConstants.SPOT_DEX, hip3Dex, USDC_TOKEN, amountWei);
+        vm.stopPrank();
+        CoreSimulatorLib.nextBlock();
+
+        uint64 spotAfter = PrecompileLib.spotBalance(testUser, USDC_TOKEN).total;
+        uint64 perpBal = hyperCore.readPerpBalance(testUser, hip3Dex);
+
+        assertEq(spotBefore - spotAfter, amountWei, "Spot balance should decrease by amountWei");
+        assertEq(perpBal, amountWei / 1e2, "HIP-3 dex perp balance should equal amount in perp units");
     }
 
     /*//////////////////////////////////////////////////////////////

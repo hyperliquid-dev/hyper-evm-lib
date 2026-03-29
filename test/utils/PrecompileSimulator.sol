@@ -12,7 +12,7 @@ Vm constant vm = Vm(address(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D));
  * @notice modified from: https://github.com/sprites0/hyperevm-project-template/blob/main/src/MoreRealisticL1Precompiles.sol
  */
 library PrecompileSimulator {
-    uint256 constant NUM_PRECOMPILES = 17;
+    uint256 constant NUM_PRECOMPILES = 20;
 
     function init() internal {
         // Etch all the precompiles to their respective addresses

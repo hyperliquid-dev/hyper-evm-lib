@@ -167,11 +167,13 @@ library PrecompileLib {
                               Precompile Calls
     //////////////////////////////////////////////////////////////*/
 
-    function position(address user, uint16 perp) internal view returns (Position memory) {
-        (bool success, bytes memory result) = HLConstants.POSITION_PRECOMPILE_ADDRESS.staticcall(abi.encode(user, perp));
-        if (!success) revert PrecompileLib__PositionPrecompileFailed();
+
+    function position(address user, uint32 perp) internal view returns (Position memory) {
+        (bool success, bytes memory result) = HLConstants.POSITION2_PRECOMPILE_ADDRESS.staticcall(abi.encode(user, perp));
+        if (!success) revert PrecompileLib__Position2PrecompileFailed();
         return abi.decode(result, (Position));
     }
+
 
     function spotBalance(address user, uint64 token) internal view returns (SpotBalance memory) {
         (bool success, bytes memory result) =
@@ -279,6 +281,23 @@ library PrecompileLib {
         return abi.decode(result, (CoreUserExists)).exists;
     }
 
+    function borrowLendUserState(
+        address user,
+        uint64 token
+    ) internal view returns (BorrowLendUserTokenState memory) {
+        (bool success, bytes memory result) = HLConstants.BORROW_LEND_USER_STATE_PRECOMPILE_ADDRESS.staticcall(abi.encode(user, token));
+        if (!success) revert PrecompileLib__BorrowLendUserStatePrecompileFailed();
+        return abi.decode(result, (BorrowLendUserTokenState));
+    }
+
+    function borrowLendReserveState(
+        uint64 token
+    ) internal view returns (BorrowLendReserveState memory) {
+        (bool success, bytes memory result) = HLConstants.BORROW_LEND_RESERVE_STATE_PRECOMPILE_ADDRESS.staticcall(abi.encode(token));
+        if (!success) revert PrecompileLib__BorrowLendReserveStatePrecompileFailed();
+        return abi.decode(result, (BorrowLendReserveState));
+    }
+
     /*//////////////////////////////////////////////////////////////
                        Structs
     //////////////////////////////////////////////////////////////*/
@@ -371,7 +390,28 @@ library PrecompileLib {
         bool exists;
     }
 
-    error PrecompileLib__PositionPrecompileFailed();
+    struct BasisAndValue {
+        uint64 basis;
+        uint64 value;
+    }
+
+    struct BorrowLendUserTokenState {
+        BasisAndValue borrow;
+        BasisAndValue supply;
+    }
+
+    struct BorrowLendReserveState {
+        uint64 borrowYearlyRateBps;
+        uint64 supplyYearlyRateBps;
+        uint64 balance;
+        uint64 utilizationBps;
+        uint64 oraclePx;
+        uint64 ltvBps;
+        uint64 totalSupplied;
+        uint64 totalBorrowed;
+    }
+
+    error PrecompileLib__Position2PrecompileFailed();
     error PrecompileLib__SpotBalancePrecompileFailed();
     error PrecompileLib__VaultEquityPrecompileFailed();
     error PrecompileLib__WithdrawablePrecompileFailed();
@@ -389,4 +429,6 @@ library PrecompileLib {
     error PrecompileLib__AccountMarginSummaryPrecompileFailed();
     error PrecompileLib__CoreUserExistsPrecompileFailed();
     error PrecompileLib__SpotIndexNotFound();
+    error PrecompileLib__BorrowLendUserStatePrecompileFailed();
+    error PrecompileLib__BorrowLendReserveStatePrecompileFailed();
 }

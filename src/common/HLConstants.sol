@@ -5,7 +5,7 @@ import {ICoreWriter} from "../interfaces/ICoreWriter.sol";
 
 library HLConstants {
     /*//////////////////////////////////////////////////////////////
-                        Addresses
+                        Precompiles
     //////////////////////////////////////////////////////////////*/
 
     address constant POSITION_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000800;
@@ -25,6 +25,14 @@ library HLConstants {
     address constant BBO_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000080e;
     address constant ACCOUNT_MARGIN_SUMMARY_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000080F;
     address constant CORE_USER_EXISTS_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000810;
+    address constant BORROW_LEND_USER_STATE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000811;
+    address constant BORROW_LEND_RESERVE_STATE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000812;
+    address constant POSITION2_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000813;
+
+
+    /*//////////////////////////////////////////////////////////////
+                        Other addresses and constants
+    //////////////////////////////////////////////////////////////*/
 
     uint160 constant BASE_SYSTEM_ADDRESS = uint160(0x2000000000000000000000000000000000000000);
     address constant HYPE_SYSTEM_ADDRESS = 0x2222222222222222222222222222222222222222;
