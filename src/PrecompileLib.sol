@@ -411,7 +411,6 @@ library PrecompileLib {
         uint64 totalBorrowed;
     }
 
-    error PrecompileLib__PositionPrecompileFailed();
     error PrecompileLib__Position2PrecompileFailed();
     error PrecompileLib__SpotBalancePrecompileFailed();
     error PrecompileLib__VaultEquityPrecompileFailed();

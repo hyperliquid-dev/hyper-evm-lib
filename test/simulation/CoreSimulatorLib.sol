@@ -142,6 +142,10 @@ library CoreSimulatorLib {
         hyperCore.forcePerpBalance(account, usd);
     }
 
+    function forcePerpBalance(address account, uint32 dex, uint64 usd) internal {
+        hyperCore.forcePerpBalance(account, dex, usd);
+    }
+
     function forceStakingBalance(address account, uint64 _wei) internal {
         hyperCore.forceStakingBalance(account, _wei);
     }

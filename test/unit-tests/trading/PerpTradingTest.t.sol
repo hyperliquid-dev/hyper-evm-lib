@@ -120,6 +120,61 @@ contract PerpTradingTest is Test {
         assertGt(position.entryNtl, 0, "Entry notional should be set");
     }
 
+    function testXyzNVDAPerpLong() public {
+        uint32 NVDA_PERP_INDEX = 10002;
+        uint32 NVDA_ASSET_ID = 110002;
+        uint32 xyzDex = 1;
+
+        CoreSimulatorLib.setRevertOnFailure(true);
+        vm.startPrank(user);
+        HypeTradingContract hypeTrading = new HypeTradingContract(address(user));
+        CoreSimulatorLib.forceAccountActivation(address(hypeTrading));
+        CoreSimulatorLib.forcePerpBalance(address(hypeTrading), xyzDex, 10_000e6);
+        CoreSimulatorLib.forcePerpLeverage(address(hypeTrading), NVDA_PERP_INDEX, 10);
+
+        uint64 startingPrice = 1000000;
+        CoreSimulatorLib.setMarkPx(NVDA_PERP_INDEX, startingPrice);
+
+        hypeTrading.createLimitOrder(NVDA_ASSET_ID, true, 1e18, 1 * 1e8, false, 1);
+
+        CoreSimulatorLib.nextBlock();
+
+        PrecompileLib.Position memory position = hypeTrading.getPosition(address(hypeTrading), NVDA_PERP_INDEX);
+        assertEq(position.szi, 1 * 1_000, "Should have 1 NVDA long position");
+        assertGt(position.entryNtl, 0, "Entry notional should be set");
+    }
+
+    function testXyzNVDAWhale() public {
+        address whale = 0x3872A744aAff523830bc7c3A1f70ae7656151B2d;
+        uint32 NVDA_PERP_INDEX = 10002;
+        uint32 NVDA_ASSET_ID = 110002;
+        uint32 xyzDex = 1;
+
+        PrecompileLib.AccountMarginSummary memory beforeSummary = PrecompileLib.accountMarginSummary(xyzDex, whale);
+        console.log("--- BEFORE ---");
+        console.log("accountValue:", beforeSummary.accountValue);
+        console.log("marginUsed:", beforeSummary.marginUsed);
+        console.log("ntlPos:", beforeSummary.ntlPos);
+
+        vm.startPrank(whale);
+        CoreWriterLib.placeLimitOrder(NVDA_ASSET_ID, true, 1e18, 1e8, false, HLConstants.LIMIT_ORDER_TIF_IOC, 1);
+        vm.stopPrank();
+
+        CoreSimulatorLib.nextBlock();
+
+        PrecompileLib.Position memory position = PrecompileLib.position(whale, NVDA_PERP_INDEX);
+        console.log("--- AFTER ---");
+        console.log("szi:", position.szi);
+        console.log("entryNtl:", position.entryNtl);
+        console.log("leverage:", position.leverage);
+
+        PrecompileLib.AccountMarginSummary memory afterSummary = PrecompileLib.accountMarginSummary(xyzDex, whale);
+        console.log("accountValue:", afterSummary.accountValue);
+        console.log("marginUsed:", afterSummary.marginUsed);
+        console.log("ntlPos:", afterSummary.ntlPos);
+        console.log("rawUsd:", afterSummary.rawUsd);
+    }
+
     function testBTCPerpShort() public {
         CoreSimulatorLib.setPerpMakerFee(0);
         CoreSimulatorLib.setRevertOnFailure(true);

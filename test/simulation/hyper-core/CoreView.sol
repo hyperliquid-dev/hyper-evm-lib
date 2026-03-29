@@ -6,6 +6,7 @@ import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEnde
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {PrecompileLib} from "../../../src/PrecompileLib.sol";
+import {HLConstants} from "../../../src/CoreWriterLib.sol";
 import {RealL1Read} from "../../utils/RealL1Read.sol";
 import {CoreState} from "./CoreState.sol";
 
@@ -76,21 +77,25 @@ contract CoreView is CoreState {
         return PrecompileLib.SpotBalance({total: _accounts[account].spot[token], entryNtl: 0, hold: 0});
     }
 
-    // Even if the HyperCore account is not created, the precompile returns 0 (it does not revert)
+    // withdrawable only applies to the default perp dex (dex 0), not HIP-3 dexes
     function readWithdrawable(address account) public returns (PrecompileLib.Withdrawable memory) {
         if (_accounts[account].activated == false && useRealL1Read) {
             return PrecompileLib.Withdrawable({withdrawable: RealL1Read.withdrawable(account)});
         }
 
-        return _previewWithdrawable(account);
+        return _previewWithdrawable(account, HLConstants.DEFAULT_PERP_DEX);
     }
 
     function readPerpBalance(address account) public returns (uint64) {
-        if (_accounts[account].activated == false && useRealL1Read) {
+        return readPerpBalance(account, HLConstants.DEFAULT_PERP_DEX);
+    }
+
+    function readPerpBalance(address account, uint32 dex) public returns (uint64) {
+        if (_accounts[account].activated == false && useRealL1Read && dex == HLConstants.DEFAULT_PERP_DEX) {
             return RealL1Read.withdrawable(account);
         }
 
-        return _accounts[account].perpBalance;
+        return _accounts[account].perpBalance[dex];
     }
 
     function readUserVaultEquity(address user, address vault)
@@ -172,12 +177,14 @@ contract CoreView is CoreState {
         public
         returns (PrecompileLib.AccountMarginSummary memory)
     {
-        // 1. maintain an enumerable set for the perps that a user is in
-        // 2. iterate over their positions and calculate position value, add them up (value = abs(sz * markPx))
-        return _previewAccountMarginSummary(user);
+        if (_accounts[user].activated == false && useRealL1Read) {
+            return RealL1Read.accountMarginSummary(perp_dex_index, user);
+        }
+
+        return _previewAccountMarginSummary(user, perp_dex_index);
     }
 
-    function _previewAccountMarginSummary(address sender) internal returns (PrecompileLib.AccountMarginSummary memory) {
+    function _previewAccountMarginSummary(address sender, uint32 dex) internal returns (PrecompileLib.AccountMarginSummary memory) {
         uint64 totalNtlPos = 0;
         uint64 totalMarginUsed = 0;
 
@@ -186,8 +193,8 @@ contract CoreView is CoreState {
         uint64 totalLongNtlPos = 0;
         uint64 totalShortNtlPos = 0;
 
-        for (uint256 i = 0; i < _userPerpPositions[sender].length(); i++) {
-            uint32 perpIndex = uint32(_userPerpPositions[sender].at(i));
+        for (uint256 i = 0; i < _userPerpPositions[dex][sender].length(); i++) {
+            uint32 perpIndex = uint32(_userPerpPositions[dex][sender].at(i));
 
             PrecompileLib.Position memory position = _accounts[sender].positions[perpIndex];
 
@@ -213,7 +220,7 @@ contract CoreView is CoreState {
             }
         }
 
-        int64 totalAccountValue = int64(_accounts[sender].perpBalance - entryNtlByLeverage + totalMarginUsed);
+        int64 totalAccountValue = int64(_accounts[sender].perpBalance[dex] - entryNtlByLeverage + totalMarginUsed);
         int64 totalRawUsd = totalAccountValue - int64(totalLongNtlPos) + int64(totalShortNtlPos);
 
         return PrecompileLib.AccountMarginSummary({
@@ -221,13 +228,13 @@ contract CoreView is CoreState {
         });
     }
 
-    function _previewWithdrawable(address account) internal returns (PrecompileLib.Withdrawable memory) {
-        PrecompileLib.AccountMarginSummary memory summary = _previewAccountMarginSummary(account);
+    function _previewWithdrawable(address account, uint32 dex) internal returns (PrecompileLib.Withdrawable memory) {
+        PrecompileLib.AccountMarginSummary memory summary = _previewAccountMarginSummary(account, dex);
 
         uint64 transferMarginRequirement = 0;
 
-        for (uint256 i = 0; i < _userPerpPositions[account].length(); i++) {
-            uint32 perpIndex = uint32(_userPerpPositions[account].at(i));
+        for (uint256 i = 0; i < _userPerpPositions[dex][account].length(); i++) {
+            uint32 perpIndex = uint32(_userPerpPositions[dex][account].at(i));
             PrecompileLib.Position memory position = _accounts[account].positions[perpIndex];
             uint64 markPx = readMarkPx(perpIndex);
 
