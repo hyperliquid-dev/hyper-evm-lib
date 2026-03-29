@@ -25,7 +25,7 @@ contract CoreExecution is CoreView {
     using EnumerableSet for EnumerableSet.UintSet;
 
     function _getKey(address user, uint32 perpIndex) internal pure returns (bytes32) {
-        return bytes32((uint256(uint160(user)) << 16) | uint256(perpIndex));
+        return bytes32((uint256(uint160(user)) << 32) | uint256(perpIndex));
     }
 
     function executeTokenTransfer(address, uint64 token, address from, uint256 value)
@@ -714,7 +714,7 @@ contract CoreExecution is CoreView {
 
         for (uint256 i = len; i > 0; i--) {
             bytes32 key = _openPerpPositions.at(i - 1);
-            address user = address(uint160(uint256(key) >> 16));
+            address user = address(uint160(uint256(key) >> 32));
             if (isLiquidatable(user)) {
                 _liquidateUser(user);
             }

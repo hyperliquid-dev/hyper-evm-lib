@@ -168,7 +168,7 @@ library PrecompileLib {
     //////////////////////////////////////////////////////////////*/
 
 
-    function position(address user, uint32 perp) external view returns (Position memory) {
+    function position(address user, uint32 perp) internal view returns (Position memory) {
         (bool success, bytes memory result) = HLConstants.POSITION2_PRECOMPILE_ADDRESS.staticcall(abi.encode(user, perp));
         if (!success) revert PrecompileLib__Position2PrecompileFailed();
         return abi.decode(result, (Position));
@@ -284,7 +284,7 @@ library PrecompileLib {
     function borrowLendUserState(
         address user,
         uint64 token
-    ) external view returns (BorrowLendUserTokenState memory) {
+    ) internal view returns (BorrowLendUserTokenState memory) {
         (bool success, bytes memory result) = HLConstants.BORROW_LEND_USER_STATE_PRECOMPILE_ADDRESS.staticcall(abi.encode(user, token));
         if (!success) revert PrecompileLib__BorrowLendUserStatePrecompileFailed();
         return abi.decode(result, (BorrowLendUserTokenState));
@@ -292,7 +292,7 @@ library PrecompileLib {
 
     function borrowLendReserveState(
         uint64 token
-    ) external view returns (BorrowLendReserveState memory) {
+    ) internal view returns (BorrowLendReserveState memory) {
         (bool success, bytes memory result) = HLConstants.BORROW_LEND_RESERVE_STATE_PRECOMPILE_ADDRESS.staticcall(abi.encode(token));
         if (!success) revert PrecompileLib__BorrowLendReserveStatePrecompileFailed();
         return abi.decode(result, (BorrowLendReserveState));
