@@ -91,8 +91,22 @@ contract CoreView is CoreState {
     }
 
     function readPerpBalance(address account, uint32 dex) public returns (uint64) {
-        if (_accounts[account].activated == false && useRealL1Read && dex == HLConstants.DEFAULT_PERP_DEX) {
-            return RealL1Read.withdrawable(account);
+        // Fall through to chain for any (user, dex) pair the sim hasn't taken over.
+        // If the account was already checked and found not to exist on chain, skip the RPC.
+        if (useRealL1Read && !_initializedDexBalance[account][dex]) {
+            if (_chainAccountExistedChecked[account] && !_chainAccountExisted[account]) return 0;
+
+            if (dex == HLConstants.DEFAULT_PERP_DEX) {
+                return RealL1Read.withdrawable(account);
+            }
+            PrecompileLib.AccountMarginSummary memory ms = RealL1Read.accountMarginSummary(dex, account);
+            uint64 transferReq = ms.marginUsed;
+            uint64 floor = ms.ntlPos / 10;
+            if (floor > transferReq) transferReq = floor;
+            if (ms.accountValue > int64(transferReq)) {
+                return uint64(ms.accountValue - int64(transferReq));
+            }
+            return 0;
         }
 
         return _accounts[account].perpBalance[dex];
@@ -177,7 +191,16 @@ contract CoreView is CoreState {
         public
         returns (PrecompileLib.AccountMarginSummary memory)
     {
-        if (_accounts[user].activated == false && useRealL1Read) {
+        // Fall through to chain for any (user, dex) pair the sim hasn't taken over.
+        // This way tests that only read (without forcing) see real chain values,
+        // while tests that do write see the sim's computed values after the write.
+        if (useRealL1Read && !_initializedDexBalance[user][perp_dex_index]) {
+            // Skip the RPC for accounts we've already confirmed don't exist on chain.
+            if (_chainAccountExistedChecked[user] && !_chainAccountExisted[user]) {
+                return PrecompileLib.AccountMarginSummary({
+                    accountValue: 0, marginUsed: 0, ntlPos: 0, rawUsd: 0
+                });
+            }
             return RealL1Read.accountMarginSummary(perp_dex_index, user);
         }
 

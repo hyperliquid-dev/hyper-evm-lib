@@ -44,6 +44,10 @@ library CoreSimulatorLib {
         hyperCore.setSpotMakerFee(400);
         hyperCore.setPerpMakerFee(150);
 
+        // Seed the dex → quote-token registry. Must happen after etch because
+        // vm.etch copies runtime code only (constructors don't run on etched code).
+        hyperCore.seedDexQuoteTokenRegistry();
+
         vm.etch(address(coreWriter), type(CoreWriterSim).runtimeCode);
 
         // Initialize precompiles

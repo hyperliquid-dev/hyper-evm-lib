@@ -73,6 +73,7 @@ contract CoreExecution is CoreView {
     {
         uint32 perpIndex = assetToPerpIndex(uint32(action.asset));
         uint32 dex = perpDex(perpIndex);
+        _initializeDex(sender, dex);
         PrecompileLib.Position memory position = _accounts[sender].positions[perpIndex];
 
         bool isolated = position.isIsolated;
@@ -442,17 +443,44 @@ contract CoreExecution is CoreView {
         // amountWei is in wei (8 decimals), perpBalance is in perp units (6 decimals)
         uint64 perpAmount = action.amountWei / 1e2;
 
+        // Ensure destination account is initialized so its state survives sim reads.
+        if (_accounts[action.destination].activated == false) {
+            _initializeAccount(action.destination);
+        }
+
         if (action.source_dex == HLConstants.SPOT_DEX) {
             uint64 collateral = dexCollateralToken(action.destination_dex);
             require(action.token == collateral, "token must match destination dex collateral");
             require(_accounts[sender].spot[collateral] >= action.amountWei, "insufficient spot balance");
+            _initializeDex(action.destination, action.destination_dex);
             _accounts[sender].spot[collateral] -= action.amountWei;
             _accounts[action.destination].perpBalance[action.destination_dex] += perpAmount;
         } else if (action.destination_dex == HLConstants.SPOT_DEX) {
+            require(
+                action.token == dexCollateralToken(action.source_dex),
+                "token must match source dex collateral"
+            );
+            _initializeDex(sender, action.source_dex);
             require(_accounts[sender].perpBalance[action.source_dex] >= perpAmount, "insufficient perp dex balance");
             _accounts[sender].perpBalance[action.source_dex] -= perpAmount;
+
+            // Make sure the destination's spot balance mapping is sim-authoritative
+            // for this token; otherwise readSpotBalance would fall through to
+            // RealL1Read and miss the credit we just applied.
+            if (!_initializedSpotBalance[action.destination][action.token]) {
+                registerTokenInfo(action.token);
+                _initializeAccountWithToken(action.destination, action.token);
+            }
             _accounts[action.destination].spot[action.token] += action.amountWei;
         } else {
+            // Cross-dex perp→perp: real Hyperliquid disallows direct transfers between
+            // dexes with different quote tokens (you must route through spot).
+            require(
+                dexCollateralToken(action.source_dex) == dexCollateralToken(action.destination_dex),
+                "cross-quote-token perp transfer not supported"
+            );
+            _initializeDex(sender, action.source_dex);
+            _initializeDex(action.destination, action.destination_dex);
             require(_accounts[sender].perpBalance[action.source_dex] >= perpAmount, "insufficient perp dex balance");
             _accounts[sender].perpBalance[action.source_dex] -= perpAmount;
             _accounts[action.destination].perpBalance[action.destination_dex] += perpAmount;
