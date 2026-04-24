@@ -70,7 +70,6 @@ To see how the testing framework can be used, refer to [`CoreSimulatorTest.t.sol
 
 ## Security Considerations
 
-* `bridgeToEvm()` for non-HYPE tokens requires the contract to hold HYPE on HyperCore for gas; otherwise, the `spotSend` will fail.
 * Be aware of potential precision loss in `evmToWei()` when the EVM token decimals exceed Core decimals, due to integer division during downscaling.
 * Ensure that contracts are deployed with complete functionality to prevent stuck assets in Core
   * For example, implementing `bridgeToCore` but not `bridgeToEvm` can lead to stuck, unretrievable assets on HyperCore
