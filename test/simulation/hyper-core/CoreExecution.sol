@@ -24,8 +24,8 @@ contract CoreExecution is CoreView {
 
     using EnumerableSet for EnumerableSet.UintSet;
 
-    function _getKey(address user, uint16 perpIndex) internal pure returns (bytes32) {
-        return bytes32((uint256(uint160(user)) << 16) | uint256(perpIndex));
+    function _getKey(address user, uint32 perpIndex) internal pure returns (bytes32) {
+        return bytes32((uint256(uint160(user)) << 32) | uint256(perpIndex));
     }
 
     function executeTokenTransfer(address, uint64 token, address from, uint256 value)
@@ -69,9 +69,11 @@ contract CoreExecution is CoreView {
 
     function executePerpLimitOrder(address sender, LimitOrderAction memory action)
         public
-        initAccountWithPerp(sender, uint16(action.asset))
+        initAccountWithPerp(sender, assetToPerpIndex(uint32(action.asset)))
     {
-        uint16 perpIndex = uint16(action.asset);
+        uint32 perpIndex = assetToPerpIndex(uint32(action.asset));
+        uint32 dex = perpDex(perpIndex);
+        _initializeDex(sender, dex);
         PrecompileLib.Position memory position = _accounts[sender].positions[perpIndex];
 
         bool isolated = position.isIsolated;
@@ -85,22 +87,22 @@ contract CoreExecution is CoreView {
         if (!isolated) {
             if (action.isBuy) {
                 if (normalizedMarkPx <= action.limitPx) {
-                    _updateMarginSummary(sender);
-                    _executePerpLong(sender, action, markPx);
-                    _updateMarginSummary(sender);
+                    _updateMarginSummary(sender, dex);
+                    _executePerpLong(sender, action, markPx, dex);
+                    _updateMarginSummary(sender, dex);
                 }
             } else {
                 if (normalizedMarkPx >= action.limitPx) {
-                    _updateMarginSummary(sender);
-                    _executePerpShort(sender, action, markPx);
-                    _updateMarginSummary(sender);
+                    _updateMarginSummary(sender, dex);
+                    _executePerpShort(sender, action, markPx, dex);
+                    _updateMarginSummary(sender, dex);
                 }
             }
         }
     }
 
-    function _executePerpLong(address sender, LimitOrderAction memory action, uint256 markPx) internal {
-        uint16 perpIndex = uint16(action.asset);
+    function _executePerpLong(address sender, LimitOrderAction memory action, uint256 markPx, uint32 dex) internal {
+        uint32 perpIndex = assetToPerpIndex(uint32(action.asset));
         int64 szi = _accounts[sender].positions[perpIndex].szi;
         uint32 leverage = _accounts[sender].positions[perpIndex].leverage;
 
@@ -114,37 +116,32 @@ contract CoreExecution is CoreView {
         if (perpMakerFee > 0) {
             uint256 notional = uint256(action.sz) * uint256(_markPx);
             uint64 fee = SafeCast.toUint64((notional * uint256(perpMakerFee)) / FEE_DENOMINATOR);
-            require(_accounts[sender].perpBalance >= fee, "insufficient perp balance for fee");
-            _accounts[sender].perpBalance -= fee;
+            require(_accounts[sender].perpBalance[dex] >= fee, "insufficient perp balance for fee");
+            _accounts[sender].perpBalance[dex] -= fee;
         }
 
         int64 newSzi = szi + int64(action.sz);
 
         if (szi >= 0) {
-            // No PnL realization for same-direction increase
-            // Update position size (more positive for long)
             _accounts[sender].positions[perpIndex].szi += int64(action.sz);
-
-            // Additive update to entryNtl to preserve weighted average
-            // New entryNtl = old_entryNtl + (action.sz * markPx)
             _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
         } else {
             if (newSzi <= 0) {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi);
                 int64 pnl = int64(action.sz) * (int64(avgEntryPrice) - int64(_markPx));
 
-                _accounts[sender].perpBalance = pnl > 0
-                    ? _accounts[sender].perpBalance + uint64(pnl)
-                    : _accounts[sender].perpBalance - uint64(-pnl);
+                _accounts[sender].perpBalance[dex] = pnl > 0
+                    ? _accounts[sender].perpBalance[dex] + uint64(pnl)
+                    : _accounts[sender].perpBalance[dex] - uint64(-pnl);
 
                 _accounts[sender].positions[perpIndex].szi = newSzi;
                 _accounts[sender].positions[perpIndex].entryNtl = uint64(-newSzi) * avgEntryPrice;
             } else {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(-szi);
                 int64 pnl = int64(-szi) * (int64(avgEntryPrice) - int64(_markPx));
-                _accounts[sender].perpBalance = pnl > 0
-                    ? _accounts[sender].perpBalance + uint64(pnl)
-                    : _accounts[sender].perpBalance - uint64(-pnl);
+                _accounts[sender].perpBalance[dex] = pnl > 0
+                    ? _accounts[sender].perpBalance[dex] + uint64(pnl)
+                    : _accounts[sender].perpBalance[dex] - uint64(-pnl);
 
                 uint64 newLongSize = uint64(newSzi);
 
@@ -155,22 +152,21 @@ contract CoreExecution is CoreView {
 
         bytes32 key = _getKey(sender, perpIndex);
         if (szi == 0 && newSzi != 0) {
-            _openPerpPositions.add(key);
-            _userPerpPositions[sender].add(perpIndex);
+            _openPerpPositions[dex].add(key);
+            _userPerpPositions[dex][sender].add(perpIndex);
         } else if (szi != 0 && newSzi == 0) {
-            _openPerpPositions.remove(key);
-            _userPerpPositions[sender].remove(perpIndex);
+            _openPerpPositions[dex].remove(key);
+            _userPerpPositions[dex][sender].remove(perpIndex);
         }
     }
 
-    function _executePerpShort(address sender, LimitOrderAction memory action, uint256 markPx) internal {
-        uint16 perpIndex = uint16(action.asset);
+    function _executePerpShort(address sender, LimitOrderAction memory action, uint256 markPx, uint32 dex) internal {
+        uint32 perpIndex = assetToPerpIndex(uint32(action.asset));
         int64 szi = _accounts[sender].positions[perpIndex].szi;
         uint32 leverage = _accounts[sender].positions[perpIndex].leverage;
 
         uint64 _markPx = markPx.toUint64();
 
-        // Add require checks for safety (e.g., leverage > 0, action.sz > 0, etc.)
         require(leverage > 0, "Invalid leverage");
         require(action.sz > 0, "Invalid size");
         require(markPx > 0, "Invalid price");
@@ -178,37 +174,32 @@ contract CoreExecution is CoreView {
         if (perpMakerFee > 0) {
             uint256 notional = uint256(action.sz) * uint256(_markPx);
             uint64 fee = SafeCast.toUint64((notional * uint256(perpMakerFee)) / FEE_DENOMINATOR);
-            require(_accounts[sender].perpBalance >= fee, "insufficient perp balance for fee");
-            _accounts[sender].perpBalance -= fee;
+            require(_accounts[sender].perpBalance[dex] >= fee, "insufficient perp balance for fee");
+            _accounts[sender].perpBalance[dex] -= fee;
         }
 
         int64 newSzi = szi - int64(action.sz);
 
         if (szi <= 0) {
-            // No PnL realization for same-direction increase
-            // Update position size (more negative for short)
             _accounts[sender].positions[perpIndex].szi -= int64(action.sz);
-
-            // Additive update to entryNtl to preserve weighted average
-            // New entryNtl = old_entryNtl + (action.sz * markPx)
             _accounts[sender].positions[perpIndex].entryNtl += uint64(action.sz) * uint64(markPx);
         } else {
             if (newSzi >= 0) {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(szi);
                 int64 pnl = int64(action.sz) * (int64(_markPx) - int64(avgEntryPrice));
 
-                _accounts[sender].perpBalance = pnl > 0
-                    ? _accounts[sender].perpBalance + uint64(pnl)
-                    : _accounts[sender].perpBalance - uint64(-pnl);
+                _accounts[sender].perpBalance[dex] = pnl > 0
+                    ? _accounts[sender].perpBalance[dex] + uint64(pnl)
+                    : _accounts[sender].perpBalance[dex] - uint64(-pnl);
 
                 _accounts[sender].positions[perpIndex].szi = newSzi;
                 _accounts[sender].positions[perpIndex].entryNtl = uint64(newSzi) * avgEntryPrice;
             } else {
                 uint64 avgEntryPrice = _accounts[sender].positions[perpIndex].entryNtl / uint64(szi);
                 int64 pnl = int64(szi) * (int64(_markPx) - int64(avgEntryPrice));
-                _accounts[sender].perpBalance = pnl > 0
-                    ? _accounts[sender].perpBalance + uint64(pnl)
-                    : _accounts[sender].perpBalance - uint64(-pnl);
+                _accounts[sender].perpBalance[dex] = pnl > 0
+                    ? _accounts[sender].perpBalance[dex] + uint64(pnl)
+                    : _accounts[sender].perpBalance[dex] - uint64(-pnl);
 
                 uint64 newShortSize = uint64(-newSzi);
 
@@ -219,15 +210,15 @@ contract CoreExecution is CoreView {
 
         bytes32 key = _getKey(sender, perpIndex);
         if (szi == 0 && newSzi != 0) {
-            _openPerpPositions.add(key);
-            _userPerpPositions[sender].add(perpIndex);
+            _openPerpPositions[dex].add(key);
+            _userPerpPositions[dex][sender].add(perpIndex);
         } else if (szi != 0 && newSzi == 0) {
-            _openPerpPositions.remove(key);
-            _userPerpPositions[sender].remove(perpIndex);
+            _openPerpPositions[dex].remove(key);
+            _userPerpPositions[dex][sender].remove(perpIndex);
         }
     }
 
-    function _updateMarginSummary(address sender) internal {
+    function _updateMarginSummary(address sender, uint32 dex) internal {
         uint64 totalNtlPos = 0;
         uint64 totalMarginUsed = 0;
 
@@ -236,8 +227,8 @@ contract CoreExecution is CoreView {
         uint64 totalLongNtlPos = 0;
         uint64 totalShortNtlPos = 0;
 
-        for (uint256 i = 0; i < _userPerpPositions[sender].length(); i++) {
-            uint16 perpIndex = uint16(_userPerpPositions[sender].at(i));
+        for (uint256 i = 0; i < _userPerpPositions[dex][sender].length(); i++) {
+            uint32 perpIndex = uint32(_userPerpPositions[dex][sender].at(i));
 
             PrecompileLib.Position memory position = _accounts[sender].positions[perpIndex];
 
@@ -263,10 +254,10 @@ contract CoreExecution is CoreView {
             }
         }
 
-        int64 totalAccountValue = int64(_accounts[sender].perpBalance - entryNtlByLeverage + totalMarginUsed);
+        int64 totalAccountValue = int64(_accounts[sender].perpBalance[dex] - entryNtlByLeverage + totalMarginUsed);
         int64 totalRawUsd = totalAccountValue - int64(totalLongNtlPos) + int64(totalShortNtlPos);
 
-        _accounts[sender].marginSummary[0] = PrecompileLib.AccountMarginSummary({
+        _accounts[sender].marginSummary[dex] = PrecompileLib.AccountMarginSummary({
             accountValue: totalAccountValue, marginUsed: totalMarginUsed, ntlPos: totalNtlPos, rawUsd: totalRawUsd
         });
     }
@@ -432,26 +423,68 @@ contract CoreExecution is CoreView {
     function _chargeUSDCFee(address sender) internal {
         if (_accounts[sender].spot[USDC_TOKEN_INDEX] >= 1e8) {
             _accounts[sender].spot[USDC_TOKEN_INDEX] -= 1e8;
-        } else if (_accounts[sender].perpBalance >= 1e8) {
-            _accounts[sender].perpBalance -= 1e8;
+        } else if (_accounts[sender].perpBalance[HLConstants.DEFAULT_PERP_DEX] >= 1e8) {
+            _accounts[sender].perpBalance[HLConstants.DEFAULT_PERP_DEX] -= 1e8;
         } else {
             revert("insufficient USDC balance for fee");
         }
     }
 
     function executeSendAsset(address sender, SendAssetAction memory action) public {
-        require(
-            action.source_dex == HLConstants.SPOT_DEX && action.destination_dex == HLConstants.SPOT_DEX,
-            "only SPOT_DEX supported in simulator"
-        );
-
-        // When destination is BASE_SYSTEM_ADDRESS, map to token-specific system address for EVM bridging
-        address destination = action.destination;
-        if (destination == address(HLConstants.BASE_SYSTEM_ADDRESS)) {
-            destination = CoreWriterLib.getSystemAddress(action.token);
+        if (action.source_dex == HLConstants.SPOT_DEX && action.destination_dex == HLConstants.SPOT_DEX) {
+            address destination = action.destination;
+            if (destination == address(HLConstants.BASE_SYSTEM_ADDRESS)) {
+                destination = CoreWriterLib.getSystemAddress(action.token);
+            }
+            executeSpotSend(sender, SpotSendAction(destination, action.token, action.amountWei));
+            return;
         }
 
-        executeSpotSend(sender, SpotSendAction(destination, action.token, action.amountWei));
+        // amountWei is in wei (8 decimals), perpBalance is in perp units (6 decimals)
+        uint64 perpAmount = action.amountWei / 1e2;
+
+        // Ensure destination account is initialized so its state survives sim reads.
+        if (_accounts[action.destination].activated == false) {
+            _initializeAccount(action.destination);
+        }
+
+        if (action.source_dex == HLConstants.SPOT_DEX) {
+            uint64 collateral = dexCollateralToken(action.destination_dex);
+            require(action.token == collateral, "token must match destination dex collateral");
+            require(_accounts[sender].spot[collateral] >= action.amountWei, "insufficient spot balance");
+            _initializeDex(action.destination, action.destination_dex);
+            _accounts[sender].spot[collateral] -= action.amountWei;
+            _accounts[action.destination].perpBalance[action.destination_dex] += perpAmount;
+        } else if (action.destination_dex == HLConstants.SPOT_DEX) {
+            require(
+                action.token == dexCollateralToken(action.source_dex),
+                "token must match source dex collateral"
+            );
+            _initializeDex(sender, action.source_dex);
+            require(_accounts[sender].perpBalance[action.source_dex] >= perpAmount, "insufficient perp dex balance");
+            _accounts[sender].perpBalance[action.source_dex] -= perpAmount;
+
+            // Make sure the destination's spot balance mapping is sim-authoritative
+            // for this token; otherwise readSpotBalance would fall through to
+            // RealL1Read and miss the credit we just applied.
+            if (!_initializedSpotBalance[action.destination][action.token]) {
+                registerTokenInfo(action.token);
+                _initializeAccountWithToken(action.destination, action.token);
+            }
+            _accounts[action.destination].spot[action.token] += action.amountWei;
+        } else {
+            // Cross-dex perp→perp: real Hyperliquid disallows direct transfers between
+            // dexes with different quote tokens (you must route through spot).
+            require(
+                dexCollateralToken(action.source_dex) == dexCollateralToken(action.destination_dex),
+                "cross-quote-token perp transfer not supported"
+            );
+            _initializeDex(sender, action.source_dex);
+            _initializeDex(action.destination, action.destination_dex);
+            require(_accounts[sender].perpBalance[action.source_dex] >= perpAmount, "insufficient perp dex balance");
+            _accounts[sender].perpBalance[action.source_dex] -= perpAmount;
+            _accounts[action.destination].perpBalance[action.destination_dex] += perpAmount;
+        }
     }
 
     function executeUsdClassTransfer(address sender, UsdClassTransferAction memory action)
@@ -461,12 +494,12 @@ contract CoreExecution is CoreView {
     {
         if (action.toPerp) {
             if (fromPerp(action.ntl) <= _accounts[sender].spot[USDC_TOKEN_INDEX]) {
-                _accounts[sender].perpBalance += action.ntl;
+                _accounts[sender].perpBalance[HLConstants.DEFAULT_PERP_DEX] += action.ntl;
                 _accounts[sender].spot[USDC_TOKEN_INDEX] -= fromPerp(action.ntl);
             }
         } else {
-            if (action.ntl <= _accounts[sender].perpBalance) {
-                _accounts[sender].perpBalance -= action.ntl;
+            if (action.ntl <= _accounts[sender].perpBalance[HLConstants.DEFAULT_PERP_DEX]) {
+                _accounts[sender].perpBalance[HLConstants.DEFAULT_PERP_DEX] -= action.ntl;
                 _accounts[sender].spot[USDC_TOKEN_INDEX] += fromPerp(action.ntl);
             }
         }
@@ -482,11 +515,11 @@ contract CoreExecution is CoreView {
         _userVaultMultiplier[sender][action.vault] = _vaultMultiplier[action.vault];
 
         if (action.isDeposit) {
-            if (action.usd <= _accounts[sender].perpBalance) {
+            if (action.usd <= _accounts[sender].perpBalance[HLConstants.DEFAULT_PERP_DEX]) {
                 _accounts[sender].vaultEquity[action.vault].equity += action.usd;
                 _accounts[sender].vaultEquity[action.vault].lockedUntilTimestamp =
                     uint64((block.timestamp + 86400) * 1000);
-                _accounts[sender].perpBalance -= action.usd;
+                _accounts[sender].perpBalance[HLConstants.DEFAULT_PERP_DEX] -= action.usd;
                 _vaultEquity[action.vault] += action.usd;
             } else {
                 revert("insufficient balance");
@@ -505,7 +538,7 @@ contract CoreExecution is CoreView {
             if (action.usd <= userVaultEquity.equity && userVaultEquity.lockedUntilTimestamp / 1000 <= block.timestamp)
             {
                 userVaultEquity.equity -= action.usd;
-                _accounts[sender].perpBalance += action.usd;
+                _accounts[sender].perpBalance[HLConstants.DEFAULT_PERP_DEX] += action.usd;
             } else {
                 revert("equity too low, or locked");
             }
@@ -644,79 +677,85 @@ contract CoreExecution is CoreView {
 
     ////////// PERP LIQUIDATIONS ////////////////////
     function isLiquidatable(address user) public returns (bool) {
-        uint64 totalNotional = 0;
-        int64 totalUPnL = 0;
-        uint64 totalLocked = 0;
-        uint64 mmReq = 0;
+        return isLiquidatable(user, HLConstants.DEFAULT_PERP_DEX);
+    }
 
-        uint256 len = _userPerpPositions[user].length();
-
-        for (uint256 i = len; i > 0; i--) {
-            uint16 perpIndex = uint16(_userPerpPositions[user].at(i - 1));
-            PrecompileLib.Position memory pos = _accounts[user].positions[perpIndex];
-            if (pos.szi != 0) {
-                uint64 markPx = readMarkPx(perpIndex);
-                int64 szi = pos.szi;
-                uint64 avgEntry = pos.entryNtl / abs(szi);
-                int64 uPnL = szi * (int64(markPx) - int64(avgEntry));
-                totalUPnL += uPnL;
-                totalLocked += _accounts[user].margin[perpIndex];
-
-                uint64 positionNotional = abs(szi) * markPx;
-                totalNotional += positionNotional;
-
-                // Per-perp maintenance margin requirement based on max leverage
-                uint32 maxLev = _getMaxLeverage(perpIndex);
-                uint64 mmBps = 5000 / maxLev; // 5000 / maxLev gives bps for mm_fraction = 0.5 / maxLev
-                mmReq += (positionNotional * mmBps) / 10000;
-            }
-        }
+    function isLiquidatable(address user, uint32 dex) public returns (bool) {
+        (uint64 totalNotional, int64 totalUPnL, uint64 totalLocked, uint64 mmReq) = _calcLiquidationParams(user, dex);
 
         if (totalNotional == 0) {
             return false;
         }
 
-        int64 equity = int64(_accounts[user].perpBalance) + int64(totalLocked) + totalUPnL;
-
+        int64 equity = int64(_accounts[user].perpBalance[dex]) + int64(totalLocked) + totalUPnL;
         return equity < int64(mmReq);
+    }
+
+    function _calcLiquidationParams(address user, uint32 dex) internal returns (uint64 totalNotional, int64 totalUPnL, uint64 totalLocked, uint64 mmReq) {
+        uint256 len = _userPerpPositions[dex][user].length();
+
+        for (uint256 i = len; i > 0; i--) {
+            uint32 perpIndex = uint32(_userPerpPositions[dex][user].at(i - 1));
+            PrecompileLib.Position memory pos = _accounts[user].positions[perpIndex];
+            if (pos.szi != 0) {
+                uint64 markPx = readMarkPx(perpIndex);
+                uint64 avgEntry = pos.entryNtl / abs(pos.szi);
+                totalUPnL += pos.szi * (int64(markPx) - int64(avgEntry));
+                totalLocked += _accounts[user].margin[dex][perpIndex];
+
+                uint64 positionNotional = abs(pos.szi) * markPx;
+                totalNotional += positionNotional;
+
+                uint64 mmBps = 5000 / _getMaxLeverage(perpIndex);
+                mmReq += (positionNotional * mmBps) / 10000;
+            }
+        }
     }
 
     function abs(int64 value) internal pure returns (uint64) {
         return value > 0 ? uint64(value) : uint64(-value);
     }
 
-    function _getMaxLeverage(uint16 perpIndex) public view returns (uint32) {
+    function _getMaxLeverage(uint32 perpIndex) public view returns (uint32) {
         return _perpAssetInfo[perpIndex].maxLeverage;
     }
 
     // simplified liquidation, nukes all positions and resets the perp balance
     // for future: make this more realistic
     function _liquidateUser(address user) public {
-        uint256 len = _userPerpPositions[user].length();
+        _liquidateUser(user, HLConstants.DEFAULT_PERP_DEX);
+    }
+
+    function _liquidateUser(address user, uint32 dex) public {
+        uint256 len = _userPerpPositions[dex][user].length();
         for (uint256 i = len; i > 0; i--) {
-            uint16 perpIndex = uint16(_userPerpPositions[user].at(i - 1));
+            uint32 perpIndex = uint32(_userPerpPositions[dex][user].at(i - 1));
 
             bytes32 key = _getKey(user, perpIndex);
-            _openPerpPositions.remove(key);
+            _openPerpPositions[dex].remove(key);
             _accounts[user].positions[perpIndex].szi = 0;
             _accounts[user].positions[perpIndex].entryNtl = 0;
-            _accounts[user].margin[perpIndex] = 0;
-            _userPerpPositions[user].remove(perpIndex);
+            _accounts[user].margin[dex][perpIndex] = 0;
+            _userPerpPositions[dex][user].remove(perpIndex);
         }
 
-        _accounts[user].perpBalance = 0;
+        _accounts[user].perpBalance[dex] = 0;
     }
 
     function liquidatePositions() public {
-        uint256 len = _openPerpPositions.length();
+        liquidatePositions(HLConstants.DEFAULT_PERP_DEX);
+    }
+
+    function liquidatePositions(uint32 dex) public {
+        uint256 len = _openPerpPositions[dex].length();
 
         if (len == 0) return;
 
         for (uint256 i = len; i > 0; i--) {
-            bytes32 key = _openPerpPositions.at(i - 1);
-            address user = address(uint160(uint256(key) >> 16));
-            if (isLiquidatable(user)) {
-                _liquidateUser(user);
+            bytes32 key = _openPerpPositions[dex].at(i - 1);
+            address user = address(uint160(uint256(key) >> 32));
+            if (isLiquidatable(user, dex)) {
+                _liquidateUser(user, dex);
             }
         }
     }

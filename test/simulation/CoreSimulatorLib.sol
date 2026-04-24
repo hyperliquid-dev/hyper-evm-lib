@@ -24,7 +24,7 @@ contract HypeSystemContract {
  * @dev A library used to simulate HyperCore functionality in foundry tests
  */
 library CoreSimulatorLib {
-    uint256 constant NUM_PRECOMPILES = 17;
+    uint256 constant NUM_PRECOMPILES = 20;
 
     HyperCore constant hyperCore = HyperCore(payable(0x9999999999999999999999999999999999999999));
 
@@ -43,6 +43,10 @@ library CoreSimulatorLib {
         hyperCore.setUseRealL1Read(true);
         hyperCore.setSpotMakerFee(400);
         hyperCore.setPerpMakerFee(150);
+
+        // Seed the dex → quote-token registry. Must happen after etch because
+        // vm.etch copies runtime code only (constructors don't run on etched code).
+        hyperCore.seedDexQuoteTokenRegistry();
 
         vm.etch(address(coreWriter), type(CoreWriterSim).runtimeCode);
 
@@ -142,6 +146,10 @@ library CoreSimulatorLib {
         hyperCore.forcePerpBalance(account, usd);
     }
 
+    function forcePerpBalance(address account, uint32 dex, uint64 usd) internal {
+        hyperCore.forcePerpBalance(account, dex, usd);
+    }
+
     function forceStakingBalance(address account, uint64 _wei) internal {
         hyperCore.forceStakingBalance(account, _wei);
     }
@@ -186,7 +194,7 @@ library CoreSimulatorLib {
         hyperCore.setPerpMakerFee(bps);
     }
 
-    function forcePerpLeverage(address account, uint16 perp, uint32 leverage) internal {
+    function forcePerpLeverage(address account, uint32 perp, uint32 leverage) internal {
         hyperCore.forcePerpPositionLeverage(account, perp, leverage);
     }
 

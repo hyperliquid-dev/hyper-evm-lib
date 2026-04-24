@@ -61,7 +61,7 @@ contract HypeTradingContract {
      * @param perpIndex Perp index (use HYPE_ASSET_ID or other perp asset)
      * @return position Position data including size, entry price, PnL, leverage, and isolation status
      */
-    function getPosition(address user, uint16 perpIndex)
+    function getPosition(address user, uint32 perpIndex)
         external
         view
         returns (PrecompileLib.Position memory position)
@@ -75,7 +75,7 @@ contract HypeTradingContract {
      * @param perpIndex Perp index to get position for
      * @return position Position data for the specified perp
      */
-    function getUserPosition(address user, uint16 perpIndex)
+    function getUserPosition(address user, uint32 perpIndex)
         external
         view
         returns (PrecompileLib.Position memory position)

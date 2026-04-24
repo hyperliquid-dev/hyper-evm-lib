@@ -97,6 +97,14 @@ contract PrecompileLibTests is Test {
         console.log("rawUsd: %e", summary.rawUsd);
     }
 
+    function test_position() public {
+        address whale = 0x2Ba553d9F990a3B66b03b2dC0D030dfC1c061036;
+        PrecompileLib.Position memory position = PrecompileLib.position(whale, 10002);
+        console.log("leverage: %e", position.leverage);
+
+        console.log("isIsolated: %s", position.isIsolated);
+    }
+
     function test_coreUserExists() public {
         address whale = 0x2Ba553d9F990a3B66b03b2dC0D030dfC1c061036;
         address whale2 = 0x751140B83d289353B3B6dA2c7e8659b3a0642F11;

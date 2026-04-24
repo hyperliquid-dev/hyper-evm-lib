@@ -35,6 +35,32 @@ contract CoreState is StdCheats {
         HYPE_TOKEN_INDEX = HLConstants.hypeTokenIndex();
     }
 
+    /// @dev Seeds the known HIP-3 dex → quote token mappings and the corresponding
+    /// _isQuoteToken flags. Called from CoreSimulatorLib.init() after `vm.etch`
+    /// (which copies runtime code only, so the constructor can't seed storage).
+    /// Tests can extend via registerDexQuoteToken.
+    function seedDexQuoteTokenRegistry() public {
+        _registerDexQuoteToken(0, 0);     // default dex: USDC
+        _registerDexQuoteToken(1, 0);     // HIP-3 USDC-collateralized (e.g. xyz stock perps)
+        _registerDexQuoteToken(2, 360);   // HIP-3 USDH-collateralized
+        _registerDexQuoteToken(3, 360);   // HIP-3 USDH-collateralized
+        _registerDexQuoteToken(4, 235);   // HIP-3 USDE-collateralized
+        _registerDexQuoteToken(5, 360);   // HIP-3 USDH-collateralized
+        _registerDexQuoteToken(6, 0);     // HIP-3 USDC-collateralized
+        _registerDexQuoteToken(7, 268);   // HIP-3 USDT0-collateralized
+    }
+
+    function _registerDexQuoteToken(uint32 dex, uint64 token) private {
+        _dexQuoteToken[dex] = token;
+        _dexRegistered[dex] = true;
+        _isQuoteToken[token] = true;
+    }
+
+    /// @notice Register or override the collateral token for a perp dex. Keeps _isQuoteToken in sync.
+    function registerDexQuoteToken(uint32 dex, uint64 token) public {
+        _registerDexQuoteToken(dex, token);
+    }
+
     struct WithdrawRequest {
         address account;
         uint64 amount;
@@ -48,10 +74,10 @@ contract CoreState is StdCheats {
         uint64 staking; // undelegated staking balance
         EnumerableSet.AddressSet delegatedValidators;
         mapping(address validator => PrecompileLib.Delegation) delegations;
-        uint64 perpBalance;
-        mapping(uint16 perpIndex => PrecompileLib.Position) positions;
-        mapping(uint16 perpIndex => uint64 margin) margin;
-        mapping(uint16 perpIndex => PrecompileLib.AccountMarginSummary) marginSummary;
+        mapping(uint32 dex => uint64) perpBalance;
+        mapping(uint32 perpIndex => PrecompileLib.Position) positions;
+        mapping(uint32 dex => mapping(uint32 perpIndex => uint64)) margin;
+        mapping(uint32 dex => PrecompileLib.AccountMarginSummary) marginSummary;
     }
 
     struct PendingOrder {
@@ -96,12 +122,28 @@ contract CoreState is StdCheats {
         _userStakingYieldIndex;
     uint256 internal _stakingYieldIndex; // assumes same yield for all validators TODO: account for differences due to commissions
 
-    EnumerableSet.Bytes32Set internal _openPerpPositions;
+    mapping(uint32 dex => EnumerableSet.Bytes32Set) internal _openPerpPositions;
 
-    // Maps user address to a set of perp indices they have active positions in
-    mapping(address => EnumerableSet.UintSet) internal _userPerpPositions;
+    // Maps user address to a set of perp indices they have active positions in (per-dex)
+    mapping(uint32 dex => mapping(address => EnumerableSet.UintSet)) internal _userPerpPositions;
 
     mapping(uint64 token => bool isQuoteToken) internal _isQuoteToken;
+
+    // Per-(user, dex) flag: true once the sim has taken over state for this dex.
+    // Reads for untouched dexes fall through to RealL1Read.
+    mapping(address account => mapping(uint32 dex => bool initialized)) internal _initializedDexBalance;
+
+    // Dex → collateral/quote token registry. Storage-backed so tests can extend.
+    mapping(uint32 dex => uint64 quoteToken) internal _dexQuoteToken;
+    mapping(uint32 dex => bool registered) internal _dexRegistered;
+
+    // Cache: did the account exist on chain at initialization time? Used to skip
+    // redundant RPC calls in HIP-3 read/write paths for force-activated test users
+    // that were never on chain.
+    mapping(address account => bool existedOnChain) internal _chainAccountExisted;
+    mapping(address account => bool checked) internal _chainAccountExistedChecked;
+
+
 
     /////////////////////////
     /// STATE INITIALIZERS///
@@ -140,7 +182,7 @@ contract CoreState is StdCheats {
         _;
     }
 
-    modifier initAccountWithPerp(address _account, uint16 perp) {
+    modifier initAccountWithPerp(address _account, uint32 perp) {
         if (_perpAssetInfo[perp].maxLeverage == 0) {
             registerPerpAssetInfo(perp, RealL1Read.perpAssetInfo(perp));
         }
@@ -189,7 +231,7 @@ contract CoreState is StdCheats {
         _accounts[_account].vaultEquity[_vault] = RealL1Read.userVaultEquity(_account, _vault);
     }
 
-    function _initializeAccountWithPerp(address _account, uint16 perp) internal {
+    function _initializeAccountWithPerp(address _account, uint32 perp) internal {
         _initializedPerpPosition[_account][perp] = true;
         _accounts[_account].positions[perp] = RealL1Read.position(_account, perp);
     }
@@ -209,6 +251,8 @@ contract CoreState is StdCheats {
 
         // check if the acc is created on Core
         bool coreUserExists = RealL1Read.coreUserExists(_account);
+        _chainAccountExisted[_account] = coreUserExists;
+        _chainAccountExistedChecked[_account] = true;
         if (!coreUserExists && !force) {
             return;
         }
@@ -216,13 +260,24 @@ contract CoreState is StdCheats {
         _initializedAccounts[_account] = true;
         account.activated = true;
 
-        // setting perp balance
-        account.perpBalance = RealL1Read.withdrawable(_account);
+        // setting perp balance for default dex (uses withdrawable precompile only
+        // if the user actually existed on chain; otherwise default to 0)
+        account.perpBalance[HLConstants.DEFAULT_PERP_DEX] =
+            coreUserExists ? RealL1Read.withdrawable(_account) : 0;
+        _initializedDexBalance[_account][HLConstants.DEFAULT_PERP_DEX] = true;
 
-        // setting staking balance
+        // HIP-3 dex balances are seeded lazily on first touch via _initializeDex.
+        // This avoids (a) fabricating balances for accounts that never use HIP-3 dexes,
+        // (b) inflating seeds with accountValue (which includes locked margin + uPnL),
+        // and (c) the brittle hardcoded dex list.
+
+        // setting staking balance (skip RPC for force-activated test accounts
+        // that never existed on chain — they can't have staking state)
         PrecompileLib.DelegatorSummary memory summary;
-        summary = RealL1Read.delegatorSummary(_account);
-        account.staking = summary.undelegated;
+        if (coreUserExists) {
+            summary = RealL1Read.delegatorSummary(_account);
+            account.staking = summary.undelegated;
+        }
 
         // assume each pending withdrawal is of equal size
         uint64 pendingWithdrawals = summary.nPendingWithdrawals;
@@ -259,15 +314,16 @@ contract CoreState is StdCheats {
             }
         }
 
-        // set delegations
-        PrecompileLib.Delegation[] memory delegations;
-        delegations = RealL1Read.delegations(_account);
-        for (uint256 i = 0; i < delegations.length; i++) {
-            account.delegations[delegations[i].validator] = delegations[i];
-            account.delegatedValidators.add(delegations[i].validator);
-        }
+        // set delegations (only if the account actually exists on chain)
+        if (coreUserExists) {
+            PrecompileLib.Delegation[] memory delegations = RealL1Read.delegations(_account);
+            for (uint256 i = 0; i < delegations.length; i++) {
+                account.delegations[delegations[i].validator] = delegations[i];
+                account.delegatedValidators.add(delegations[i].validator);
+            }
 
-        _accounts[_account].marginSummary[0] = RealL1Read.accountMarginSummary(0, _account);
+            account.marginSummary[0] = RealL1Read.accountMarginSummary(0, _account);
+        }
     }
 
     modifier whenActivated(address sender) {
@@ -290,10 +346,8 @@ contract CoreState is StdCheats {
         if (tokenInfo.evmContract == RealL1Read.INVALID_ADDRESS) return;
         _tokens[index] = tokenInfo;
 
-        // quote token status for USDC, USDT0, USDH respectively
-        if (index == 0 || index == 268 || index == 360) {
-            _isQuoteToken[index] = true;
-        }
+        // _isQuoteToken is now seeded in the constructor via _seedDexQuoteTokenRegistry
+        // (which already covers USDC=0, USDH=360, USDE=235, USDT0=268).
     }
 
     function registerTokenInfo(uint64 index, PrecompileLib.TokenInfo memory tokenInfo) public {
@@ -304,8 +358,22 @@ contract CoreState is StdCheats {
         _spotInfo[spotIndex] = spotInfo;
     }
 
-    function registerPerpAssetInfo(uint16 perpIndex, PrecompileLib.PerpAssetInfo memory perpAssetInfo) public {
+    function registerPerpAssetInfo(uint32 perpIndex, PrecompileLib.PerpAssetInfo memory perpAssetInfo) public {
         _perpAssetInfo[perpIndex] = perpAssetInfo;
+    }
+
+    function perpDex(uint32 perpIndex) internal pure returns (uint32) {
+        return perpIndex / 10000;
+    }
+
+    /// @dev Converts an asset ID to a perp index for precompile calls
+    /// Native perps: asset ID == perp index (e.g. BTC = 0)
+    /// HIP-3 perps: asset ID = 100000 + dex * 10000 + index, perp index = dex * 10000 + index
+    function assetToPerpIndex(uint32 asset) internal pure returns (uint32) {
+        if (asset >= 100000) {
+            return asset - 100000;
+        }
+        return asset;
     }
 
     // @dev if this set has len > 0, only validators within the set can be delegated to
@@ -334,6 +402,10 @@ contract CoreState is StdCheats {
     }
 
     function forcePerpBalance(address account, uint64 usd) public payable {
+        forcePerpBalance(account, HLConstants.DEFAULT_PERP_DEX, usd);
+    }
+
+    function forcePerpBalance(address account, uint32 dex, uint64 usd) public payable {
         if (_accounts[account].activated == false) {
             forceAccountActivation(account);
         }
@@ -341,10 +413,49 @@ contract CoreState is StdCheats {
             _initializeAccount(account);
         }
 
-        _accounts[account].perpBalance = usd;
+        _accounts[account].perpBalance[dex] = usd;
+        _initializedDexBalance[account][dex] = true;
     }
 
-    function forcePerpPositionLeverage(address account, uint16 perp, uint32 leverage) public payable {
+    /// @dev Lazy per-(user, dex) initializer. Seeds perpBalance[dex] with an
+    /// approximation of withdrawable derived from accountMarginSummary.
+    /// For the default dex we use the dedicated `withdrawable` precompile.
+    /// For HIP-3 dexes there is no such precompile, so we use:
+    ///     withdrawable ≈ max(0, accountValue − max(marginUsed, ntlPos/10))
+    /// This mirrors the simulator's own `_previewWithdrawable` formula collapsed
+    /// to totals. Exact for flat users and for positions with leverage ≤ 10
+    /// (covers typical HIP-3 stock-perp configurations); slightly over-estimates
+    /// only for high-leverage HIP-3 positions.
+    function _initializeDex(address user, uint32 dex) internal {
+        if (_initializedDexBalance[user][dex]) return;
+        _initializedDexBalance[user][dex] = true;
+
+        if (_accounts[user].activated == false) return;
+
+        // Users that never existed on chain can't have HIP-3 state; skip RPC.
+        if (_chainAccountExistedChecked[user] && !_chainAccountExisted[user]) {
+            _accounts[user].perpBalance[dex] = 0;
+            return;
+        }
+
+        if (dex == HLConstants.DEFAULT_PERP_DEX) {
+            _accounts[user].perpBalance[dex] = RealL1Read.withdrawable(user);
+            return;
+        }
+
+        PrecompileLib.AccountMarginSummary memory ms = RealL1Read.accountMarginSummary(dex, user);
+        uint64 transferReq = ms.marginUsed;
+        uint64 floor = ms.ntlPos / 10;
+        if (floor > transferReq) transferReq = floor;
+
+        if (ms.accountValue > int64(transferReq)) {
+            _accounts[user].perpBalance[dex] = uint64(ms.accountValue - int64(transferReq));
+        } else {
+            _accounts[user].perpBalance[dex] = 0;
+        }
+    }
+
+    function forcePerpPositionLeverage(address account, uint32 perp, uint32 leverage) public payable {
         if (_accounts[account].activated == false) {
             forceAccountActivation(account);
         }
@@ -400,6 +511,11 @@ contract CoreState is StdCheats {
 
     function fromPerp(uint64 usd) internal pure returns (uint64) {
         return usd * 1e2;
+    }
+
+    function dexCollateralToken(uint32 dex) internal view returns (uint64) {
+        require(_dexRegistered[dex], "dex not registered - call registerDexQuoteToken");
+        return _dexQuoteToken[dex];
     }
 
     // converting a withdraw request into a bytes32
