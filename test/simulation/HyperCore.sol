@@ -8,50 +8,50 @@ import {HLConstants} from "../../src/PrecompileLib.sol";
 contract HyperCore is CoreExecution {
     using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
 
-    function executeRawAction(address sender, uint24 kind, bytes calldata data) public payable {
-        if (kind == HLConstants.LIMIT_ORDER_ACTION) {
-            LimitOrderAction memory action = abi.decode(data, (LimitOrderAction));
+    function executeRawAction(address sender, bytes4 action, bytes calldata data) public payable {
+        if (action == HLConstants.LIMIT_ORDER_ACTION) {
+            LimitOrderAction memory order = abi.decode(data, (LimitOrderAction));
 
             // for perps (check that the ID is not a spot asset ID)
-            if (action.asset < 1e4 || action.asset >= 1e5) {
-                executePerpLimitOrder(sender, action);
+            if (order.asset < 1e4 || order.asset >= 1e5) {
+                executePerpLimitOrder(sender, order);
             } else {
-                executeSpotLimitOrder(sender, action);
+                executeSpotLimitOrder(sender, order);
             }
             return;
         }
 
-        if (kind == HLConstants.VAULT_TRANSFER_ACTION) {
+        if (action == HLConstants.VAULT_TRANSFER_ACTION) {
             executeVaultTransfer(sender, abi.decode(data, (VaultTransferAction)));
             return;
         }
 
-        if (kind == HLConstants.TOKEN_DELEGATE_ACTION) {
+        if (action == HLConstants.TOKEN_DELEGATE_ACTION) {
             executeTokenDelegate(sender, abi.decode(data, (TokenDelegateAction)));
             return;
         }
 
-        if (kind == HLConstants.STAKING_DEPOSIT_ACTION) {
+        if (action == HLConstants.STAKING_DEPOSIT_ACTION) {
             executeStakingDeposit(sender, abi.decode(data, (StakingDepositAction)));
             return;
         }
 
-        if (kind == HLConstants.STAKING_WITHDRAW_ACTION) {
+        if (action == HLConstants.STAKING_WITHDRAW_ACTION) {
             executeStakingWithdraw(sender, abi.decode(data, (StakingWithdrawAction)));
             return;
         }
 
-        if (kind == HLConstants.SPOT_SEND_ACTION) {
+        if (action == HLConstants.SPOT_SEND_ACTION) {
             executeSpotSend(sender, abi.decode(data, (SpotSendAction)));
             return;
         }
 
-        if (kind == HLConstants.SEND_ASSET_ACTION) {
+        if (action == HLConstants.SEND_ASSET_ACTION) {
             executeSendAsset(sender, abi.decode(data, (SendAssetAction)));
             return;
         }
 
-        if (kind == HLConstants.USD_CLASS_TRANSFER_ACTION) {
+        if (action == HLConstants.USD_CLASS_TRANSFER_ACTION) {
             executeUsdClassTransfer(sender, abi.decode(data, (UsdClassTransferAction)));
             return;
         }

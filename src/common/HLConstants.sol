@@ -29,7 +29,6 @@ library HLConstants {
     address constant BORROW_LEND_RESERVE_STATE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000812;
     address constant POSITION2_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000813;
 
-
     /*//////////////////////////////////////////////////////////////
                         Other addresses and constants
     //////////////////////////////////////////////////////////////*/
@@ -76,23 +75,47 @@ library HLConstants {
                         CoreWriter Actions
     //////////////////////////////////////////////////////////////*/
 
-    uint24 constant LIMIT_ORDER_ACTION = 1;
-    uint24 constant VAULT_TRANSFER_ACTION = 2;
+    // 4-byte action selectors: version byte 0x01 ++ 3-byte action ID. Passing one of these to
+    // `abi.encodeWithSelector(action, args...)` produces the exact CoreWriter wire format
+    // (version byte ++ action ID ++ abi-encoded args) in a single allocation. The simulator
+    // also matches against these to dispatch raw action bytes.
+    bytes4 constant LIMIT_ORDER_ACTION = 0x01000001;
+    bytes4 constant VAULT_TRANSFER_ACTION = 0x01000002;
+    bytes4 constant TOKEN_DELEGATE_ACTION = 0x01000003;
+    bytes4 constant STAKING_DEPOSIT_ACTION = 0x01000004;
+    bytes4 constant STAKING_WITHDRAW_ACTION = 0x01000005;
+    bytes4 constant SPOT_SEND_ACTION = 0x01000006;
+    bytes4 constant USD_CLASS_TRANSFER_ACTION = 0x01000007;
+    bytes4 constant FINALIZE_EVM_CONTRACT_ACTION = 0x01000008;
+    bytes4 constant ADD_API_WALLET_ACTION = 0x01000009;
+    bytes4 constant CANCEL_ORDER_BY_OID_ACTION = 0x0100000a;
+    bytes4 constant CANCEL_ORDER_BY_CLOID_ACTION = 0x0100000b;
+    bytes4 constant APPROVE_BUILDER_FEE_ACTION = 0x0100000c;
+    bytes4 constant SEND_ASSET_ACTION = 0x0100000d;
+    bytes4 constant REFLECT_EVM_SUPPLY_CHANGE_ACTION = 0x0100000e;
+    bytes4 constant BORROW_LEND_OPERATION_ACTION = 0x0100000f;
 
-    uint24 constant TOKEN_DELEGATE_ACTION = 3;
-    uint24 constant STAKING_DEPOSIT_ACTION = 4;
-    uint24 constant STAKING_WITHDRAW_ACTION = 5;
+    /*//////////////////////////////////////////////////////////////
+                        Precompile Gas Caps
+    //////////////////////////////////////////////////////////////*/
 
-    uint24 constant SPOT_SEND_ACTION = 6;
-    uint24 constant USD_CLASS_TRANSFER_ACTION = 7;
-
-    uint24 constant FINALIZE_EVM_CONTRACT_ACTION = 8;
-    uint24 constant ADD_API_WALLET_ACTION = 9;
-    uint24 constant CANCEL_ORDER_BY_OID_ACTION = 10;
-    uint24 constant CANCEL_ORDER_BY_CLOID_ACTION = 11;
-    uint24 constant APPROVE_BUILDER_FEE_ACTION = 12;
-    uint24 constant SEND_ASSET_ACTION = 13;
-    uint24 constant BORROW_LEND_ACTION = 15;
+    // Cost formula: 2000 + 65 * (input_len + output_len). Caps are ~20% above
+    // formula, rounded up. Prevents invalid inputs from consuming all remaining
+    // gas in the call frame. Functions with dynamic-length outputs are uncapped.
+    uint256 constant POSITION_GAS = 20_000; // 2000 + 65*(64+160) = 16560
+    uint256 constant SPOT_BALANCE_GAS = 15_000; // 2000 + 65*(64+96)  = 12400
+    uint256 constant VAULT_EQUITY_GAS = 12_500; // 2000 + 65*(64+64)  = 10320
+    uint256 constant WITHDRAWABLE_GAS = 7500; // 2000 + 65*(32+32)  = 6160
+    uint256 constant DELEGATOR_SUMMARY_GAS = 15_000; // 2000 + 65*(32+128) = 12400
+    uint256 constant MARK_PX_GAS = 7500; // 2000 + 65*(32+32)  = 6160
+    uint256 constant ORACLE_PX_GAS = 7500; // 2000 + 65*(32+32)  = 6160
+    uint256 constant SPOT_PX_GAS = 7500; // 2000 + 65*(32+32)  = 6160
+    uint256 constant L1_BLOCK_NUMBER_GAS = 5000; // 2000 + 65*(0+32)   = 4080
+    uint256 constant BBO_GAS = 10_000; // 2000 + 65*(32+64)  = 8240
+    uint256 constant ACCOUNT_MARGIN_SUMMARY_GAS = 17_500; // 2000 + 65*(64+128) = 14480
+    uint256 constant CORE_USER_EXISTS_GAS = 7500; // 2000 + 65*(32+32)  = 6160
+    uint256 constant BORROW_LEND_USER_STATE_GAS = 17_500; // 2000 + 65*(64+128) = 14480
+    uint256 constant BORROW_LEND_RESERVE_STATE_GAS = 25_000; // 2000 + 65*(32+256) = 20720
 
     /*//////////////////////////////////////////////////////////////
                         Limit Order Time in Force
@@ -115,8 +138,5 @@ library HLConstants {
     //////////////////////////////////////////////////////////////*/
     uint32 constant DEFAULT_PERP_DEX = 0;
     uint32 constant SPOT_DEX = type(uint32).max;
-
-
-
 }
 

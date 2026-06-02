@@ -92,12 +92,11 @@ contract CoreWriterSim {
     }
 
     function sendRawAction(bytes calldata data) external {
-        uint8 version = uint8(data[0]);
-        require(version == 1);
+        require(uint8(data[0]) == 1);
 
-        uint24 kind = (uint24(uint8(data[1])) << 16) | (uint24(uint8(data[2])) << 8) | (uint24(uint8(data[3])));
+        bytes4 action = bytes4(data[0:4]);
 
-        bytes memory call = abi.encodeCall(HyperCore.executeRawAction, (msg.sender, kind, data[4:]));
+        bytes memory call = abi.encodeCall(HyperCore.executeRawAction, (msg.sender, action, data[4:]));
 
         enqueueAction(block.timestamp, call, 0);
 

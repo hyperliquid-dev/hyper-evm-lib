@@ -7,6 +7,12 @@ libs = ["lib"]
 optimizer = true
 optimizer_runs = 200
 
+# Opt-in profile for tests that shell out via FFI (e.g. PrecompileLibForkTest,
+# which uses `cast call` against a forked RPC). Default profile stays FFI-free.
+# Run with: `FOUNDRY_PROFILE=ffi forge test`
+[profile.ffi]
+ffi = true
+
 [rpc_endpoints]
 hyperliquid = "https://rpc.hyperliquid.xyz/evm"
 testnet = "https://rpc.hyperliquid-testnet.xyz/evm"
