@@ -28,6 +28,7 @@ library HLConstants {
     address constant BORROW_LEND_USER_STATE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000811;
     address constant BORROW_LEND_RESERVE_STATE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000812;
     address constant POSITION2_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000813;
+    address constant OUTCOME_STATUS_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000814;
 
 
     /*//////////////////////////////////////////////////////////////
@@ -94,6 +95,7 @@ library HLConstants {
     uint24 constant SEND_ASSET_ACTION = 13;
     uint24 constant BORROW_LEND_ACTION = 15;
     uint24 constant SET_ABSTRACTION_ACTION = 16;
+    uint24 constant OUTCOME_OPERATION_ACTION = 17;
 
     /*//////////////////////////////////////////////////////////////
                         Limit Order Time in Force
@@ -115,6 +117,12 @@ library HLConstants {
     uint8 public constant ABSTRACTION_DISABLED = 1;
     uint8 public constant ABSTRACTION_UNIFIED_ACCOUNT = 2;
     uint8 public constant ABSTRACTION_PORTFOLIO_MARGIN = 3;
+
+    // `encodedOperation` for outcome operation CoreWriter action
+    uint8 public constant OUTCOME_OP_SPLIT_OUTCOME = 0;
+    uint8 public constant OUTCOME_OP_MERGE_OUTCOME = 1;
+    uint8 public constant OUTCOME_OP_MERGE_QUESTION = 2;
+    uint8 public constant OUTCOME_OP_NEGATE_OUTCOME = 3;
 
     /*//////////////////////////////////////////////////////////////
                         Dex Constants
