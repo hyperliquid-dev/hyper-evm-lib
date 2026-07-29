@@ -124,4 +124,14 @@ contract PrecompileLibTests is Test {
 
         assertGt(blockNumber, block.number);
     }
+
+    function test_outcomeStatus() public {
+        PrecompileLib.OutcomeStatus memory status = PrecompileLib.outcomeStatus(0);
+
+        assertLe(status.status, 3);
+
+        console.log("status:", status.status);
+        console.log("settledValue: %e", status.settledValue);
+        console.log("question:", status.question);
+    }
 }

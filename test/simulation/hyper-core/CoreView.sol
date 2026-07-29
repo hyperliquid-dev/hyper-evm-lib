@@ -77,6 +77,19 @@ contract CoreView is CoreState {
         return PrecompileLib.SpotBalance({total: _accounts[account].spot[token], entryNtl: 0, hold: 0});
     }
 
+    function readOutcomeStatus(uint32 outcome) public returns (PrecompileLib.OutcomeStatus memory) {
+        if (_forcedOutcomeStatuses[outcome] == false && useRealL1Read) {
+            return RealL1Read.outcomeStatus(outcome);
+        }
+
+        if (_forcedOutcomeStatuses[outcome] == false) {
+            // never existed: question is type(uint32).max when status is 0
+            return PrecompileLib.OutcomeStatus({status: 0, settledValue: 0, question: type(uint32).max});
+        }
+
+        return _outcomeStatuses[outcome];
+    }
+
     // withdrawable only applies to the default perp dex (dex 0), not HIP-3 dexes
     function readWithdrawable(address account) public returns (PrecompileLib.Withdrawable memory) {
         if (_accounts[account].activated == false && useRealL1Read) {

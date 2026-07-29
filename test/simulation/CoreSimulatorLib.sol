@@ -24,7 +24,7 @@ contract HypeSystemContract {
  * @dev A library used to simulate HyperCore functionality in foundry tests
  */
 library CoreSimulatorLib {
-    uint256 constant NUM_PRECOMPILES = 20;
+    uint256 constant NUM_PRECOMPILES = 21;
 
     HyperCore constant hyperCore = HyperCore(payable(0x9999999999999999999999999999999999999999));
 
@@ -160,6 +160,10 @@ library CoreSimulatorLib {
 
     function forceVaultEquity(address account, address vault, uint64 usd, uint64 lockedUntilTimestamp) internal {
         hyperCore.forceVaultEquity(account, vault, usd, lockedUntilTimestamp);
+    }
+
+    function forceOutcomeStatus(uint32 outcome, uint8 status, uint64 settledValue, uint32 question) internal {
+        hyperCore.forceOutcomeStatus(outcome, status, settledValue, question);
     }
 
     function setMarkPx(uint32 perp, uint64 markPx) internal {

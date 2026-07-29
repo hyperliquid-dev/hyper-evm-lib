@@ -30,6 +30,7 @@ contract PrecompileSim {
     address constant BORROW_LEND_USER_STATE_PRECOMPILE_ADDRESS    = 0x0000000000000000000000000000000000000811;
     address constant BORROW_LEND_RESERVE_STATE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000812;
     address constant POSITION2_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000813;
+    address constant OUTCOME_STATUS_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000814;
 
     receive() external payable {}
 
@@ -106,6 +107,11 @@ contract PrecompileSim {
         if (address(this) == ACCOUNT_MARGIN_SUMMARY_PRECOMPILE_ADDRESS) {
             (uint32 perp_dex_index, address user) = abi.decode(data, (uint32, address));
             return abi.encode(_hyperCore.readAccountMarginSummary(perp_dex_index, user));
+        }
+
+        if (address(this) == OUTCOME_STATUS_PRECOMPILE_ADDRESS) {
+            uint32 outcome = abi.decode(data, (uint32));
+            return abi.encode(_hyperCore.readOutcomeStatus(outcome));
         }
 
         return _makeRpcCall(address(this), data);

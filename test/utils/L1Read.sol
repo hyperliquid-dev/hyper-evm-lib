@@ -112,6 +112,16 @@ contract L1Read {
     uint64 totalBorrowed;
   }
 
+  struct OutcomeStatus {
+    // 0 = never existed, 1 = active, 2 = settled (settledValue available),
+    // 3 = settled but pruned (settledValue no longer available).
+    uint8 status;
+    // the settlement fraction scaled so that 100_000_000 represents 1.0;
+    uint64 settledValue;
+    // the question the outcome belongs to, or type(uint32).max if standalone, or if status is 0 or 3.
+    uint32 question;
+  }
+
   address constant POSITION_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000800;
   address constant SPOT_BALANCE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000801;
   address constant VAULT_EQUITY_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000802;
@@ -136,6 +146,7 @@ contract L1Read {
   address constant BORROW_LEND_RESERVE_STATE_PRECOMPILE_ADDRESS =
     0x0000000000000000000000000000000000000812;
   address constant POSITION2_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000813;
+  address constant OUTCOME_STATUS_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000814;
 
   function position(address user, uint16 perp) external view returns (Position memory) {
     bool success;
@@ -310,5 +321,13 @@ contract L1Read {
     (success, result) = BORROW_LEND_RESERVE_STATE_PRECOMPILE_ADDRESS.staticcall(abi.encode(token));
     require(success, "Borrow lend reserve state precompile call failed");
     return abi.decode(result, (BorrowLendReserveState));
+  }
+
+  function outcomeStatus(uint32 outcome) external view returns (OutcomeStatus memory) {
+    bool success;
+    bytes memory result;
+    (success, result) = OUTCOME_STATUS_PRECOMPILE_ADDRESS.staticcall(abi.encode(outcome));
+    require(success, "Outcome status precompile call failed");
+    return abi.decode(result, (OutcomeStatus));
   }
 }

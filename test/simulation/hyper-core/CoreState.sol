@@ -143,6 +143,11 @@ contract CoreState is StdCheats {
     mapping(address account => bool existedOnChain) internal _chainAccountExisted;
     mapping(address account => bool checked) internal _chainAccountExistedChecked;
 
+    // Outcome statuses forced via cheatcode. A separate flag is needed because
+    // status 0 ("never existed") is a legitimate forced value.
+    mapping(uint32 outcome => PrecompileLib.OutcomeStatus) internal _outcomeStatuses;
+    mapping(uint32 outcome => bool forced) internal _forcedOutcomeStatuses;
+
 
 
     /////////////////////////
@@ -487,6 +492,12 @@ contract CoreState is StdCheats {
         _accounts[account].vaultEquity[vault].equity = usd;
         _accounts[account].vaultEquity[vault].lockedUntilTimestamp =
             lockedUntilTimestamp > 0 ? lockedUntilTimestamp : uint64((block.timestamp + 3600) * 1000);
+    }
+
+    function forceOutcomeStatus(uint32 outcome, uint8 status, uint64 settledValue, uint32 question) public {
+        _outcomeStatuses[outcome] =
+            PrecompileLib.OutcomeStatus({status: status, settledValue: settledValue, question: question});
+        _forcedOutcomeStatuses[outcome] = true;
     }
 
     //////// conversions ////////

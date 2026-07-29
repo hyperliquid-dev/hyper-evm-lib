@@ -32,6 +32,7 @@ library RealL1Read {
     address constant BORROW_LEND_USER_STATE_PRECOMPILE_ADDRESS    = 0x0000000000000000000000000000000000000811;
     address constant BORROW_LEND_RESERVE_STATE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000812;
     address constant POSITION2_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000813;
+    address constant OUTCOME_STATUS_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000814;
 
     address constant INVALID_ADDRESS = address(1);
 
@@ -278,5 +279,18 @@ library RealL1Read {
 
         bytes memory result = _makeRpcCall(CORE_USER_EXISTS_PRECOMPILE_ADDRESS, abi.encode(user));
         return abi.decode(result, (bool));
+    }
+
+    function outcomeStatus(uint32 outcome) internal returns (PrecompileLib.OutcomeStatus memory) {
+        if (isOfflineMode()) {
+            return PrecompileLib.outcomeStatus(outcome);
+        }
+
+        bytes memory result = _makeRpcCall(OUTCOME_STATUS_PRECOMPILE_ADDRESS, abi.encode(outcome));
+        if (result.length == 0) {
+            // never existed: question is type(uint32).max when status is 0
+            return PrecompileLib.OutcomeStatus({status: 0, settledValue: 0, question: type(uint32).max});
+        }
+        return abi.decode(result, (PrecompileLib.OutcomeStatus));
     }
 }
