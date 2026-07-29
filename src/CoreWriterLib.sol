@@ -263,4 +263,58 @@ library CoreWriterLib {
             abi.encodePacked(uint8(1), HLConstants.SET_ABSTRACTION_ACTION, abi.encode(user, abstraction))
         );
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            Outcome Operations
+    //////////////////////////////////////////////////////////////*/
+
+    // The outcome operation payload is (encodedOperation, question, outcome, amountWei).
+    // Core drops payloads whose unused fields are non-zero, so each wrapper below
+    // hardcodes the fields its operation ignores to 0.
+
+    /// @dev `amountWei` must be a multiple of the outcome size
+    function splitOutcome(uint32 outcome, uint64 amountWei) internal {
+        coreWriter.sendRawAction(
+            abi.encodePacked(
+                uint8(1),
+                HLConstants.OUTCOME_OPERATION_ACTION,
+                abi.encode(HLConstants.OUTCOME_OP_SPLIT_OUTCOME, uint32(0), outcome, amountWei)
+            )
+        );
+    }
+
+    /// @dev `amountWei` must be a multiple of the outcome size
+    /// @dev If `amountWei` is 0, the maximal amount is merged
+    function mergeOutcome(uint32 outcome, uint64 amountWei) internal {
+        coreWriter.sendRawAction(
+            abi.encodePacked(
+                uint8(1),
+                HLConstants.OUTCOME_OPERATION_ACTION,
+                abi.encode(HLConstants.OUTCOME_OP_MERGE_OUTCOME, uint32(0), outcome, amountWei)
+            )
+        );
+    }
+
+    /// @dev `amountWei` must be a multiple of the outcome size
+    /// @dev If `amountWei` is 0, the maximal amount is merged
+    function mergeQuestion(uint32 question, uint64 amountWei) internal {
+        coreWriter.sendRawAction(
+            abi.encodePacked(
+                uint8(1),
+                HLConstants.OUTCOME_OPERATION_ACTION,
+                abi.encode(HLConstants.OUTCOME_OP_MERGE_QUESTION, question, uint32(0), amountWei)
+            )
+        );
+    }
+
+    /// @dev `amountWei` must be a multiple of the outcome size
+    function negateOutcome(uint32 question, uint32 outcome, uint64 amountWei) internal {
+        coreWriter.sendRawAction(
+            abi.encodePacked(
+                uint8(1),
+                HLConstants.OUTCOME_OPERATION_ACTION,
+                abi.encode(HLConstants.OUTCOME_OP_NEGATE_OUTCOME, question, outcome, amountWei)
+            )
+        );
+    }
 }

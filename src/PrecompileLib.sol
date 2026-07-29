@@ -298,6 +298,13 @@ library PrecompileLib {
         return abi.decode(result, (BorrowLendReserveState));
     }
 
+    function outcomeStatus(uint32 outcome) internal view returns (OutcomeStatus memory) {
+        (bool success, bytes memory result) =
+            HLConstants.OUTCOME_STATUS_PRECOMPILE_ADDRESS.staticcall(abi.encode(outcome));
+        if (!success) revert PrecompileLib__OutcomeStatusPrecompileFailed();
+        return abi.decode(result, (OutcomeStatus));
+    }
+
     /*//////////////////////////////////////////////////////////////
                        Structs
     //////////////////////////////////////////////////////////////*/
@@ -411,6 +418,16 @@ library PrecompileLib {
         uint64 totalBorrowed;
     }
 
+    struct OutcomeStatus {
+        // 0 = never existed, 1 = active, 2 = settled (settledValue available),
+        // 3 = settled but pruned (settledValue no longer available).
+        uint8 status;
+        // the settlement fraction scaled so that 100_000_000 represents 1.0;
+        uint64 settledValue;
+        // the question the outcome belongs to, or type(uint32).max if standalone, or if status is 0 or 3.
+        uint32 question;
+    }
+
     error PrecompileLib__Position2PrecompileFailed();
     error PrecompileLib__SpotBalancePrecompileFailed();
     error PrecompileLib__VaultEquityPrecompileFailed();
@@ -431,4 +448,5 @@ library PrecompileLib {
     error PrecompileLib__SpotIndexNotFound();
     error PrecompileLib__BorrowLendUserStatePrecompileFailed();
     error PrecompileLib__BorrowLendReserveStatePrecompileFailed();
+    error PrecompileLib__OutcomeStatusPrecompileFailed();
 }
