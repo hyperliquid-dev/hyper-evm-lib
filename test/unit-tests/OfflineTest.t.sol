@@ -90,6 +90,24 @@ contract OfflineTest is Test {
         assertEq(px, 40e6);
     }
 
+    function test_offline_oraclePrice() public {
+        uint32 perp = 1; // ETH
+        assertEq(PrecompileLib.oraclePx(perp), 0);
+
+        CoreSimulatorLib.setMarkPx(perp, 2500_0);
+        CoreSimulatorLib.setOraclePx(perp, 2490_0);
+        assertEq(PrecompileLib.markPx(perp), 2500_0);
+        assertEq(PrecompileLib.oraclePx(perp), 2490_0);
+
+        // mark and oracle are set independently, so a test can open a mark-oracle gap
+        CoreSimulatorLib.setMarkPx(perp, 500, true);
+        assertEq(PrecompileLib.markPx(perp), 2625_0);
+        assertEq(PrecompileLib.oraclePx(perp), 2490_0);
+
+        CoreSimulatorLib.setOraclePx(perp, 1000, false);
+        assertEq(PrecompileLib.oraclePx(perp), 2241_0);
+    }
+
     function test_offline_spotTrading() public {
         vm.startPrank(user);
         SpotTrader spotTrader = new SpotTrader();

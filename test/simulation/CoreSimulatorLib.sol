@@ -170,6 +170,14 @@ library CoreSimulatorLib {
         hyperCore.setMarkPx(perp, priceDiffBps, isIncrease);
     }
 
+    function setOraclePx(uint32 perp, uint64 oraclePx) internal {
+        hyperCore.setOraclePx(perp, oraclePx);
+    }
+
+    function setOraclePx(uint32 perp, uint64 priceDiffBps, bool isIncrease) internal {
+        hyperCore.setOraclePx(perp, priceDiffBps, isIncrease);
+    }
+
     function setSpotPx(uint32 spotMarketId, uint64 spotPx) internal {
         hyperCore.setSpotPx(spotMarketId, spotPx);
     }
