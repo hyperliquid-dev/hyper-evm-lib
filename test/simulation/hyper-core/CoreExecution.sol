@@ -631,6 +631,19 @@ contract CoreExecution is CoreView {
         _perpMarkPrice[perp] = markPx;
     }
 
+    function setOraclePx(uint32 perp, uint64 priceDiffBps, bool isIncrease) public {
+        uint64 basePrice = readOraclePx(perp);
+        if (isIncrease) {
+            _perpOraclePrice[perp] = basePrice * (10000 + priceDiffBps) / 10000;
+        } else {
+            _perpOraclePrice[perp] = basePrice * (10000 - priceDiffBps) / 10000;
+        }
+    }
+
+    function setOraclePx(uint32 perp, uint64 oraclePx) public {
+        _perpOraclePrice[perp] = oraclePx;
+    }
+
     function setSpotPx(uint32 spotMarketId, uint64 priceDiffBps, bool isIncrease) public {
         uint64 basePrice = readSpotPx(spotMarketId);
         if (isIncrease) {
