@@ -263,4 +263,22 @@ library CoreWriterLib {
             abi.encodePacked(uint8(1), HLConstants.SET_ABSTRACTION_ACTION, abi.encode(user, abstraction))
         );
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            Outcomes
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev encodedOperation: 0 = SplitOutcome, 1 = MergeOutcome, 2 = MergeQuestion, 3 = NegateOutcome
+    /// @dev Unused fields must be 0, otherwise the action is dropped: SplitOutcome and MergeOutcome ignore `question`,
+    /// MergeQuestion ignores `outcome`, NegateOutcome uses both
+    /// @dev `amountWei` must be a multiple of size. For the merge operations, 0 merges the maximal amount
+    function outcomeOperation(uint8 encodedOperation, uint32 question, uint32 outcome, uint64 amountWei) internal {
+        coreWriter.sendRawAction(
+            abi.encodePacked(
+                uint8(1),
+                HLConstants.OUTCOME_OPERATION_ACTION,
+                abi.encode(encodedOperation, question, outcome, amountWei)
+            )
+        );
+    }
 }
